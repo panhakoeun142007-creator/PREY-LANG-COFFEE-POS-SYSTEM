@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import AppLayout from "./components/AppLayout";
 import DashboardPage from "./pages/DashboardPage";
+import LiveOrders from "./pages/LiveOrders";
 import PlaceholderPage from "./pages/PlaceholderPage";
 
 export default function App() {
@@ -8,7 +9,7 @@ export default function App() {
     <Routes>
       <Route path="/" element={<AppLayout />}>
         <Route index element={<DashboardPage />} />
-        <Route path="live-orders" element={<PlaceholderPage title="Live Orders" />} />
+        <Route path="live-orders" element={<LiveOrders />} />
         <Route path="order-history" element={<PlaceholderPage title="Order History" />} />
         <Route path="receipts" element={<PlaceholderPage title="Receipts" />} />
         <Route path="products" element={<PlaceholderPage title="Products" />} />

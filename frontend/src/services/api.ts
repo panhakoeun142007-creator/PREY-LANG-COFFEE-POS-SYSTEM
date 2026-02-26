@@ -84,3 +84,56 @@ export async function fetchCurrentUser(): Promise<CurrentUser> {
   
   return response.json();
 }
+
+export interface OrderItem {
+  id: number;
+  product_id: number;
+  size: string;
+  qty: number;
+  price: number;
+  product?: {
+    id: number;
+    name: string;
+  };
+}
+
+export interface LiveOrder {
+  id: number;
+  queue_number: number;
+  status: 'pending' | 'preparing' | 'ready' | 'completed' | 'cancelled';
+  total_price: number;
+  payment_type: string;
+  created_at: string;
+  updated_at: string;
+  table?: {
+    id: number;
+    name: string;
+  };
+  items: OrderItem[];
+}
+
+export async function fetchLiveOrders(): Promise<LiveOrder[]> {
+  const response = await fetch(`${API_URL}/orders/live`);
+  
+  if (!response.ok) {
+    throw new Error('Failed to fetch live orders');
+  }
+  
+  return response.json();
+}
+
+export async function updateOrderStatus(orderId: number, status: string): Promise<LiveOrder> {
+  const response = await fetch(`${API_URL}/orders/${orderId}/status`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ status }),
+  });
+  
+  if (!response.ok) {
+    throw new Error('Failed to update order status');
+  }
+  
+  return response.json();
+}

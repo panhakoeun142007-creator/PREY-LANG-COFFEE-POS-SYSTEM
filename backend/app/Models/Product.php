@@ -19,9 +19,13 @@ class Product extends Model
     protected $fillable = [
         'category_id',
         'name',
+        'sku',
         'price_small',
         'price_medium',
         'price_large',
+        'stock_quantity',
+        'low_stock_threshold',
+        'is_active',
         'image',
         'is_available',
     ];
@@ -35,6 +39,7 @@ class Product extends Model
     {
         return [
             'is_available' => 'boolean',
+            'is_active' => 'boolean',
             'price_small' => 'decimal:2',
             'price_medium' => 'decimal:2',
             'price_large' => 'decimal:2',

@@ -13,10 +13,11 @@ return new class extends Migration
     {
         Schema::create('orders', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('dining_table_id')->nullable()->constrained('dining_tables')->nullOnDelete();
-            $table->string('order_number', 80)->unique();
-            $table->enum('status', ['pending', 'preparing', 'ready', 'completed'])->default('pending');
-            $table->decimal('total_amount', 10, 2);
+            $table->foreignId('table_id')->nullable()->constrained('dining_tables')->nullOnDelete();
+            $table->integer('queue_number')->default(0);
+            $table->enum('status', ['pending', 'preparing', 'ready', 'completed', 'cancelled'])->default('pending');
+            $table->decimal('total_price', 10, 2);
+            $table->enum('payment_type', ['cash', 'khqr'])->nullable();
             $table->timestamps();
         });
     }

@@ -16,7 +16,9 @@ return new class extends Migration
             $table->foreignId('category_id')->constrained()->cascadeOnDelete();
             $table->string('name', 160);
             $table->string('sku', 80)->unique();
-            $table->decimal('price', 10, 2);
+            $table->decimal('price_small', 10, 2)->default(3.00);
+            $table->decimal('price_medium', 10, 2)->default(4.50);
+            $table->decimal('price_large', 10, 2)->default(5.50);
             $table->unsignedInteger('stock_quantity')->default(0);
             $table->unsignedInteger('low_stock_threshold')->default(5);
             $table->boolean('is_active')->default(true);

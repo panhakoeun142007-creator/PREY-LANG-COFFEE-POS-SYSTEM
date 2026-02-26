@@ -11,23 +11,14 @@ class DiningTable extends Model
     use HasFactory;
 
     /**
-     * The table associated with the model.
-     *
-     * @var string
-     */
-    protected $table = 'tables';
-
-    /**
      * The attributes that are mass assignable.
      *
      * @var list<string>
      */
     protected $fillable = [
         'name',
-        'token',
-        'capacity',
+        'seats',
         'status',
-        'is_active',
     ];
 
     /**
@@ -38,8 +29,7 @@ class DiningTable extends Model
     protected function casts(): array
     {
         return [
-            'is_active' => 'boolean',
-            'capacity' => 'integer',
+            'seats' => 'integer',
         ];
     }
 

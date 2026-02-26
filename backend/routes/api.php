@@ -28,6 +28,8 @@ Route::apiResource('categories', CategoryController::class);
 Route::apiResource('products', ProductController::class);
 Route::apiResource('tables', DiningTableController::class);
 Route::apiResource('orders', OrderController::class);
+Route::get('/orders/live', [OrderController::class, 'live']);
+Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus']);
 Route::apiResource('order-items', OrderItemController::class);
 Route::apiResource('ingredients', IngredientController::class);
 Route::apiResource('recipes', RecipeController::class);

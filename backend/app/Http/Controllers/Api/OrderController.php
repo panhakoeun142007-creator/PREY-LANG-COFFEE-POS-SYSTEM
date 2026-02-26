@@ -120,6 +120,34 @@ class OrderController extends Controller
     }
 
     /**
+     * Display live (active) orders.
+     */
+    public function live(): JsonResponse
+    {
+        $orders = Order::query()
+            ->with(['table', 'items.product'])
+            ->whereIn('status', ['pending', 'preparing', 'ready'])
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        return response()->json($orders);
+    }
+
+    /**
+     * Update order status.
+     */
+    public function updateStatus(Request $request, Order $order): JsonResponse
+    {
+        $validated = $request->validate([
+            'status' => ['required', Rule::in(['pending', 'preparing', 'ready', 'completed', 'cancelled'])],
+        ]);
+
+        $order->update(['status' => $validated['status']]);
+
+        return response()->json($order->fresh()->load(['table', 'items.product']));
+    }
+
+    /**
      * Get product price by selected size.
      */
     private function getProductSizePrice(int $productId, string $size): float
