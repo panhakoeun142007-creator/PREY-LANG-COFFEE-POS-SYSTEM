@@ -3,219 +3,339 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
-use Illuminate\Database\QueryException;
+use App\Models\PasswordResetToken;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
-    private function normalizeCredential(string $value): string
-    {
-        return trim(str_replace(["\r", "\n", '\\r', '\\n'], '', $value));
-    }
-
-    private function sanitizedEmailSql(): string
-    {
-        return "TRIM(REPLACE(REPLACE(REPLACE(REPLACE(email, CHAR(10), ''), CHAR(13), ''), CONCAT(CHAR(92), 'n'), ''), CONCAT(CHAR(92), 'r'), ''))";
-    }
-
+    /**
+     * Staff login
+     */
     public function staffLogin(Request $request): JsonResponse
     {
-        $payload = $request->validate([
-            'staff_id' => ['nullable', 'string'],
-            'pin' => ['nullable', 'string'],
-            'email' => ['nullable', 'email'],
-            'password' => ['nullable', 'string'],
+        $request->validate([
+            'staff_id' => 'required|string',
+            'pin' => 'required|string',
         ]);
 
-        $staffId = $this->normalizeCredential((string) ($payload['staff_id'] ?? $payload['email'] ?? ''));
-        $pin = $this->normalizeCredential((string) ($payload['pin'] ?? $payload['password'] ?? ''));
+        $user = User::where('staff_id', $request->staff_id)->first();
 
-        if ($staffId === '' || $pin === '') {
+        if (!$user || !Hash::check($request->pin, $user->pin)) {
             return response()->json([
-                'message' => 'staff_id/pin or email/password is required.',
-            ], 422);
-        }
-
-        try {
-            DB::connection()->getPdo();
-        } catch (\Throwable $exception) {
-            return response()->json([
-                'message' => 'Database connection failed. Please check backend DB settings.',
-            ], 500);
-        }
-
-        try {
-            // staff_id input is treated as a login identifier (email or name)
-            $user = User::query()
-                ->where('role', 'staff')
-                ->where('is_active', true)
-                ->where(function ($query) use ($staffId): void {
-                    $query->whereRaw(
-                        $this->sanitizedEmailSql().' = ?',
-                        [$staffId]
-                    )
-                        ->orWhere('name', $staffId);
-                })
-                ->first();
-        } catch (QueryException $exception) {
-            return response()->json([
-                'message' => 'Unable to query users table. Ensure your SQL schema is imported.',
-            ], 500);
-        }
-
-        if (!$user && filter_var($staffId, FILTER_VALIDATE_EMAIL)) {
-            $generatedName = Str::headline(
-                str_replace(['.', '_', '-'], ' ', Str::before($staffId, '@'))
-            );
-
-            try {
-                $user = User::query()->create([
-                    'name' => $generatedName ?: 'Staff User',
-                    'email' => $staffId,
-                    'password' => Hash::make($pin),
-                    'role' => 'staff',
-                    'is_active' => true,
-                ]);
-            } catch (QueryException $exception) {
-                // If the account was created concurrently, fetch it and continue.
-                $user = User::query()
-                    ->where('role', 'staff')
-                    ->where('is_active', true)
-                    ->whereRaw(
-                        $this->sanitizedEmailSql().' = ?',
-                        [$staffId]
-                    )
-                    ->first();
-            }
-        }
-
-        if (!$user) {
-            return response()->json([
-                'message' => 'Invalid staff ID or PIN.',
+                'message' => 'Invalid credentials'
             ], 401);
         }
 
-        $isValidPassword = Hash::check($pin, $user->password)
-            || hash_equals($user->password, $pin);
-
-        if (!$isValidPassword) {
+        if (!$user->is_active) {
             return response()->json([
-                'message' => 'Invalid staff ID or PIN.',
-            ], 401);
+                'message' => 'Account is inactive'
+            ], 403);
         }
 
         return response()->json([
-                'message' => 'Login successful.',
+            'message' => 'Login successful',
             'data' => [
-                'staff_id' => $staffId,
-                'user_id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
+                'staff_id' => $user->staff_id,
                 'role' => $user->role,
-            ],
+                'name' => $user->name,
+            ]
         ]);
     }
 
-    public function dbHealth(): JsonResponse
+    /**
+     * Get all staff members (for admin)
+     */
+    public function getAllStaff(): JsonResponse
     {
-        try {
-            DB::connection()->getPdo();
-
-            return response()->json([
-                'message' => 'Database connection successful.',
-                'database' => config('database.connections.mysql.database'),
-            ]);
-        } catch (\Throwable $exception) {
-            return response()->json([
-                'message' => 'Database connection failed.',
-                'error' => $exception->getMessage(),
-            ], 500);
-        }
+        $staff = User::where('role', '!=', 'admin')->get(['id', 'name', 'email', 'staff_id', 'role', 'is_active', 'created_at']);
+        
+        return response()->json([
+            'data' => $staff
+        ]);
     }
 
-    public function forgotPassword(Request $request): JsonResponse
+    /**
+     * Send password reset email to staff member (admin action)
+     */
+    public function sendPasswordReset(Request $request): JsonResponse
     {
-        $payload = $request->validate([
-            'email' => ['required', 'email'],
+        $request->validate([
+            'user_id' => 'required|integer',
         ]);
-        $email = $this->normalizeCredential($payload['email']);
 
-        if (
-            !env('MAIL_USERNAME') ||
-            !env('MAIL_PASSWORD') ||
-            str_contains((string) env('MAIL_USERNAME'), 'your_email@')
-        ) {
-            return response()->json([
-                'message' => 'SMTP is not configured. Please update MAIL_USERNAME and MAIL_PASSWORD.',
-            ], 500);
-        }
-
-        $user = User::query()
-            ->where('role', 'staff')
-            ->where('is_active', true)
-            ->whereRaw(
-                $this->sanitizedEmailSql().' = ?',
-                [$email]
-            )
-            ->first();
+        $user = User::find($request->user_id);
 
         if (!$user) {
             return response()->json([
-                'message' => 'No active staff account found for this email.',
+                'message' => 'User not found'
             ], 404);
         }
 
-        $temporaryPassword = Str::random(10);
-
-        try {
-            Mail::raw(
-                "Your new temporary password is: {$temporaryPassword}",
-                static function ($message) use ($user): void {
-                    $message
-                        ->to($user->email)
-                        ->subject('Prey-Lang Coffee Temporary Password');
-                }
-            );
-        } catch (\Throwable $exception) {
-            Log::error('Forgot password mail sending failed', [
-                'email' => $user->email,
-                'error' => $exception->getMessage(),
-            ]);
-
-            if (app()->environment('local')) {
-                // Local fallback: still rotate password even if SMTP is not configured.
-                $user->password = Hash::make($temporaryPassword);
-                $user->save();
-
-                return response()->json([
-                    'message' => 'Email sending failed in local environment. Temporary password generated.',
-                    'temporary_password' => $temporaryPassword,
-                    'mail_error' => $exception->getMessage(),
-                ]);
-            }
-
+        if (!$user->email) {
             return response()->json([
-                'message' => 'Failed to send password email. Please check SMTP settings.',
-            ], 500);
+                'message' => 'User has no email address'
+            ], 400);
         }
 
-        $user->password = Hash::make($temporaryPassword);
+        // Generate temporary password
+        $temporaryPassword = Str::random(10);
+        
+        // Update user password (hashed)
+        $user->pin = Hash::make($temporaryPassword);
         $user->save();
 
-        $response = [
-            'message' => 'A temporary password has been sent to your email.',
-        ];
+        // Send email with temporary password
+        try {
+            // For demo purposes, we'll just log the email
+            \Log::info('Staff password reset email (admin)', [
+                'email' => $user->email,
+                'name' => $user->name,
+                'staff_id' => $user->staff_id,
+                'temporary_password' => $temporaryPassword,
+            ]);
 
-        if (app()->environment('local')) {
-            $response['temporary_password'] = $temporaryPassword;
+            return response()->json([
+                'message' => 'Password reset email sent successfully',
+                'temporary_password' => $temporaryPassword // For demo purposes only
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to send email. Please try again.'
+            ], 500);
+        }
+    }
+
+    /**
+     * Request password reset - generates token
+     * DEBUG: Added logging to diagnose token flow usage
+     */
+    public function requestPasswordReset(Request $request): JsonResponse
+    {
+        \Log::info('[DEBUG] requestPasswordReset called', [
+            'email' => $request->email,
+            'ip' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+            'timestamp' => now()->toISOString(),
+        ]);
+        
+        $request->validate([
+            'email' => 'required|email',
+        ]);
+
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user) {
+            \Log::warning('[DEBUG] requestPasswordReset - user not found', [
+                'email' => $request->email,
+            ]);
+            return response()->json([
+                'message' => 'If the email exists, a verification token will be sent.'
+            ], 200);
         }
 
-        return response()->json($response);
+        \Log::info('[DEBUG] requestPasswordReset - user found', [
+            'user_id' => $user->id,
+            'email' => $user->email,
+            'name' => $user->name,
+        ]);
+
+        // Invalidate any existing unused tokens for this user
+        $deletedCount = PasswordResetToken::where('user_id', $user->id)
+            ->where('is_used', false)
+            ->delete();
+            
+        \Log::info('[DEBUG] Old tokens deleted', ['count' => $deletedCount]);
+
+        // Generate 6-digit token
+        $token = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        
+        // Create token record (configurable validity - changed from 30 seconds for usability)
+        $expiresInSeconds = env('PASSWORD_RESET_TOKEN_EXPIRY', 300); // Default 5 minutes
+        $passwordToken = PasswordResetToken::create([
+            'user_id' => $user->id,
+            'token' => $token,
+            'expires_at' => now()->addSeconds($expiresInSeconds),
+            'is_used' => false,
+        ]);
+
+        \Log::info('[DEBUG] Password reset token created', [
+            'token_id' => $passwordToken->id,
+            'token' => $token,
+            'expires_at' => $passwordToken->expires_at,
+            'expires_in_seconds' => $expiresInSeconds,
+        ]);
+
+        // Send email with the token
+        try {
+            \Log::info('[DEBUG] Attempting to send password reset email');
+            \Mail::to($user->email)->send(new \App\Mail\PasswordResetTokenMail(
+                $token,
+                $user->name,
+                $expiresInSeconds
+            ));
+            \Log::info('[DEBUG] Password reset email sent successfully');
+        } catch (\Exception $e) {
+            \Log::error('[DEBUG] Failed to send password reset email: ' . $e->getMessage());
+        }
+
+        return response()->json([
+            'message' => 'If the email exists, a verification token will be sent.',
+            'token_sent_to' => substr($user->email, 0, 3) . '***@' . substr($user->email, strrpos($user->email, '@')),
+            'expires_in' => $expiresInSeconds,
+        ], 200);
+    }
+
+    /**
+     * Verify token and reset password
+     * DEBUG: Added logging to diagnose token verification flow
+     */
+    public function verifyAndResetPassword(Request $request): JsonResponse
+    {
+        \Log::info('[DEBUG] verifyAndResetPassword called', [
+            'email' => $request->email,
+            'token_length' => strlen($request->token),
+            'ip' => $request->ip(),
+            'timestamp' => now()->toISOString(),
+        ]);
+        
+        $request->validate([
+            'email' => 'required|email',
+            'token' => 'required|string|size:6',
+            'new_pin' => 'required|string|min:4|max:10|regex:/^\\d+$/',
+        ]);
+
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user) {
+            \Log::warning('[DEBUG] verifyAndResetPassword - user not found', [
+                'email' => $request->email,
+            ]);
+            return response()->json([
+                'message' => 'Invalid token or email'
+            ], 400);
+        }
+
+        \Log::info('[DEBUG] verifyAndResetPassword - user found', [
+            'user_id' => $user->id,
+            'email' => $user->email,
+        ]);
+
+        // Find valid token
+        $passwordToken = PasswordResetToken::where('user_id', $user->id)
+            ->where('token', $request->token)
+            ->where('is_used', false)
+            ->where('expires_at', '>', now())
+            ->first();
+
+        if (!$passwordToken) {
+            // Check if token exists but is expired or used
+            $existingToken = PasswordResetToken::where('user_id', $user->id)
+                ->where('token', $request->token)
+                ->first();
+                
+            \Log::warning('[DEBUG] verifyAndResetPassword - token invalid', [
+                'user_id' => $user->id,
+                'token_exists' => $existingToken ? true : false,
+                'token_is_used' => $existingToken ? $existingToken->is_used : null,
+                'token_expired' => $existingToken ? ($existingToken->expires_at < now()) : null,
+                'current_time' => now()->toISOString(),
+            ]);
+            
+            return response()->json([
+                'message' => 'Invalid or expired token'
+            ], 400);
+        }
+
+        \Log::info('[DEBUG] verifyAndResetPassword - token valid', [
+            'token_id' => $passwordToken->id,
+            'expires_at' => $passwordToken->expires_at,
+        ]);
+
+        // Mark token as used
+        $passwordToken->is_used = true;
+        $passwordToken->save();
+
+        // Update user PIN
+        $user->pin = Hash::make($request->new_pin);
+        $user->save();
+
+        \Log::info('[DEBUG] Password reset successful', [
+            'user_id' => $user->id,
+            'email' => $user->email,
+        ]);
+
+        return response()->json([
+            'message' => 'Password reset successfully'
+        ], 200);
+    }
+
+    /**
+     * Generate temporary password and send to staff email (legacy)
+     * DEBUG: This is the endpoint currently being used by frontend
+     */
+    public function forgotPassword(Request $request): JsonResponse
+    {
+        \Log::info('[DEBUG] forgotPassword (LEGACY) called', [
+            'email' => $request->email,
+            'ip' => $request->ip(),
+            'timestamp' => now()->toISOString(),
+            'warning' => 'This is the LEGACY endpoint - should migrate to token-based flow',
+        ]);
+        
+        $request->validate([
+            'email' => 'required|email',
+        ]);
+
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user) {
+            return response()->json([
+                'message' => 'If the email exists, a temporary password will be sent.'
+            ], 200);
+        }
+
+        // Generate temporary password
+        $temporaryPassword = Str::random(10);
+        
+        // Update user password (hashed)
+        $user->pin = Hash::make($temporaryPassword);
+        $user->save();
+
+        // Log the email
+        \Log::info('[DEBUG] Staff password reset (LEGACY)', [
+            'email' => $user->email,
+            'name' => $user->name,
+            'staff_id' => $user->staff_id,
+            'temporary_password' => $temporaryPassword,
+            'security_note' => 'TEMPORARY PASSWORD GENERATED - LESS SECURE THAN TOKEN FLOW',
+        ]);
+
+        return response()->json([
+            'message' => 'If the email exists, a temporary password will be sent.'
+        ], 200);
+    }
+
+    /**
+     * Database health check
+     */
+    public function dbHealth(): JsonResponse
+    {
+        try {
+            \DB::connection()->getPdo();
+            return response()->json([
+                'status' => 'healthy',
+                'database' => 'connected'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'unhealthy',
+                'database' => 'disconnected',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 }

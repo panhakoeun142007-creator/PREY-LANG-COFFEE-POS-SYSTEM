@@ -4,5 +4,6 @@ export enum View {
   ADMIN_LOGIN = 'ADMIN_LOGIN',
   FORGOT_PASSWORD = 'FORGOT_PASSWORD',
   VERIFY_CODE = 'VERIFY_CODE',
+  RESET_PASSWORD = 'RESET_PASSWORcD', // New: Token verification + new PIN entry
   SUCCESS = 'SUCCESS',
 }

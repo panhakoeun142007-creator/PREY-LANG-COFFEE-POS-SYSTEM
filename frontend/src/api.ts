@@ -84,3 +84,69 @@ export async function forgotStaffPassword(email: string): Promise<ForgotPassword
 
   return body as ForgotPasswordResponse;
 }
+
+// Token-based password reset types
+type RequestResetResponse = {
+  message: string;
+  token_sent_to?: string;
+  expires_in?: number;
+  debug_token?: string; // Only in debug mode
+};
+
+type VerifyResetResponse = {
+  message: string;
+};
+
+type VerifyResetPayload = {
+  email: string;
+  token: string;
+  new_pin: string;
+};
+
+/**
+ * Request a password reset token - sends 6-digit code to user's email
+ */
+export async function requestPasswordReset(email: string): Promise<RequestResetResponse> {
+  const response = await apiFetch('/staff/request-reset', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify({email}),
+  });
+
+  const body = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(
+      typeof body?.message === 'string' ? body.message : 'Password reset request failed.',
+    );
+  }
+
+  return body as RequestResetResponse;
+}
+
+/**
+ * Verify the token and set new PIN
+ */
+export async function verifyAndResetPassword(payload: VerifyResetPayload): Promise<VerifyResetResponse> {
+  const response = await apiFetch('/staff/reset-with-token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const body = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(
+      typeof body?.message === 'string' ? body.message : 'Password reset verification failed.',
+    );
+  }
+
+  return body as VerifyResetResponse;
+}

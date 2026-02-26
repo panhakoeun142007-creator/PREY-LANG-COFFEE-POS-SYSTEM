@@ -21,7 +21,7 @@ import {
   Users,
 } from 'lucide-react';
 import { View } from '../types';
-import { forgotStaffPassword, staffLogin } from '../api';
+import { forgotStaffPassword, staffLogin, requestPasswordReset, verifyAndResetPassword } from '../api';
 import Preylang from "../assets/images/Preylang.png";
 import CoffeeImage from "../assets/images/Coffee.png";
 
@@ -251,7 +251,7 @@ const StaffLogin: React.FC<{ onBack: () => void, onForgot: () => void, onSuccess
   );
 };
 
-const ForgotPassword: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+const ForgotPassword: React.FC<{ onBack: () => void, onTokenSent: (email: string) => void }> = ({ onBack, onTokenSent }) => {
   const [email, setEmail] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -264,11 +264,16 @@ const ForgotPassword: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     setIsSending(true);
 
     try {
-      const result = await forgotStaffPassword(email);
-      const passwordHint = result.temporary_password
-        ? ` Temporary password (local): ${result.temporary_password}`
-        : '';
-      setSuccessMessage(`${result.message}${passwordHint}`);
+      // Use token-based password reset
+      const result = await requestPasswordReset(email);
+      
+      // Show masked email in success message
+      setSuccessMessage(`Verification code sent to ${result.token_sent_to || email}`);
+      
+      // Store email and navigate to verification
+      setTimeout(() => {
+        onTokenSent(email);
+      }, 1500);
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : 'Failed to process forgot password.',
@@ -297,9 +302,9 @@ const ForgotPassword: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           <h2 className="text-brand text-xl font-bold tracking-tight">Prey-Leng-Coffee</h2>
         </div>
         <div className="mb-8">
-          <h1 className="text-orange-600 text-2xl font-bold mb-3">Forgot Password?</h1>
+          <h1 className="text-orange-600 text-2xl font-bold mb-3">Reset Your PIN</h1>
           <p className="text-brand/70 text-sm leading-relaxed max-w-sm mx-auto">
-            Enter staff email to generate a new temporary password.
+            Enter your registered email address. We'll send you a verification code to reset your PIN.
           </p>
         </div>
         <form className="w-full space-y-6" onSubmit={handleForgotSubmit}>
@@ -329,7 +334,7 @@ const ForgotPassword: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 disabled:cursor-not-allowed disabled:bg-orange-300 text-white rounded-xl h-14 text-base font-bold transition-colors shadow-md shadow-orange-500/20"
             disabled={isSending}
           >
-            <span>{isSending ? 'Sending...' : 'Send New Password'}</span>
+            <span>{isSending ? 'Sending...' : 'Send Verification Code'}</span>
             <ArrowRight size={20} />
           </button>
         </form>
@@ -347,8 +352,36 @@ const ForgotPassword: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   );
 };
 
-const VerifyCode: React.FC<{ onBack: () => void, onVerify: () => void }> = ({ onBack, onVerify }) => {
+const VerifyCode: React.FC<{ 
+  onBack: () => void, 
+  onVerify: (email: string, token: string) => void,
+  email: string;
+  expiresIn?: number;
+}> = ({ onBack, onVerify, email, expiresIn = 300 }) => {
   const [code, setCode] = useState(['', '', '', '', '', '']);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [timeLeft, setTimeLeft] = useState(expiresIn);
+  
+  // Timer countdown
+  React.useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+  
+  React.useEffect(() => {
+    if (timeLeft === 0) {
+      setErrorMessage('Verification code has expired. Please request a new one.');
+    }
+  }, [timeLeft]);
   
   const handleChange = (index: number, value: string) => {
     if (value.length > 1) return;
@@ -363,6 +396,32 @@ const VerifyCode: React.FC<{ onBack: () => void, onVerify: () => void }> = ({ on
     }
   };
 
+  const handleVerify = async () => {
+    const token = code.join('');
+    if (token.length !== 6) {
+      setErrorMessage('Please enter the complete 6-digit code');
+      return;
+    }
+    
+    setIsVerifying(true);
+    setErrorMessage('');
+    
+    try {
+      await onVerify(email, token);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Verification failed');
+      setCode(['', '', '', '', '', '']);
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   return (
     <motion.div 
       initial={{ opacity: 0, scale: 0.95 }}
@@ -375,9 +434,9 @@ const VerifyCode: React.FC<{ onBack: () => void, onVerify: () => void }> = ({ on
           <Coffee size={40} className="text-brand" />
         </div>
       </div>
-      <h1 className="text-2xl font-bold text-slate-900 mb-3">Session Expired</h1>
+      <h1 className="text-2xl font-bold text-slate-900 mb-3">Enter Verification Code</h1>
       <p className="text-slate-600 text-sm leading-relaxed mb-8">
-        For your security, your session has timed out. Please enter the 6-digit code sent to your registered device to continue.
+        We've sent a 6-digit code to your email. Enter it below to verify your identity.
       </p>
       <div className="flex justify-center gap-2 mb-6">
         {code.map((digit, i) => (
@@ -392,19 +451,30 @@ const VerifyCode: React.FC<{ onBack: () => void, onVerify: () => void }> = ({ on
           />
         ))}
       </div>
+      {errorMessage && (
+        <p className="text-sm font-semibold text-red-600 mb-4" role="alert">
+          {errorMessage}
+        </p>
+      )}
       <div className="flex flex-col gap-1 mb-8">
         <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-          Session expires in <span className="text-brand font-bold">60s</span>
+          Code expires in <span className="text-brand font-bold">{formatTime(timeLeft)}</span>
         </p>
-        <button className="text-sm font-bold text-brand hover:underline">
-          Didn't get a code? Resend
-        </button>
+        {timeLeft === 0 && (
+          <button 
+            onClick={onBack}
+            className="text-sm font-bold text-brand hover:underline"
+          >
+            Request New Code
+          </button>
+        )}
       </div>
       <button 
-        onClick={onVerify}
-        className="w-full bg-orange-500 hover:bg-orange-600 text-white rounded-xl h-14 flex items-center justify-center gap-2 font-bold transition-all shadow-md mb-6"
+        onClick={handleVerify}
+        disabled={isVerifying || code.join('').length !== 6}
+        className="w-full bg-orange-500 hover:bg-orange-600 disabled:cursor-not-allowed disabled:bg-orange-300 text-white rounded-xl h-14 flex items-center justify-center gap-2 font-bold transition-all shadow-md mb-6"
       >
-        Verify and Continue
+        <span>{isVerifying ? 'Verifying...' : 'Verify Code'}</span>
         <ArrowRight size={20} />
       </button>
       <button 
@@ -414,6 +484,141 @@ const VerifyCode: React.FC<{ onBack: () => void, onVerify: () => void }> = ({ on
         <LogOut size={16} />
         Back to Login
       </button>
+    </motion.div>
+  );
+};
+
+const ResetPassword: React.FC<{
+  email: string;
+  token: string;
+  onBack: () => void;
+  onSuccess: () => void;
+}> = ({ email, token, onBack, onSuccess }) => {
+  const [newPin, setNewPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
+  const [showPin, setShowPin] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+
+  const handleResetSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    // Validation
+    if (newPin.length < 4) {
+      setErrorMessage('PIN must be at least 4 characters');
+      return;
+    }
+
+    if (newPin.length > 10) {
+      setErrorMessage('PIN must be at most 10 characters');
+      return;
+    }
+
+    if (newPin !== confirmPin) {
+      setErrorMessage('PINs do not match');
+      return;
+    }
+
+    setIsResetting(true);
+
+    try {
+      await verifyAndResetPassword({
+        email,
+        token,
+        new_pin: newPin,
+      });
+      
+      setSuccessMessage('Your PIN has been reset successfully!');
+      
+      // Navigate to success after a short delay
+      setTimeout(() => {
+        onSuccess();
+      }, 1500);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : 'Failed to reset PIN. Please try again.',
+      );
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      className="login-card"
+    >
+      <div className="mb-8">
+        <button 
+          onClick={onBack}
+          className="inline-flex items-center text-xs font-semibold text-slate-400 hover:text-brand transition-colors uppercase tracking-wider"
+        >
+          <ArrowLeft size={12} className="mr-1" />
+          Back to Verification
+        </button>
+      </div>
+      <div className="text-center mb-8">
+        <h1 className="text-2xl font-extrabold text-slate-800 mb-2 tracking-tight">SET NEW PIN</h1>
+        <p className="text-sm text-slate-500 leading-relaxed px-4">
+          Enter your new PIN to complete the password reset.
+        </p>
+      </div>
+      <form className="space-y-5" onSubmit={handleResetSubmit}>
+        <div className="space-y-1.5 relative">
+          <label className="block text-xs font-bold text-slate-600 uppercase tracking-wide">New PIN</label>
+          <input 
+            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all text-sm" 
+            placeholder="Enter new PIN (4-10 characters)" 
+            type={showPin ? "text" : "password"}
+            value={newPin}
+            onChange={(e) => setNewPin(e.target.value)}
+            disabled={isResetting}
+            required
+          />
+        </div>
+        <div className="space-y-1.5 relative">
+          <label className="block text-xs font-bold text-slate-600 uppercase tracking-wide">Confirm PIN</label>
+          <input 
+            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all text-sm" 
+            placeholder="Confirm new PIN" 
+            type={showPin ? "text" : "password"}
+            value={confirmPin}
+            onChange={(e) => setConfirmPin(e.target.value)}
+            disabled={isResetting}
+            required
+          />
+          <button 
+            type="button"
+            onClick={() => setShowPin(!showPin)}
+            className="absolute right-4 top-9 text-slate-400 hover:text-brand"
+          >
+            {showPin ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
+        </div>
+        {errorMessage && (
+          <p className="text-sm font-semibold text-red-600" role="alert">
+            {errorMessage}
+          </p>
+        )}
+        {successMessage && (
+          <p className="text-sm font-semibold text-emerald-600" role="status">
+            {successMessage}
+          </p>
+        )}
+        <button 
+          className="w-full bg-orange-500 hover:bg-orange-600 disabled:cursor-not-allowed disabled:bg-orange-300 text-white font-bold py-3.5 px-6 rounded-xl transition-all flex items-center justify-center space-x-2 mt-6 shadow-sm" 
+          disabled={isResetting}
+          type="submit"
+        >
+          <span>{isResetting ? 'RESETTING...' : 'RESET PIN'}</span>
+          <ArrowRight size={18} />
+        </button>
+      </form>
     </motion.div>
   );
 };
@@ -454,6 +659,43 @@ const SuccessScreen: React.FC<{ onDashboard: () => void, onBack: () => void }> =
 
 export default function App() {
   const [currentView, setCurrentView] = useState<View>(View.PORTAL_SELECTION);
+  
+  // Password reset flow state
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetToken, setResetToken] = useState('');
+  const [tokenExpiry, setTokenExpiry] = useState(300);
+
+  // Handle token sent - navigate to verification
+  const handleTokenSent = (email: string) => {
+    setResetEmail(email);
+    setCurrentView(View.VERIFY_CODE);
+  };
+
+  // Handle token verified - navigate to password reset
+  const handleTokenVerified = (email: string, token: string) => {
+    setResetEmail(email);
+    setResetToken(token);
+    setCurrentView(View.RESET_PASSWORD);
+  };
+
+  // Handle password reset success
+  const handleResetSuccess = () => {
+    setResetEmail('');
+    setResetToken('');
+    setCurrentView(View.SUCCESS);
+  };
+
+  // Handle back from verification to forgot password
+  const handleBackToForgotPassword = () => {
+    setResetEmail('');
+    setCurrentView(View.FORGOT_PASSWORD);
+  };
+
+  // Handle back from reset password to verification
+  const handleBackToVerification = () => {
+    setResetToken('');
+    setCurrentView(View.VERIFY_CODE);
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-background-light">
@@ -476,13 +718,25 @@ export default function App() {
             <ForgotPassword 
               key="forgot" 
               onBack={() => setCurrentView(View.STAFF_LOGIN)}
+              onTokenSent={handleTokenSent}
             />
           )}
           {currentView === View.VERIFY_CODE && (
             <VerifyCode 
               key="verify" 
-              onBack={() => setCurrentView(View.STAFF_LOGIN)} 
-              onVerify={() => setCurrentView(View.SUCCESS)}
+              email={resetEmail}
+              expiresIn={tokenExpiry}
+              onBack={handleBackToForgotPassword}
+              onVerify={handleTokenVerified}
+            />
+          )}
+          {currentView === View.RESET_PASSWORD && (
+            <ResetPassword 
+              key="reset" 
+              email={resetEmail}
+              token={resetToken}
+              onBack={handleBackToVerification}
+              onSuccess={handleResetSuccess}
             />
           )}
           {currentView === View.SUCCESS && (
