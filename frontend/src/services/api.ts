@@ -137,3 +137,37 @@ export async function updateOrderStatus(orderId: number, status: string): Promis
   
   return response.json();
 }
+
+export interface OrderHistoryParams {
+  date_from?: string;
+  date_to?: string;
+  payment_type?: string;
+  search?: string;
+  page?: number;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+}
+
+export async function fetchOrderHistory(params: OrderHistoryParams = {}): Promise<PaginatedResponse<LiveOrder>> {
+  const queryParams = new URLSearchParams();
+  
+  if (params.date_from) queryParams.append('date_from', params.date_from);
+  if (params.date_to) queryParams.append('date_to', params.date_to);
+  if (params.payment_type) queryParams.append('payment_type', params.payment_type);
+  if (params.search) queryParams.append('search', params.search);
+  if (params.page) queryParams.append('page', params.page.toString());
+  
+  const response = await fetch(`${API_URL}/orders/history?${queryParams.toString()}`);
+  
+  if (!response.ok) {
+    throw new Error('Failed to fetch order history');
+  }
+  
+  return response.json();
+}

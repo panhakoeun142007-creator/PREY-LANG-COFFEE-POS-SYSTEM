@@ -414,7 +414,7 @@ export default function LiveOrders() {
                       <TableCell>{formatTimeAgo(order.created_at)}</TableCell>
                       <TableCell>{order.items.length} items</TableCell>
                       <TableCell className="font-medium">
-                        ${order.total_price.toFixed(2)}
+                        ${Number(order.total_price).toFixed(2)}
                       </TableCell>
                       <TableCell>
                         <StatusBadge status={order.status} />
@@ -554,12 +554,12 @@ export default function LiveOrders() {
               <div className="rounded-lg bg-[#F5E6D3]/50 p-4">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-[#7C5D58]">Subtotal</span>
-                  <span className="font-medium text-[#4B2E2B]">${selectedOrder.total_price.toFixed(2)}</span>
+                  <span className="font-medium text-[#4B2E2B]">${Number(selectedOrder.total_price).toFixed(2)}</span>
                 </div>
                 <div className="mt-2 flex items-center justify-between border-t border-[#EAD6C0] pt-2">
                   <span className="font-semibold text-[#4B2E2B]">Total</span>
                   <span className="text-xl font-bold text-[#4B2E2B]">
-                    ${selectedOrder.total_price.toFixed(2)}
+                    ${Number(selectedOrder.total_price).toFixed(2)}
                   </span>
                 </div>
               </div>

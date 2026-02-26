@@ -134,6 +134,40 @@ class OrderController extends Controller
     }
 
     /**
+     * Display order history (completed and cancelled orders).
+     */
+    public function history(Request $request): JsonResponse
+    {
+        $query = Order::query()
+            ->with(['table', 'items.product'])
+            ->whereIn('status', ['completed', 'cancelled']);
+
+        // Filter by date range
+        if ($request->filled('date_from')) {
+            $query->whereDate('created_at', '>=', $request->string('date_from'));
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('created_at', '<=', $request->string('date_to'));
+        }
+
+        // Filter by payment type
+        if ($request->filled('payment_type')) {
+            $query->where('payment_type', $request->string('payment_type'));
+        }
+
+        // Search by order ID or queue number
+        if ($request->filled('search')) {
+            $search = $request->string('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('id', 'like', "%{$search}%")
+                  ->orWhere('queue_number', 'like', "%{$search}%");
+            });
+        }
+
+        return response()->json($query->latest()->paginate(20));
+    }
+
+    /**
      * Update order status.
      */
     public function updateStatus(Request $request, Order $order): JsonResponse
