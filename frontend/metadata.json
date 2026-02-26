@@ -1,0 +1,5 @@
+{
+  "name": "The Daily Grind Portal",
+  "description": "A professional staff and admin portal for The Daily Grind coffee shop, featuring secure login and session management.",
+  "requestFramePermissions": []
+}
