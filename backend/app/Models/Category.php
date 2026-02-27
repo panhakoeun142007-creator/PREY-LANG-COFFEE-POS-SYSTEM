@@ -17,7 +17,7 @@ class Category extends Model
      */
     protected $fillable = [
         'name',
-        'description',
+        'quantity',
         'is_active',
     ];
 
@@ -30,6 +30,7 @@ class Category extends Model
     {
         return [
             'is_active' => 'boolean',
+            'quantity' => 'integer',
         ];
     }
 

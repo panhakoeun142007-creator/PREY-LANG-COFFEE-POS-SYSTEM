@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import AppLayout from "./components/AppLayout";
 import DashboardPage from "./pages/DashboardPage";
+import CategoriesPage from "./pages/CategoriesPage";
 import LiveOrders from "./pages/LiveOrders";
 import OrderHistory from "./pages/OrderHistory";
 import PlaceholderPage from "./pages/PlaceholderPage";
@@ -15,7 +16,7 @@ export default function App() {
         <Route path="order-history" element={<OrderHistory />} />
         <Route path="receipts" element={<ReceiptsPage />} />
         <Route path="products" element={<PlaceholderPage title="Products" />} />
-        <Route path="categories" element={<PlaceholderPage title="Categories" />} />
+        <Route path="categories" element={<CategoriesPage />} />
         <Route path="tables" element={<PlaceholderPage title="Table Management" />} />
         <Route path="recipes" element={<PlaceholderPage title="Recipes" />} />
         <Route path="stock" element={<PlaceholderPage title="Ingredients / Stock" />} />

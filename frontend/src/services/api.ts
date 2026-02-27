@@ -1,4 +1,93 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+function normalizeApiUrl(input?: string): string {
+  if (!input) {
+    return '/api';
+  }
+
+  const trimmed = input.trim().replace(/\/+$/, '');
+
+  if (trimmed === '/api') {
+    return '/api';
+  }
+
+  if (trimmed.endsWith('/api')) {
+    return trimmed;
+  }
+
+  return `${trimmed}/api`;
+}
+
+const API_URL = normalizeApiUrl(import.meta.env.VITE_API_URL as string | undefined);
+
+function buildUrl(path: string, base: string): string {
+  return `${base}${path}`;
+}
+
+function buildCandidateBases(): string[] {
+  const bases = new Set<string>();
+  bases.add(API_URL);
+  bases.add("/api");
+  bases.add("http://127.0.0.1:8000/api");
+  bases.add("http://localhost:8000/api");
+
+  if (API_URL.includes("localhost:8000")) {
+    bases.add("http://127.0.0.1:8000/api");
+  }
+
+  if (API_URL.includes("127.0.0.1:8000")) {
+    bases.add("http://localhost:8000/api");
+  }
+
+  if (typeof window !== "undefined" && window.location?.origin) {
+    bases.add(`${window.location.origin}/api`);
+  }
+
+  return Array.from(bases);
+}
+
+async function safeFetch(path: string, init?: RequestInit): Promise<Response> {
+  const bases = buildCandidateBases();
+  let lastError: unknown = null;
+  const attempted: string[] = [];
+
+  for (const base of bases) {
+    const url = buildUrl(path, base);
+    attempted.push(url);
+    try {
+      const response = await fetch(url, init);
+      if ([502, 503, 504].includes(response.status)) {
+        continue;
+      }
+      return response;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  if (lastError instanceof Error) {
+    throw new Error(
+      `Cannot connect to API server. Start Laravel with: php artisan serve --host=127.0.0.1 --port=8000. Tried: ${attempted.join(", ")}`,
+    );
+  }
+
+  throw new Error(
+    `Cannot connect to API server. Start Laravel with: php artisan serve --host=127.0.0.1 --port=8000. Tried: ${attempted.join(", ")}`,
+  );
+}
+
+async function readApiError(response: Response, fallback: string): Promise<Error> {
+  try {
+    const data = await response.json();
+    if (data?.message) {
+      return new Error(data.message);
+    }
+    const firstField = data?.errors ? Object.keys(data.errors)[0] : null;
+    const firstError =
+      firstField && Array.isArray(data.errors[firstField]) ? data.errors[firstField][0] : null;
+    return new Error(firstError || fallback);
+  } catch {
+    return new Error(fallback);
+  }
+}
 
 export interface DashboardStats {
   label: string;
@@ -56,7 +145,7 @@ export interface CurrentUser {
 }
 
 export async function fetchDashboardData(): Promise<DashboardData> {
-  const response = await fetch(`${API_URL}/dashboard`);
+  const response = await safeFetch("/dashboard");
   
   if (!response.ok) {
     throw new Error('Failed to fetch dashboard data');
@@ -66,7 +155,7 @@ export async function fetchDashboardData(): Promise<DashboardData> {
 }
 
 export async function fetchNotifications(): Promise<{ notifications: Notification[] }> {
-  const response = await fetch(`${API_URL}/dashboard/notifications`);
+  const response = await safeFetch("/dashboard/notifications");
   
   if (!response.ok) {
     throw new Error('Failed to fetch notifications');
@@ -76,7 +165,7 @@ export async function fetchNotifications(): Promise<{ notifications: Notificatio
 }
 
 export async function fetchCurrentUser(): Promise<CurrentUser> {
-  const response = await fetch(`${API_URL}/user/me`);
+  const response = await safeFetch("/user/me");
   
   if (!response.ok) {
     throw new Error('Failed to fetch current user');
@@ -113,7 +202,7 @@ export interface LiveOrder {
 }
 
 export async function fetchLiveOrders(): Promise<LiveOrder[]> {
-  const response = await fetch(`${API_URL}/orders/live`);
+  const response = await safeFetch("/orders/live");
   
   if (!response.ok) {
     throw new Error('Failed to fetch live orders');
@@ -123,7 +212,7 @@ export async function fetchLiveOrders(): Promise<LiveOrder[]> {
 }
 
 export async function updateOrderStatus(orderId: number, status: string): Promise<LiveOrder> {
-  const response = await fetch(`${API_URL}/orders/${orderId}/status`, {
+  const response = await safeFetch(`/orders/${orderId}/status`, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
@@ -154,6 +243,17 @@ export interface PaginatedResponse<T> {
   total: number;
 }
 
+export interface CategoryApiItem {
+  id: number;
+  name: string;
+  description: string | null;
+  quantity?: number;
+  is_active: boolean;
+  products_count?: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export async function fetchOrderHistory(params: OrderHistoryParams = {}): Promise<PaginatedResponse<LiveOrder>> {
   const queryParams = new URLSearchParams();
   
@@ -163,11 +263,77 @@ export async function fetchOrderHistory(params: OrderHistoryParams = {}): Promis
   if (params.search) queryParams.append('search', params.search);
   if (params.page) queryParams.append('page', params.page.toString());
   
-  const response = await fetch(`${API_URL}/orders/history?${queryParams.toString()}`);
+  const response = await safeFetch(`/orders/history?${queryParams.toString()}`);
   
   if (!response.ok) {
     throw new Error('Failed to fetch order history');
   }
   
   return response.json();
+}
+
+export async function fetchCategories(): Promise<CategoryApiItem[]> {
+  const response = await safeFetch("/categories");
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch categories');
+  }
+
+  const payload = await response.json();
+  if (Array.isArray(payload)) {
+    return payload as CategoryApiItem[];
+  }
+  if (payload && Array.isArray(payload.data)) {
+    return payload.data as CategoryApiItem[];
+  }
+  return [];
+}
+
+export async function createCategory(payload: {
+  name: string;
+  quantity?: number;
+  is_active?: boolean;
+}): Promise<CategoryApiItem> {
+  const response = await safeFetch("/categories", {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw await readApiError(response, 'Failed to create category');
+  }
+
+  return response.json();
+}
+
+export async function updateCategory(
+  categoryId: number,
+  payload: { name?: string; quantity?: number; is_active?: boolean },
+): Promise<CategoryApiItem> {
+  const response = await safeFetch(`/categories/${categoryId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw await readApiError(response, 'Failed to update category');
+  }
+
+  return response.json();
+}
+
+export async function deleteCategory(categoryId: number): Promise<void> {
+  const response = await safeFetch(`/categories/${categoryId}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    throw await readApiError(response, 'Failed to delete category');
+  }
 }
