@@ -124,7 +124,6 @@ export default function OrderHistory() {
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [paymentFilter, setPaymentFilter] = useState<string>("all")
   const [dateFrom, setDateFrom] = useState<string>("")
-  const [dateTo, setDateTo] = useState<string>("")
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1)
@@ -155,9 +154,13 @@ export default function OrderHistory() {
       }
       
       if (searchQuery) params.search = searchQuery
-      if (statusFilter !== "all") params.payment_type = statusFilter
-      if (dateFrom) params.date_from = dateFrom
-      if (dateTo) params.date_to = dateTo
+      if (statusFilter !== "all") params.status = statusFilter
+      if (paymentFilter !== "all") params.payment_type = paymentFilter
+      if (dateFrom) {
+        // Single-date filter: send same date as from/to for exact-day results.
+        params.date_from = dateFrom
+        params.date_to = dateFrom
+      }
       
       const response: PaginatedResponse<LiveOrder> = await fetchOrderHistory(params)
       setOrders(response.data)
@@ -188,7 +191,7 @@ export default function OrderHistory() {
     } finally {
       setLoading(false)
     }
-  }, [currentPage, searchQuery, statusFilter, paymentFilter, dateFrom, dateTo])
+  }, [currentPage, searchQuery, statusFilter, paymentFilter, dateFrom])
 
   useEffect(() => {
     loadOrders()
@@ -324,18 +327,6 @@ export default function OrderHistory() {
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
-                className="w-[150px]"
-              />
-            </div>
-            
-            <span className="text-gray-400">to</span>
-            
-            {/* Date To */}
-            <div className="flex items-center gap-2">
-              <Input
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
                 className="w-[150px]"
               />
             </div>

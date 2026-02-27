@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class ProductController extends Controller
 {
@@ -35,16 +37,32 @@ class ProductController extends Controller
         $validated = $request->validate([
             'category_id' => ['required', 'exists:categories,id'],
             'name' => ['required', 'string', 'max:100'],
+            'sku' => ['nullable', 'string', 'max:80', 'unique:products,sku'],
             'price_small' => ['required', 'numeric', 'min:0'],
             'price_medium' => ['required', 'numeric', 'min:0'],
             'price_large' => ['required', 'numeric', 'min:0'],
-            'image' => ['nullable', 'string', 'max:255'],
+            'image' => ['nullable', 'string'],
             'is_available' => ['sometimes', 'boolean'],
         ]);
 
-        $product = Product::create($validated)->load('category');
+        // Auto-generate SKU if not provided
+        if (empty($validated['sku'])) {
+            $validated['sku'] = 'SKU-' . strtoupper(uniqid());
+        }
 
-        return response()->json($product, 201);
+        try {
+            $product = Product::create($validated)->load('category');
+            return response()->json($product, 201);
+        } catch (QueryException $e) {
+            Log::error('Product create failed', [
+                'error' => $e->getMessage(),
+                'payload_keys' => array_keys($validated),
+            ]);
+
+            return response()->json([
+                'message' => 'Unable to create product. Please check image size and required fields.',
+            ], 422);
+        }
     }
 
     /**
@@ -63,16 +81,28 @@ class ProductController extends Controller
         $validated = $request->validate([
             'category_id' => ['sometimes', 'required', 'exists:categories,id'],
             'name' => ['sometimes', 'required', 'string', 'max:100'],
+            'sku' => ['nullable', 'string', 'max:80', 'unique:products,sku,' . $product->id],
             'price_small' => ['sometimes', 'required', 'numeric', 'min:0'],
             'price_medium' => ['sometimes', 'required', 'numeric', 'min:0'],
             'price_large' => ['sometimes', 'required', 'numeric', 'min:0'],
-            'image' => ['nullable', 'string', 'max:255'],
+            'image' => ['nullable', 'string'],
             'is_available' => ['sometimes', 'boolean'],
         ]);
 
-        $product->update($validated);
+        try {
+            $product->update($validated);
+            return response()->json($product->fresh()->load('category'));
+        } catch (QueryException $e) {
+            Log::error('Product update failed', [
+                'product_id' => $product->id,
+                'error' => $e->getMessage(),
+                'payload_keys' => array_keys($validated),
+            ]);
 
-        return response()->json($product->fresh()->load('category'));
+            return response()->json([
+                'message' => 'Unable to update product. Please check image size and field values.',
+            ], 422);
+        }
     }
 
     /**

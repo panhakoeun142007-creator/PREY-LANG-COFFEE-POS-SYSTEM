@@ -19,6 +19,8 @@ class DiningTable extends Model
         'name',
         'seats',
         'status',
+        'is_active',
+        'qr_code',
     ];
 
     /**
@@ -30,6 +32,7 @@ class DiningTable extends Model
     {
         return [
             'seats' => 'integer',
+            'is_active' => 'boolean',
         ];
     }
 

@@ -78,6 +78,8 @@ class DatabaseSeeder extends Seeder
                 'stock_quantity' => $product['stock_quantity'],
                 'low_stock_threshold' => 5,
                 'is_active' => true,
+                'is_available' => true,
+                'image' => null,
             ]);
         }
         
