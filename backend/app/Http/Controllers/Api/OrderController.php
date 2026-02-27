@@ -142,6 +142,11 @@ class OrderController extends Controller
             ->with(['table', 'items.product'])
             ->whereIn('status', ['completed', 'cancelled']);
 
+        // Filter by status (completed or cancelled)
+        if ($request->filled('status')) {
+            $query->where('status', $request->string('status'));
+        }
+
         // Filter by date range
         if ($request->filled('date_from')) {
             $query->whereDate('created_at', '>=', $request->string('date_from'));
@@ -164,7 +169,17 @@ class OrderController extends Controller
             });
         }
 
-        return response()->json($query->latest()->paginate(20));
+        // Sorting
+        $sortBy = $request->string('sort_by', 'created_at');
+        $sortOrder = $request->string('sort_order', 'desc');
+        $allowedSorts = ['created_at', 'updated_at', 'total_price', 'queue_number'];
+        if (in_array($sortBy, $allowedSorts)) {
+            $query->orderBy($sortBy, $sortOrder === 'asc' ? 'asc' : 'desc');
+        } else {
+            $query->latest('created_at');
+        }
+
+        return response()->json($query->paginate(20));
     }
 
     /**

@@ -104,7 +104,7 @@ export interface LiveOrder {
   total_price: number;
   payment_type: string;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
   table?: {
     id: number;
     name: string;
@@ -145,6 +145,8 @@ export interface OrderHistoryParams {
   payment_type?: string;
   search?: string;
   page?: number;
+  sort_by?: string;
+  sort_order?: 'asc' | 'desc';
 }
 
 export interface PaginatedResponse<T> {
@@ -164,6 +166,8 @@ export async function fetchOrderHistory(params: OrderHistoryParams = {}): Promis
   if (params.payment_type) queryParams.append('payment_type', params.payment_type);
   if (params.search) queryParams.append('search', params.search);
   if (params.page) queryParams.append('page', params.page.toString());
+  if (params.sort_by) queryParams.append('sort_by', params.sort_by);
+  if (params.sort_order) queryParams.append('sort_order', params.sort_order);
   
   const response = await fetch(`${API_URL}/orders/history?${queryParams.toString()}`);
   
