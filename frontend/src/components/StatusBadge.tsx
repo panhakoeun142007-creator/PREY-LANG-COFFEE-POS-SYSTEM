@@ -1,13 +1,6 @@
 import { cn } from "../lib/utils"
 
-type OrderStatus =
-  | "pending"
-  | "preparing"
-  | "ready"
-  | "completed"
-  | "cancelled"
-  | "active"
-  | "inactive"
+type OrderStatus = "pending" | "preparing" | "ready" | "completed" | "cancelled"
 
 interface StatusBadgeProps {
   status: OrderStatus
@@ -34,14 +27,6 @@ const statusConfig: Record<OrderStatus, { label: string; className: string }> = 
   cancelled: {
     label: "Cancelled",
     className: "bg-red-100 text-red-700 border-red-200",
-  },
-  active: {
-    label: "Active",
-    className: "bg-emerald-100 text-emerald-700 border-emerald-200",
-  },
-  inactive: {
-    label: "Inactive",
-    className: "bg-neutral-100 text-neutral-600 border-neutral-200",
   },
 }
 
