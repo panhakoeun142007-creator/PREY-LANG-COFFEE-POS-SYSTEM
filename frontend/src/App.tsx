@@ -6,6 +6,7 @@ import LiveOrders from "./pages/LiveOrders";
 import OrderHistory from "./pages/OrderHistory";
 import PlaceholderPage from "./pages/PlaceholderPage";
 import ReceiptsPage from "./pages/ReceiptsPage";
+import IngredientsPage from "./pages/IngredientsPage";
 
 export default function App() {
   return (
@@ -19,7 +20,7 @@ export default function App() {
         <Route path="categories" element={<CategoriesPage />} />
         <Route path="tables" element={<PlaceholderPage title="Table Management" />} />
         <Route path="recipes" element={<PlaceholderPage title="Recipes" />} />
-        <Route path="stock" element={<PlaceholderPage title="Ingredients / Stock" />} />
+        <Route path="stock" element={<IngredientsPage />} />
         <Route path="finance" element={<PlaceholderPage title="Income & Expenses" />} />
         <Route path="analytics" element={<PlaceholderPage title="Sales Analytics" />} />
         <Route path="settings" element={<PlaceholderPage title="Settings" />} />

@@ -65,12 +65,12 @@ async function safeFetch(path: string, init?: RequestInit): Promise<Response> {
 
   if (lastError instanceof Error) {
     throw new Error(
-      `Cannot connect to API server. Start Laravel with: php artisan serve --host=127.0.0.1 --port=8000. Tried: ${attempted.join(", ")}`,
+      `Cannot connect to API server. Start Laravel with: php artisan serve. Tried: ${attempted.join(", ")}`,
     );
   }
 
   throw new Error(
-    `Cannot connect to API server. Start Laravel with: php artisan serve --host=127.0.0.1 --port=8000. Tried: ${attempted.join(", ")}`,
+    `Cannot connect to API server. Start Laravel with: php artisan serve. Tried: ${attempted.join(", ")}`,
   );
 }
 
@@ -254,6 +254,17 @@ export interface CategoryApiItem {
   updated_at: string;
 }
 
+export interface IngredientApiItem {
+  id: number;
+  name: string;
+  category: string;
+  unit: string;
+  stock_qty: number;
+  min_stock: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export async function fetchOrderHistory(params: OrderHistoryParams = {}): Promise<PaginatedResponse<LiveOrder>> {
   const queryParams = new URLSearchParams();
   
@@ -287,6 +298,80 @@ export async function fetchCategories(): Promise<CategoryApiItem[]> {
     return payload.data as CategoryApiItem[];
   }
   return [];
+}
+
+export async function fetchIngredients(): Promise<IngredientApiItem[]> {
+  const response = await safeFetch("/ingredients");
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch ingredients");
+  }
+
+  const payload = await response.json();
+  if (Array.isArray(payload)) {
+    return payload as IngredientApiItem[];
+  }
+  if (payload && Array.isArray(payload.data)) {
+    return payload.data as IngredientApiItem[];
+  }
+  return [];
+}
+
+export async function createIngredient(payload: {
+  name: string;
+  category: string;
+  unit: string;
+  stock_qty: number;
+  min_stock: number;
+}): Promise<IngredientApiItem> {
+  const response = await safeFetch("/ingredients", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw await readApiError(response, "Failed to create ingredient");
+  }
+
+  return response.json();
+}
+
+export async function updateIngredient(
+  ingredientId: number,
+  payload: {
+    name?: string;
+    category?: string;
+    unit?: string;
+    stock_qty?: number;
+    min_stock?: number;
+  },
+): Promise<IngredientApiItem> {
+  const response = await safeFetch(`/ingredients/${ingredientId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw await readApiError(response, "Failed to update ingredient");
+  }
+
+  return response.json();
+}
+
+export async function deleteIngredient(ingredientId: number): Promise<void> {
+  const response = await safeFetch(`/ingredients/${ingredientId}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    throw await readApiError(response, "Failed to delete ingredient");
+  }
 }
 
 export async function createCategory(payload: {
