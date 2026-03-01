@@ -1,3 +1,4 @@
+import React from 'react';
 import { 
   LayoutDashboard, 
   PlayCircle, 
@@ -46,7 +47,7 @@ const MOCK_RECEIPTS: Receipt[] = [
 
 // --- Components ---
 
-const SidebarItem = ({ icon: Icon, label, active = false, sub = false, color = "text-white/70" }: { icon: any, label: string, active?: boolean, sub?: boolean, color?: string }) => (
+const SidebarItem = ({ icon: Icon, label, active = false, color = "text-white/70" }: { icon: React.ComponentType<{ className?: string }>, label: string, active?: boolean, color?: string }) => (
   <a 
     href="#" 
     className={`flex items-center px-4 py-2.5 text-sm transition-colors rounded-lg ${
@@ -66,7 +67,7 @@ const SectionHeader = ({ label }: { label: string }) => (
   </p>
 );
 
-const StatsCard = ({ label, value, icon: Icon, iconBg, iconColor }: { label: string, value: string, icon: any, iconBg: string, iconColor: string }) => (
+const StatsCard = ({ label, value, icon: Icon, iconBg, iconColor }: { label: string, value: string, icon: React.ComponentType<{ className?: string }>, iconBg: string, iconColor: string }) => (
   <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex justify-between items-center">
     <div>
       <p className="text-xs text-slate-500 font-medium mb-1">{label}</p>

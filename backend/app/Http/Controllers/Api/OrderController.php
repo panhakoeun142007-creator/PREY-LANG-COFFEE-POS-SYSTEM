@@ -37,7 +37,7 @@ class OrderController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'table_id' => ['required', 'exists:tables,id'],
+            'table_id' => ['required', 'exists:dining_tables,id'],
             'status' => ['sometimes', Rule::in(['pending', 'preparing', 'ready', 'completed', 'cancelled'])],
             'payment_type' => ['required', Rule::in(['cash', 'khqr'])],
             'queue_number' => ['nullable', 'integer', 'min:1'],

@@ -5,7 +5,9 @@ import LiveOrders from "./pages/LiveOrders";
 import OrderHistory from "./pages/OrderHistory";
 import PlaceholderPage from "./pages/PlaceholderPage";
 import Products from "./pages/Products";
+import ReceiptsPage from "./pages/ReceiptsPage";
 import Tables from "./pages/Tables";
+import CategoriesPage from "./pages/CategoriesPage";
 
 export default function App() {
   return (
@@ -14,9 +16,9 @@ export default function App() {
         <Route index element={<DashboardPage />} />
         <Route path="live-orders" element={<LiveOrders />} />
         <Route path="order-history" element={<OrderHistory />} />
-        <Route path="receipts" element={<PlaceholderPage title="Receipts" />} />
+        <Route path="receipts" element={<ReceiptsPage />} />
         <Route path="products" element={<Products />} />
-        <Route path="categories" element={<PlaceholderPage title="Categories" />} />
+        <Route path="categories" element={<CategoriesPage />} />
         <Route path="tables" element={<Tables />} />
         <Route path="recipes" element={<PlaceholderPage title="Recipes" />} />
         <Route path="stock" element={<PlaceholderPage title="Ingredients / Stock" />} />
