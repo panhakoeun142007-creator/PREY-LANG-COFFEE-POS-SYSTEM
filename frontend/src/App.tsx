@@ -7,13 +7,9 @@ import OrderHistory from "./pages/OrderHistory";
 import PlaceholderPage from "./pages/PlaceholderPage";
 import Products from "./pages/Products";
 import ReceiptsPage from "./pages/ReceiptsPage";
-<<<<<<< HEAD
 import RecipesStockPage from "./pages/RecipesStockPage";
 import Tables from "./pages/Tables";
-import CategoriesPage from "./pages/CategoriesPage";
-=======
 import IngredientsPage from "./pages/IngredientsPage";
->>>>>>> feature/admin-ingredients
 
 export default function App() {
   return (
@@ -23,19 +19,11 @@ export default function App() {
         <Route path="live-orders" element={<LiveOrders />} />
         <Route path="order-history" element={<OrderHistory />} />
         <Route path="receipts" element={<ReceiptsPage />} />
-<<<<<<< HEAD
         <Route path="products" element={<Products />} />
         <Route path="categories" element={<CategoriesPage />} />
         <Route path="tables" element={<Tables />} />
         <Route path="recipes" element={<RecipesStockPage />} />
-        <Route path="stock" element={<PlaceholderPage title="Ingredients / Stock" />} />
-=======
-        <Route path="products" element={<PlaceholderPage title="Products" />} />
-        <Route path="categories" element={<CategoriesPage />} />
-        <Route path="tables" element={<PlaceholderPage title="Table Management" />} />
-        <Route path="recipes" element={<PlaceholderPage title="Recipes" />} />
         <Route path="stock" element={<IngredientsPage />} />
->>>>>>> feature/admin-ingredients
         <Route path="finance" element={<PlaceholderPage title="Income & Expenses" />} />
         <Route path="analytics" element={<PlaceholderPage title="Sales Analytics" />} />
         <Route path="settings" element={<PlaceholderPage title="Settings" />} />

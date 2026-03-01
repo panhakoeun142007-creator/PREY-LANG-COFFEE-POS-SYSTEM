@@ -115,7 +115,7 @@ export default function Products() {
         
         // Fetch products - with proper typing
         let productsData: PaginatedResponse<ApiProduct> = { data: [], current_page: 1, last_page: 1, per_page: 15, total: 0 };
-        let categoriesData: PaginatedResponse<Category> = { data: [], current_page: 1, last_page: 1, per_page: 15, total: 0 };
+        let categoriesData: Category[] = [];
         
         try {
           const productsResult = await fetchProducts({});
@@ -142,7 +142,7 @@ export default function Products() {
         setProducts(products);
         
         // Safely filter categories - handle both boolean and integer (0/1) values from API
-        const fetchedCategories = categoriesData?.data || [];
+        const fetchedCategories = categoriesData;
         const filteredCategories = fetchedCategories.filter((c: Category) => {
           if (!c) return false;
           const isActive = c.is_active as boolean | number | string;
@@ -666,7 +666,7 @@ export default function Products() {
                     <TableCell className="py-3">
                       {isValidImageSource(product.image || "") ? (
                         <img
-                          src={product.image}
+                          src={product.image ?? undefined}
                           alt={product.name}
                           className="h-10 w-10 rounded-lg object-cover"
                         />
@@ -726,7 +726,7 @@ export default function Products() {
                   <div className="flex-shrink-0">
                     {isValidImageSource(product.image || "") ? (
                       <img
-                        src={product.image}
+                        src={product.image ?? undefined}
                         alt={product.name}
                         className="h-16 w-16 rounded-lg object-cover"
                       />

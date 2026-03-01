@@ -21,7 +21,7 @@ import {
   updateTable,
 } from "../services/api";
 
-function createQrCode(id: string): string {
+function createQrCode(id: number): string {
   return `QR-${id}-${Date.now()}`;
 }
 
@@ -34,7 +34,7 @@ export default function Tables() {
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [updatingIds, setUpdatingIds] = useState<Set<string>>(new Set());
+  const [updatingIds, setUpdatingIds] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     let isMounted = true;
@@ -70,7 +70,7 @@ export default function Tables() {
     return { total, active, inactive };
   }, [tables]);
 
-  const toggleTableStatus = async (id: string) => {
+  const toggleTableStatus = async (id: number) => {
     const table = tables.find((t) => t.id === id);
     if (!table) return;
 
@@ -93,7 +93,7 @@ export default function Tables() {
     }
   };
 
-  const regenerateQR = async (id: string) => {
+  const regenerateQR = async (id: number) => {
     try {
       setUpdatingIds((prev) => new Set(prev).add(id));
       setError(null);
@@ -189,7 +189,9 @@ export default function Tables() {
                   <QrCode className="h-9 w-9 text-[#4B2E2B]" />
                   <div>
                     <p className="text-xs text-[#7C5D58]">QR Preview</p>
-                    <p className="text-xs font-mono text-[#4B2E2B] break-all">{table.qrCode}</p>
+                    <p className="text-xs font-mono text-[#4B2E2B] break-all">
+                      {table.qrCode ?? table.qr_code ?? "No QR"}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -280,7 +282,9 @@ export default function Tables() {
               <div className="rounded-xl border border-[#EAD6C0] bg-[#F5E6D3] p-6 text-center">
                 <QrCode className="mx-auto h-28 w-28 text-[#4B2E2B]" />
                 <p className="mt-3 text-sm text-[#7C5D58]">{previewTable.name}</p>
-                <p className="mt-1 text-xs font-mono text-[#4B2E2B] break-all">{previewTable.qrCode}</p>
+                <p className="mt-1 text-xs font-mono text-[#4B2E2B] break-all">
+                  {previewTable.qrCode ?? previewTable.qr_code ?? "No QR"}
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

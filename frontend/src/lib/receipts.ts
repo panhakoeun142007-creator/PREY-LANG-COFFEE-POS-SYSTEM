@@ -1,4 +1,5 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+// Receipt API functions - uses safeFetch for consistent URL fallback behavior
+import { safeFetch } from '../services/api';
 
 export interface ReceiptRecord {
   receiptId: string;
@@ -10,7 +11,7 @@ export interface ReceiptRecord {
 }
 
 export async function getReceipts(): Promise<ReceiptRecord[]> {
-  const response = await fetch(`${API_URL}/receipts`);
+  const response = await safeFetch('/receipts');
   
   if (!response.ok) {
     throw new Error('Failed to fetch receipts');

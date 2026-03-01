@@ -27,7 +27,7 @@ export default function IngredientsStockPage() {
       setLoading(true);
       setError(null);
       const response = await fetchIngredients();
-      setIngredients(response.data);
+      setIngredients(response);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load ingredients");
       setIngredients([]);

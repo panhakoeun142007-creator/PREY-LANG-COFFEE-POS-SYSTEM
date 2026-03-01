@@ -90,9 +90,9 @@ export default function RecipesStockPage() {
         fetchIngredients(),
       ]);
 
-      setCategories(categoriesResponse.data);
+      setCategories(categoriesResponse);
       setProducts(productsResponse.data);
-      setIngredients(ingredientsResponse.data);
+      setIngredients(ingredientsResponse);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load page data");
     }
@@ -347,11 +347,11 @@ export default function RecipesStockPage() {
                     <TableCell className="text-lg text-[#111827]">{row.size}</TableCell>
                     <TableCell>
                       <span className="rounded-full border border-[#D1D5DB] bg-[#F9FAFB] px-3 py-1 text-sm font-semibold text-[#111827]">
-                        {row.ingredientsCount} items
+                        {row.ingredients_count} items
                       </span>
                     </TableCell>
                     <TableCell className="text-lg font-semibold text-[#111827]">
-                      {money.format(row.estCost)}
+                      {money.format(row.est_cost)}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-3">

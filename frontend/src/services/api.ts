@@ -6,7 +6,7 @@ function normalizeApiUrl(input?: string): string {
   const trimmed = input.trim().replace(/\/+$/, '');
 
   if (trimmed === '/api') {
-    return '/api';
+    return trimmed;
   }
 
   if (trimmed.endsWith('/api')) {
@@ -44,7 +44,7 @@ function buildCandidateBases(): string[] {
   return Array.from(bases);
 }
 
-async function safeFetch(path: string, init?: RequestInit): Promise<Response> {
+export async function safeFetch(path: string, init?: globalThis.RequestInit): Promise<Response> {
   const bases = buildCandidateBases();
   let lastError: unknown = null;
   const attempted: string[] = [];
@@ -89,6 +89,7 @@ async function readApiError(response: Response, fallback: string): Promise<Error
   }
 }
 
+// Dashboard types
 export interface DashboardStats {
   label: string;
   value: string;
@@ -144,6 +145,7 @@ export interface CurrentUser {
   initials: string;
 }
 
+// Dashboard
 export async function fetchDashboardData(): Promise<DashboardData> {
   const response = await safeFetch("/dashboard");
   
@@ -174,6 +176,7 @@ export async function fetchCurrentUser(): Promise<CurrentUser> {
   return response.json();
 }
 
+// Order types
 export interface OrderItem {
   id: number;
   product_id: number;
@@ -201,6 +204,23 @@ export interface LiveOrder {
   items: OrderItem[];
 }
 
+export interface OrderHistoryParams {
+  date_from?: string;
+  date_to?: string;
+  payment_type?: string;
+  search?: string;
+  page?: number;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+}
+
+// Orders
 export async function fetchLiveOrders(): Promise<LiveOrder[]> {
   const response = await safeFetch("/orders/live");
   
@@ -225,44 +245,6 @@ export async function updateOrderStatus(orderId: number, status: string): Promis
   }
   
   return response.json();
-}
-
-export interface OrderHistoryParams {
-  date_from?: string;
-  date_to?: string;
-  payment_type?: string;
-  search?: string;
-  page?: number;
-}
-
-export interface PaginatedResponse<T> {
-  data: T[];
-  current_page: number;
-  last_page: number;
-  per_page: number;
-  total: number;
-}
-
-export interface CategoryApiItem {
-  id: number;
-  name: string;
-  description: string | null;
-  quantity?: number;
-  is_active: boolean;
-  products_count?: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface IngredientApiItem {
-  id: number;
-  name: string;
-  category: string;
-  unit: string;
-  stock_qty: number;
-  min_stock: number;
-  created_at: string;
-  updated_at: string;
 }
 
 export async function fetchOrderHistory(params: OrderHistoryParams = {}): Promise<PaginatedResponse<LiveOrder>> {
@@ -290,23 +272,108 @@ export interface Category {
   description: string | null;
   is_active: boolean | number;
   products_count?: number;
+  quantity?: number;
   created_at?: string;
   updated_at?: string;
 }
 
-export async function fetchCategories(): Promise<PaginatedResponse<Category>> {
-  const response = await fetch(`${API_URL}/categories`);
-  
+export interface CategoryApiItem {
+  id: number;
+  name: string;
+  description: string | null;
+  quantity?: number;
+  is_active: boolean;
+  products_count?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function fetchCategories(): Promise<CategoryApiItem[]> {
+  const response = await safeFetch("/categories");
+
   if (!response.ok) {
     throw new Error('Failed to fetch categories');
   }
-  
+
+  const payload = await response.json();
+  if (Array.isArray(payload)) {
+    return payload as CategoryApiItem[];
+  }
+  if (payload && Array.isArray(payload.data)) {
+    return payload.data as CategoryApiItem[];
+  }
+  return [];
+}
+
+export interface CreateCategoryData {
+  name: string;
+  description?: string;
+  quantity?: number;
+  is_active?: boolean;
+}
+
+export async function createCategory(payload: CreateCategoryData): Promise<CategoryApiItem> {
+  const response = await safeFetch("/categories", {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw await readApiError(response, 'Failed to create category');
+  }
+
   return response.json();
 }
 
+export async function updateCategory(
+  categoryId: number,
+  payload: { name?: string; description?: string; quantity?: number; is_active?: boolean },
+): Promise<CategoryApiItem> {
+  const response = await safeFetch(`/categories/${categoryId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw await readApiError(response, 'Failed to update category');
+  }
+
+  return response.json();
+}
+
+export async function deleteCategory(categoryId: number): Promise<void> {
+  const response = await safeFetch(`/categories/${categoryId}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    throw await readApiError(response, 'Failed to delete category');
+  }
+}
+
+// Products
 export interface FetchProductsParams {
   category_id?: number;
   is_available?: boolean;
+}
+
+export interface ApiProduct {
+  id: number;
+  category_id: number;
+  name: string;
+  sku: string | null;
+  price_small: number;
+  price_medium: number;
+  price_large: number;
+  image: string | null;
+  is_available: boolean;
+  category?: Category;
 }
 
 export async function fetchProducts(params: FetchProductsParams = {}): Promise<PaginatedResponse<ApiProduct>> {
@@ -322,20 +389,6 @@ export async function fetchProducts(params: FetchProductsParams = {}): Promise<P
   }
   
   return response.json();
-}
-
-// Products
-export interface ApiProduct {
-  id: number;
-  category_id: number;
-  name: string;
-  sku: string | null;
-  price_small: number;
-  price_medium: number;
-  price_large: number;
-  image: string | null;
-  is_available: boolean;
-  category?: Category;
 }
 
 export interface CreateProductData {
@@ -393,72 +446,14 @@ export async function deleteProduct(id: number): Promise<void> {
   }
 }
 
-// Category CRUD
-export interface ApiCategory {
-  id: number;
-  name: string;
-  description: string | null;
-  is_active: boolean;
-  created_at?: string;
-  updated_at?: string;
-}
-
-export interface CreateCategoryData {
-  name: string;
-  description?: string;
-  is_active?: boolean;
-}
-
-export async function createCategory(data: CreateCategoryData): Promise<ApiCategory> {
-  const response = await fetch(`${API_URL}/categories`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(data),
-  });
-  
-  if (!response.ok) {
-    throw new Error('Failed to create category');
-  }
-  
-  return response.json();
-}
-
-export async function updateCategory(id: number, data: Partial<CreateCategoryData>): Promise<ApiCategory> {
-  const response = await fetch(`${API_URL}/categories/${id}`, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(data),
-  });
-  
-  if (!response.ok) {
-    throw new Error('Failed to update category');
-  }
-  
-  return response.json();
-}
-
-export async function deleteCategory(id: number): Promise<void> {
-  const response = await fetch(`${API_URL}/categories/${id}`, {
-    method: 'DELETE',
-  });
-  
-  if (!response.ok) {
-    throw new Error('Failed to delete category');
-  }
-}
-
 // Tables
 export interface ApiTable {
-  id: string;
+  id: number;
   name: string;
   capacity: number;
   seats: number;
-  status: string;
-  qrCode: string;
+  status: "active" | "inactive";
+  qrCode?: string;
   qr_code: string | null;
   is_active: boolean;
   db_status: string | null;
@@ -467,6 +462,8 @@ export interface ApiTable {
 export interface CreateTableData {
   name: string;
   capacity: number;
+  status?: string;
+  qrCode?: string;
   qr_code?: string;
   is_active?: boolean;
 }
@@ -533,26 +530,15 @@ export interface ApiIngredient {
   unit_cost?: number;
 }
 
-export async function fetchIngredients(): Promise<PaginatedResponse<ApiIngredient>> {
-  const response = await fetch(`${API_URL}/ingredients`);
-
-  if (!response.ok) {
-    throw new Error('Failed to fetch ingredients');
-export async function fetchCategories(): Promise<CategoryApiItem[]> {
-  const response = await safeFetch("/categories");
-
-  if (!response.ok) {
-    throw new Error('Failed to fetch categories');
-  }
-
-  const payload = await response.json();
-  if (Array.isArray(payload)) {
-    return payload as CategoryApiItem[];
-  }
-  if (payload && Array.isArray(payload.data)) {
-    return payload.data as CategoryApiItem[];
-  }
-  return [];
+export interface IngredientApiItem {
+  id: number;
+  name: string;
+  category: string;
+  unit: string;
+  stock_qty: number;
+  min_stock: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export async function fetchIngredients(): Promise<IngredientApiItem[]> {
@@ -592,6 +578,41 @@ export async function createIngredient(payload: {
   }
 
   return response.json();
+}
+
+export async function updateIngredient(
+  ingredientId: number,
+  payload: {
+    name?: string;
+    category?: string;
+    unit?: string;
+    stock_qty?: number;
+    min_stock?: number;
+  },
+): Promise<IngredientApiItem> {
+  const response = await safeFetch(`/ingredients/${ingredientId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw await readApiError(response, "Failed to update ingredient");
+  }
+
+  return response.json();
+}
+
+export async function deleteIngredient(ingredientId: number): Promise<void> {
+  const response = await safeFetch(`/ingredients/${ingredientId}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    throw await readApiError(response, "Failed to delete ingredient");
+  }
 }
 
 // Recipes board
@@ -644,26 +665,6 @@ export async function fetchRecipeBoard(
 
   if (!response.ok) {
     throw new Error('Failed to fetch recipe board');
-export async function updateIngredient(
-  ingredientId: number,
-  payload: {
-    name?: string;
-    category?: string;
-    unit?: string;
-    stock_qty?: number;
-    min_stock?: number;
-  },
-): Promise<IngredientApiItem> {
-  const response = await safeFetch(`/ingredients/${ingredientId}`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    throw await readApiError(response, "Failed to update ingredient");
   }
 
   return response.json();
@@ -671,22 +672,6 @@ export async function updateIngredient(
 
 export async function createRecipeBoard(payload: RecipeBoardPayload): Promise<RecipeBoardRow> {
   const response = await fetch(`${API_URL}/recipes-board`, {
-export async function deleteIngredient(ingredientId: number): Promise<void> {
-  const response = await safeFetch(`/ingredients/${ingredientId}`, {
-    method: "DELETE",
-  });
-
-  if (!response.ok) {
-    throw await readApiError(response, "Failed to delete ingredient");
-  }
-}
-
-export async function createCategory(payload: {
-  name: string;
-  quantity?: number;
-  is_active?: boolean;
-}): Promise<CategoryApiItem> {
-  const response = await safeFetch("/categories", {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -697,7 +682,6 @@ export async function createCategory(payload: {
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Failed to create recipe' }));
     throw new Error(error.message || 'Failed to create recipe');
-    throw await readApiError(response, 'Failed to create category');
   }
 
   return response.json();
@@ -708,11 +692,6 @@ export async function updateRecipeBoard(
   payload: Omit<RecipeBoardPayload, 'product_id'>,
 ): Promise<RecipeBoardRow> {
   const response = await fetch(`${API_URL}/recipes-board/${productId}`, {
-export async function updateCategory(
-  categoryId: number,
-  payload: { name?: string; quantity?: number; is_active?: boolean },
-): Promise<CategoryApiItem> {
-  const response = await safeFetch(`/categories/${categoryId}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -723,7 +702,6 @@ export async function updateCategory(
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Failed to update recipe' }));
     throw new Error(error.message || 'Failed to update recipe');
-    throw await readApiError(response, 'Failed to update category');
   }
 
   return response.json();
@@ -751,13 +729,10 @@ export async function updateRecipeBoardStatus(
 
 export async function deleteRecipeBoard(productId: number, size: RecipeSize): Promise<void> {
   const response = await fetch(`${API_URL}/recipes-board/${productId}/${size}`, {
-export async function deleteCategory(categoryId: number): Promise<void> {
-  const response = await safeFetch(`/categories/${categoryId}`, {
     method: 'DELETE',
   });
 
   if (!response.ok) {
     throw new Error('Failed to delete recipe');
-    throw await readApiError(response, 'Failed to delete category');
   }
 }

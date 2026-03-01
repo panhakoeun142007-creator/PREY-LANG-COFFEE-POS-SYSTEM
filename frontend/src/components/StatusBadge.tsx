@@ -1,13 +1,15 @@
 import { cn } from "../lib/utils"
 
 type OrderStatus = "pending" | "preparing" | "ready" | "completed" | "cancelled"
+type TableStatus = "active" | "inactive"
+type BadgeStatus = OrderStatus | TableStatus
 
 interface StatusBadgeProps {
-  status: OrderStatus
+  status: BadgeStatus
   className?: string
 }
 
-const statusConfig: Record<OrderStatus, { label: string; className: string }> = {
+const statusConfig: Record<BadgeStatus, { label: string; className: string }> = {
   pending: {
     label: "Pending",
     className: "bg-amber-100 text-amber-700 border-amber-200",
@@ -27,6 +29,14 @@ const statusConfig: Record<OrderStatus, { label: string; className: string }> = 
   cancelled: {
     label: "Cancelled",
     className: "bg-red-100 text-red-700 border-red-200",
+  },
+  active: {
+    label: "Active",
+    className: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  },
+  inactive: {
+    label: "Inactive",
+    className: "bg-neutral-100 text-neutral-600 border-neutral-200",
   },
 }
 
