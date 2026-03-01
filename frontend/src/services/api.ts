@@ -308,8 +308,8 @@ export interface OrderItem {
   id: number;
   product_id: number;
   size: string;
-  qty: number;
-  price: number;
+  qty: number | string;
+  price: number | string;
   product?: {
     id: number;
     name: string;
@@ -320,7 +320,7 @@ export interface LiveOrder {
   id: number;
   queue_number: number;
   status: 'pending' | 'preparing' | 'ready' | 'completed' | 'cancelled';
-  total_price: number;
+  total_price: number | string;
   payment_type: string;
   created_at: string;
   updated_at: string;
@@ -332,6 +332,7 @@ export interface LiveOrder {
 }
 
 export interface OrderHistoryParams {
+  status?: string;
   date_from?: string;
   date_to?: string;
   payment_type?: string;
@@ -345,6 +346,16 @@ export interface PaginatedResponse<T> {
   last_page: number;
   per_page: number;
   total: number;
+}
+
+export interface OrderHistorySummary {
+  completed_count: number;
+  cancelled_count: number;
+  total_revenue: number | string;
+}
+
+export interface PaginatedOrderHistoryResponse extends PaginatedResponse<LiveOrder> {
+  summary?: OrderHistorySummary;
 }
 
 // Orders
@@ -374,9 +385,10 @@ export async function updateOrderStatus(orderId: number, status: string): Promis
   return response.json();
 }
 
-export async function fetchOrderHistory(params: OrderHistoryParams = {}): Promise<PaginatedResponse<LiveOrder>> {
+export async function fetchOrderHistory(params: OrderHistoryParams = {}): Promise<PaginatedOrderHistoryResponse> {
   const queryParams = new URLSearchParams();
   
+  if (params.status) queryParams.append('status', params.status);
   if (params.date_from) queryParams.append('date_from', params.date_from);
   if (params.date_to) queryParams.append('date_to', params.date_to);
   if (params.payment_type) queryParams.append('payment_type', params.payment_type);
@@ -389,7 +401,7 @@ export async function fetchOrderHistory(params: OrderHistoryParams = {}): Promis
     throw new Error('Failed to fetch order history');
   }
   
-  return response.json();
+  return response.json() as Promise<PaginatedOrderHistoryResponse>;
 }
 
 // Categories

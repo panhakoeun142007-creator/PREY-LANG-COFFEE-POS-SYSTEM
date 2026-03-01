@@ -179,7 +179,21 @@ class OrderController extends Controller
             $query->latest('created_at');
         }
 
-        return response()->json($query->paginate(20));
+        // Summary must be calculated from the fully filtered dataset (not current page only).
+        $summaryBase = (clone $query)->reorder();
+        $completedCount = (clone $summaryBase)->where('status', 'completed')->count();
+        $cancelledCount = (clone $summaryBase)->where('status', 'cancelled')->count();
+        $totalRevenue = (float) ((clone $summaryBase)->where('status', 'completed')->sum('total_price'));
+
+        $paginator = $query->paginate(20);
+        $payload = $paginator->toArray();
+        $payload['summary'] = [
+            'completed_count' => $completedCount,
+            'cancelled_count' => $cancelledCount,
+            'total_revenue' => round($totalRevenue, 2),
+        ];
+
+        return response()->json($payload);
     }
 
     /**

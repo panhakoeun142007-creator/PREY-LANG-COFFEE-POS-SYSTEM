@@ -10,7 +10,7 @@ import {
   ChevronRight,
   Receipt,
 } from "lucide-react"
-import { fetchOrderHistory, LiveOrder, OrderHistoryParams, PaginatedResponse } from "../services/api"
+import { fetchOrderHistory, LiveOrder, OrderHistoryParams, PaginatedOrderHistoryResponse, OrderHistorySummary } from "../services/api"
 import { StatusBadge } from "../components/StatusBadge"
 import { Button } from "../components/ui/button"
 import { Card, CardContent } from "../components/ui/card"
@@ -38,79 +38,7 @@ import {
   DialogDescription,
 } from "../components/ui/dialog"
 
-// Mock data for demo when API is not available
-const mockOrderHistory: LiveOrder[] = [
-  {
-    id: 105,
-    queue_number: 105,
-    status: "completed",
-    total_price: 45.5,
-    payment_type: "cash",
-    created_at: "2026-02-25T18:30:00.000Z",
-    updated_at: "2026-02-25T19:00:00.000Z",
-    table: { id: 5, name: "Table 5" },
-    items: [
-      { id: 1, product_id: 1, size: "large", qty: 3, price: 5.5, product: { id: 1, name: "Cappuccino" } },
-      { id: 2, product_id: 2, size: "regular", qty: 2, price: 4.0, product: { id: 2, name: "Croissant" } },
-      { id: 3, product_id: 3, size: "medium", qty: 4, price: 6.0, product: { id: 3, name: "Latte" } },
-    ],
-  },
-  {
-    id: 104,
-    queue_number: 104,
-    status: "completed",
-    total_price: 22.0,
-    payment_type: "khqr",
-    created_at: "2026-02-25T17:15:00.000Z",
-    updated_at: "2026-02-25T17:45:00.000Z",
-    table: { id: 2, name: "Table 2" },
-    items: [
-      { id: 4, product_id: 4, size: "small", qty: 2, price: 4.0, product: { id: 4, name: "Espresso" } },
-      { id: 5, product_id: 5, size: "large", qty: 2, price: 7.0, product: { id: 5, name: "Mocha" } },
-    ],
-  },
-  {
-    id: 103,
-    queue_number: 103,
-    status: "cancelled",
-    total_price: 15.0,
-    payment_type: "cash",
-    created_at: "2026-02-25T16:00:00.000Z",
-    updated_at: "2026-02-25T16:10:00.000Z",
-    table: { id: 8, name: "Table 8" },
-    items: [
-      { id: 6, product_id: 6, size: "medium", qty: 2, price: 7.5, product: { id: 6, name: "Americano" } },
-    ],
-  },
-  {
-    id: 102,
-    queue_number: 102,
-    status: "completed",
-    total_price: 68.0,
-    payment_type: "khqr",
-    created_at: "2026-02-25T14:30:00.000Z",
-    updated_at: "2026-02-25T15:00:00.000Z",
-    table: { id: 1, name: "Table 1" },
-    items: [
-      { id: 7, product_id: 7, size: "large", qty: 5, price: 8.0, product: { id: 7, name: "Flat White" } },
-      { id: 8, product_id: 8, size: "regular", qty: 4, price: 7.0, product: { id: 8, name: "Blueberry Muffin" } },
-    ],
-  },
-  {
-    id: 101,
-    queue_number: 101,
-    status: "completed",
-    total_price: 33.5,
-    payment_type: "cash",
-    created_at: "2026-02-25T12:00:00.000Z",
-    updated_at: "2026-02-25T12:30:00.000Z",
-    table: { id: 4, name: "Table 4" },
-    items: [
-      { id: 9, product_id: 9, size: "medium", qty: 3, price: 5.5, product: { id: 9, name: "Hot Chocolate" } },
-      { id: 10, product_id: 10, size: "regular", qty: 2, price: 9.0, product: { id: 10, name: "Cheesecake" } },
-    ],
-  },
-]
+const KHR_PER_USD = 4100
 
 export default function OrderHistory() {
   const [orders, setOrders] = useState<LiveOrder[]>([])
@@ -130,19 +58,35 @@ export default function OrderHistory() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
+  const [summary, setSummary] = useState<OrderHistorySummary | null>(null)
+
+  const toNumber = (value: unknown): number => {
+    if (typeof value === "number") {
+      return Number.isFinite(value) ? value : 0
+    }
+    if (typeof value === "string") {
+      const parsed = Number.parseFloat(value.replace(/,/g, ""))
+      return Number.isFinite(parsed) ? parsed : 0
+    }
+    return 0
+  }
 
   // Calculate totals
   const stats = useMemo(() => {
-    const completed = orders.filter(o => o.status === "completed")
-    const cancelled = orders.filter(o => o.status === "cancelled")
-    const totalRevenue = completed.reduce((sum, o) => sum + o.total_price, 0)
+    const completed = summary?.completed_count ?? orders.filter(o => o.status === "completed").length
+    const cancelled = summary?.cancelled_count ?? orders.filter(o => o.status === "cancelled").length
+    const totalRevenue = summary ? toNumber(summary.total_revenue) : orders
+      .filter(o => o.status === "completed")
+      .reduce((sum, o) => sum + toNumber(o.total_price), 0)
+    const totalRevenueKhr = totalRevenue * KHR_PER_USD
     
     return {
-      completed: completed.length,
-      cancelled: cancelled.length,
+      completed: toNumber(completed),
+      cancelled: toNumber(cancelled),
       totalRevenue,
+      totalRevenueKhr,
     }
-  }, [orders])
+  }, [orders, summary])
 
   // Fetch orders
   const loadOrders = useCallback(async () => {
@@ -155,36 +99,22 @@ export default function OrderHistory() {
       }
       
       if (searchQuery) params.search = searchQuery
-      if (statusFilter !== "all") params.payment_type = statusFilter
+      if (statusFilter !== "all") params.status = statusFilter
+      if (paymentFilter !== "all") params.payment_type = paymentFilter
       if (dateFrom) params.date_from = dateFrom
       if (dateTo) params.date_to = dateTo
       
-      const response: PaginatedResponse<LiveOrder> = await fetchOrderHistory(params)
+      const response: PaginatedOrderHistoryResponse = await fetchOrderHistory(params)
       setOrders(response.data)
       setTotalPages(response.last_page)
       setTotal(response.total)
-    } catch {
-      // Use mock data if API fails
-      console.log("Using mock data for order history")
-      let filtered = [...mockOrderHistory]
-      
-      if (searchQuery) {
-        filtered = filtered.filter(o => 
-          o.queue_number.toString().includes(searchQuery) ||
-          o.id.toString().includes(searchQuery)
-        )
-      }
-      
-      if (statusFilter !== "all") {
-        filtered = filtered.filter(o => o.status === statusFilter)
-      }
-      
-      if (paymentFilter !== "all") {
-        filtered = filtered.filter(o => o.payment_type === paymentFilter)
-      }
-      
-      setOrders(filtered)
-      setTotal(filtered.length)
+      setSummary(response.summary ?? null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load order history")
+      setOrders([])
+      setTotal(0)
+      setTotalPages(1)
+      setSummary(null)
     } finally {
       setLoading(false)
     }
@@ -210,11 +140,19 @@ export default function OrderHistory() {
     })
   }
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: unknown) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "USD",
-    }).format(amount)
+    }).format(toNumber(amount))
+  }
+
+  const formatRiel = (amount: unknown) => {
+    return new Intl.NumberFormat("km-KH", {
+      style: "currency",
+      currency: "KHR",
+      maximumFractionDigits: 0,
+    }).format(toNumber(amount))
   }
 
   const handleViewDetails = (order: LiveOrder) => {
@@ -268,6 +206,9 @@ export default function OrderHistory() {
               <div>
                 <p className="text-sm font-medium text-gray-500">Total Revenue</p>
                 <p className="text-2xl font-bold text-blue-600">{formatCurrency(stats.totalRevenue)}</p>
+                <p className="text-sm font-semibold text-[#4B2E2B]">
+                  {formatRiel(stats.totalRevenueKhr)}
+                </p>
               </div>
               <Receipt className="h-8 w-8 text-blue-600" />
             </div>
@@ -525,7 +466,7 @@ export default function OrderHistory() {
                         <TableCell>{item.qty}</TableCell>
                         <TableCell>{formatCurrency(item.price)}</TableCell>
                         <TableCell className="text-right">
-                          {formatCurrency(item.price * item.qty)}
+                          {formatCurrency(toNumber(item.price) * toNumber(item.qty))}
                         </TableCell>
                       </TableRow>
                     ))}
