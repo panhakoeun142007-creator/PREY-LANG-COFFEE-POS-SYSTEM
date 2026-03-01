@@ -1,131 +1,210 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
-  Printer, 
-  Download, 
-  Moon,
-  ChevronLeft
+  Clock, CheckCircle2, XCircle, Search, Hash, 
+  BookOpen, Trash2, Leaf, Coffee, AlertCircle 
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 
-import { toast } from 'react-hot-toast';
+const RecipeHistory = () => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [itemToDelete, setItemToDelete] = useState(null); // Tracks which log is being deleted
+  
+  const [history, setHistory] = useState([
+    { id: 'LOG-001', orderId: 'ORD-772', tableNo: 'T-04', name: 'Prey Lang Cold Brew', time: '14:20', date: 'Feb 27, 2026', wasPrinted: true },
+    { id: 'LOG-002', orderId: 'ORD-775', tableNo: 'T-02', name: 'Latte Art Special', time: '13:45', date: 'Feb 27, 2026', wasPrinted: false },
+    { id: 'LOG-003', orderId: 'ORD-780', tableNo: 'Takeaway', name: 'Matcha Forest Green', time: '12:10', date: 'Feb 27, 2026', wasPrinted: true },
+    { id: 'LOG-004', orderId: 'ORD-782', tableNo: 'T-08', name: 'Espresso Double Shot', time: '10:05', date: 'Feb 27, 2026', wasPrinted: false },
+  ]);
 
-interface RecipeViewProps {
-  isDarkMode: boolean;
-  setIsDarkMode: (val: boolean) => void;
-}
+  const filteredHistory = history.filter(item => 
+    item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    item.orderId.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
-const RecipeView: React.FC<RecipeViewProps> = ({ isDarkMode, setIsDarkMode }) => {
-  const handlePrint = () => {
-    window.print();
-    toast.success('Preparing print document...');
-  };
-
-  const handleDownload = () => {
-    toast.loading('Generating PDF...', { duration: 2000 });
-    setTimeout(() => {
-      toast.success('Recipe downloaded successfully');
-    }, 2000);
+  // Function to confirm and execute deletion
+  const confirmDelete = () => {
+    setHistory(prev => prev.filter(h => h.id !== itemToDelete.id));
+    setItemToDelete(null);
   };
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="max-w-4xl mx-auto space-y-8 pb-20"
-    >
-      <div className="flex justify-end gap-3">
-        <button 
-          onClick={() => setIsDarkMode(!isDarkMode)}
-          className={`w-10 h-10 border rounded-xl flex items-center justify-center transition-colors ${
-            isDarkMode ? 'bg-slate-800 border-slate-700 text-yellow-400' : 'bg-white border-slate-200 text-slate-500'
-          }`}
-        >
-          <Moon size={18} />
-        </button>
+    <div className="max-w-6xl mx-auto space-y-6 p-4">
+      
+      {/* 1. DELETE CONFIRMATION MODAL */}
+      <AnimatePresence>
+        {itemToDelete && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }}
+              onClick={() => setItemToDelete(null)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            {/* Modal Box */}
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative bg-white p-8 rounded-[40px] max-w-sm w-full shadow-2xl text-center"
+            >
+              <div className="w-20 h-20 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                <AlertCircle size={40} />
+              </div>
+              <h3 className="text-2xl font-black text-slate-900 tracking-tight">Are you sure?</h3>
+              <p className="text-slate-500 font-medium mt-2 leading-relaxed">
+                You are about to delete the log for <span className="font-bold text-slate-800">{itemToDelete.name}</span>. This action cannot be undone.
+              </p>
+              
+              <div className="flex gap-3 mt-8">
+                <button 
+                  onClick={() => setItemToDelete(null)}
+                  className="flex-1 py-4 font-black text-slate-400 bg-slate-100 rounded-2xl hover:bg-slate-200 transition-colors uppercase text-xs tracking-widest"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={confirmDelete}
+                  className="flex-1 py-4 font-black text-white bg-red-500 rounded-2xl shadow-lg shadow-red-200 hover:bg-red-600 transition-all uppercase text-xs tracking-widest"
+                >
+                  Yes, Delete
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* 2. Header with Brand Logo */}
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-8">
+        <div className="flex items-center gap-4">
+          <div className="bg-brand-primary p-3 rounded-2xl shadow-lg shadow-brand-primary/20">
+            <Leaf className="text-white" size={28} />
+          </div>
+          <div>
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight uppercase">ព្រៃឡង់</h2>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Recipe Log System</p>
+          </div>
+        </div>
+        <div className="bg-white border border-slate-100 px-6 py-3 rounded-2xl shadow-sm flex items-center gap-3">
+          <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+            <Coffee size={18} />
+          </div>
+          <span className="font-black text-slate-700 text-sm">{history.length} Total Logs</span>
+        </div>
+      </header>
+
+      {/* 3. Search Bar */}
+      <div className="relative group">
+        <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-brand-primary transition-colors" size={20} />
+        <input 
+          type="text" 
+          placeholder="Search by Recipe, Order ID, or Table..."
+          className="w-full bg-white border border-slate-200 rounded-[24px] py-5 pl-14 pr-6 text-sm focus:outline-none focus:ring-4 focus:ring-brand-primary/10 transition-all shadow-sm"
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
       </div>
 
-      <div className={`recipe-card relative transition-colors duration-300 ${isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-white border-slate-100 text-slate-900'}`}>
-        {/* Decorative elements */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-12 h-1 bg-blue-400 rounded-b-full" />
-        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-1 bg-pink-400 rounded-t-full" />
+      {/* 4. Main History Table */}
+      <div className="bg-white rounded-[40px] border border-slate-100 shadow-xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50/50">
+                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Order / Table</th>
+                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Recipe Info</th>
+                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Timestamp</th>
+                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Print Status</th>
+                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              <AnimatePresence mode="popLayout">
+                {filteredHistory.map((item) => (
+                  <motion.tr 
+                    key={item.id}
+                    layout
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className="hover:bg-slate-50/40 transition-colors group"
+                  >
+                    <td className="px-8 py-6">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-xs font-black text-brand-primary flex items-center gap-1">
+                          <Hash size={12} /> {item.orderId}
+                        </span>
+                        <span className="text-sm font-bold text-slate-900 bg-slate-100 w-fit px-2 py-0.5 rounded-md">
+                          {item.tableNo}
+                        </span>
+                      </div>
+                    </td>
 
-        <div className="flex justify-between text-[8px] text-slate-400 font-mono mb-12">
-          <span>RECIPE SPECIFICATION</span>
-          <span>PREY LANG COFFEE - INTERNAL DOC</span>
-        </div>
+                    <td className="px-8 py-6">
+                      <span className="font-black text-slate-800 text-base">{item.name}</span>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Standard Brew</p>
+                    </td>
 
-        <div className="text-center space-y-2 mb-12">
-          <h2 className="text-4xl font-black text-brand-primary tracking-tight">PREY LANG COFFEE</h2>
-          <p className="text-[10px] font-bold tracking-[0.3em] text-slate-600 uppercase">Sustainable Forest Brews</p>
-        </div>
+                    <td className="px-8 py-6">
+                      <div className="flex items-center gap-3 text-slate-600">
+                        <div className="p-2 bg-slate-50 rounded-xl text-slate-400 group-hover:text-brand-primary transition-colors">
+                          <Clock size={16} />
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-slate-900">{item.time}</p>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase">{item.date}</p>
+                        </div>
+                      </div>
+                    </td>
 
-        <div className="grid grid-cols-2 gap-y-4 text-[10px] font-mono mb-12">
-          <div className="space-y-1">
-            <p className="text-slate-400">DRINK NAME:</p>
-            <p className={`font-bold ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>PREY LANG COLD BREW</p>
-          </div>
-          <div className="space-y-1">
-            <p className="text-slate-400">RECIPE ID:</p>
-            <p className={`font-bold ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>R-182938</p>
-          </div>
-          <div className="space-y-1">
-            <p className="text-slate-400">CATEGORY:</p>
-            <p className={`font-bold ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>COLD BREW</p>
-          </div>
-        </div>
+                    <td className="px-8 py-6">
+                      {item.wasPrinted ? (
+                        <div className="flex items-center gap-2 text-emerald-600 font-black italic">
+                          <CheckCircle2 size={18} />
+                          <span className="text-xs uppercase tracking-widest underline decoration-2 decoration-emerald-200">Printed</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 text-slate-300 font-bold">
+                          <XCircle size={18} />
+                          <span className="text-xs uppercase tracking-widest">Digital Only</span>
+                        </div>
+                      )}
+                    </td>
 
-        <div className="space-y-6">
-          <h3 className="text-[10px] font-bold tracking-widest text-blue-300 uppercase">Ingredients</h3>
-          <ul className="space-y-4">
-            {[
-              '18g Forest Blend Coffee (Coarse Ground)',
-              '150ml Filtered Water (Room Temp)',
-              'Slow-filtered Ice (Optional for Serving)'
-            ].map((ingredient, idx) => (
-              <li key={idx} className={`flex items-center gap-3 text-xs font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                {ingredient}
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div className={`mt-24 p-8 rounded-xl border text-center space-y-2 ${
-          isDarkMode ? 'bg-emerald-900/20 border-emerald-800' : 'bg-emerald-50/30 border-emerald-100'
-        }`}>
-          <p className={`text-xs font-bold leading-relaxed ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
-            Thank you for sharing the taste of Prey Lang Forest conservation.
-          </p>
-          <p className={`text-xs font-bold leading-relaxed ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
-            Every cup brewed spreads awareness of our protected landscapes.
-          </p>
-        </div>
-
-        <div className="mt-12 text-center space-y-1">
-          <p className="text-[8px] font-bold text-slate-400">Prey Lang Coffee Co. Ltd</p>
-          <p className="text-[8px] font-bold text-slate-400">Phnom Penh, Cambodia</p>
-          <p className="text-[8px] font-bold text-brand-primary underline">www.preylangcoffee.kh</p>
+                    <td className="px-8 py-6 text-right">
+                      <button 
+                        onClick={() => setItemToDelete(item)} // Opens the modal
+                        className="p-3 text-slate-200 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all"
+                      >
+                        <Trash2 size={20} />
+                      </button>
+                    </td>
+                  </motion.tr>
+                ))}
+              </AnimatePresence>
+            </tbody>
+          </table>
+          
+          {filteredHistory.length === 0 && (
+            <div className="p-24 text-center space-y-4">
+              <div className="bg-slate-50 w-20 h-20 rounded-[32px] flex items-center justify-center mx-auto text-slate-200">
+                <BookOpen size={40} />
+              </div>
+              <div className="space-y-1">
+                <p className="text-slate-900 font-black">No History Records</p>
+                <p className="text-slate-400 text-sm font-medium">Try searching for a different recipe or order ID.</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="flex justify-center gap-4">
-        <button 
-          onClick={handlePrint}
-          className="flex items-center gap-2 bg-slate-900 text-white px-6 py-3 rounded-full text-xs font-bold uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg"
-        >
-          <Printer size={16} />
-          Print Recipe
-        </button>
-        <button 
-          onClick={handleDownload}
-          className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 px-6 py-3 rounded-full text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-all shadow-md"
-        >
-          <Download size={16} />
-          Download PDF
-        </button>
+      <div className="text-center py-6">
+         <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.5em]">Prey Lang Coffee Management • Est. 2026</p>
       </div>
-    </motion.div>
+    </div>
   );
 };
 
-export default RecipeView;
+export default RecipeHistory;

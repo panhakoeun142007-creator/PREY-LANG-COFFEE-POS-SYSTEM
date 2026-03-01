@@ -1,187 +1,218 @@
 import React, { useState } from 'react';
-import { 
-  Search, 
-  Filter, 
-  Eye, 
-  Trash2,
-  ChevronDown,
-  RefreshCcw,
-  DollarSign,
-  ShoppingBag,
-  CheckCircle2,
-  Clock,
-  Printer
-} from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion'; // FIX: matches your installed package
-import { Order } from '../types';
+import { Printer, Search, Clock, Coffee, Calendar, ShoppingBag } from 'lucide-react';
+import coffeeLogo from '../assets/coffee.png'; 
 
-interface OrderHistoryProps {
-  orders: Order[];
-}
+const OrderHistory = ({ orders }) => {
+  const [orderToPrint, setOrderToPrint] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
-const OrderHistory: React.FC<OrderHistoryProps> = ({ orders }) => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('All Status');
+  const handlePrint = () => {
+    window.print();
+    setOrderToPrint(null);
+  };
 
-  // Filtering logic matching your exact requirements
-  const historyOrders = orders.filter(order => {
-    const matchesSearch = 
-      order.id.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      (order.customerName?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
-      order.tableNo.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesStatus = statusFilter === 'All Status' || order.status === statusFilter;
-    
-    return matchesSearch && matchesStatus;
-  });
+  const filteredOrders = orders.filter(order => 
+    order.id.toString().includes(searchTerm) ||
+    order.tableNo.toString().includes(searchTerm)
+  );
 
-  const completedOrders = orders.filter(o => o.status === 'Completed');
-  const pendingOrders = orders.filter(o => o.status === 'Pending' || o.status === 'Preparing');
-  const totalRevenue = completedOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+  const totalOrders = orders.length;
+  const pendingOrders = orders.filter(o => o.status !== 'Paid').length; 
 
   return (
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="space-y-8"
-    >
-      <header className="flex justify-between items-center">
-        <h2 className="text-3xl font-bold text-slate-900">Order History</h2>
-        <button 
-          onClick={() => window.location.reload()}
-          className="w-10 h-10 bg-white border border-slate-200 rounded-xl flex items-center justify-center text-slate-500 hover:bg-slate-50 transition-colors"
-        >
-          <RefreshCcw size={18} />
-        </button>
-      </header>
+    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50 p-8">
+      {/* --- CRITICAL PRINT CSS --- */}
+      <style>{`
+        @media print {
+          @page {
+            size: 80mm auto; 
+            margin: 0;
+          }
+          /* FIX: This forces the printer to use color */
+          * { 
+            -webkit-print-color-adjust: exact !important; 
+            print-color-adjust: exact !important; 
+          }
+          body * { 
+            visibility: hidden !important; 
+          }
+          #physical-receipt, #physical-receipt * { 
+            visibility: visible !important; 
+          }
+          #physical-receipt { 
+            position: absolute !important; 
+            /* BACK TO YOUR ORIGINAL CENTERING STYLE */
+            left: 50% !important; 
+            top: 50% !important; 
+            transform: translate(-50%, -50%) !important;
+            width: 80mm !important; 
+            background: white !important; 
+            color: black !important;
+            padding: 10mm !important;
+            height: auto !important;
+            overflow: hidden !important;
+            page-break-after: avoid !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+          }
+          .no-print { display: none !important; }
+        }
+      `}</style>
 
-      {/* Search and Filter Bar matching your UI style */}
-      <div className="flex flex-wrap gap-4">
-        <div className="flex-1 relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-          <input 
-            type="text" 
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by order ID, customer name, or table number..."
-            className="w-full bg-white border border-slate-200 rounded-xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/20 transition-all"
-          />
-        </div>
-        <div className="relative">
-          <select 
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="appearance-none bg-white border border-slate-200 rounded-xl px-10 py-3 text-sm font-medium text-slate-600 hover:bg-slate-50 cursor-pointer"
-          >
-            <option>All Status</option>
-            <option>Completed</option>
-            <option>Pending</option>
-            <option>Cancelled</option>
-          </select>
-          <Filter className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-          <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
-        </div>
-      </div>
+      {/* --- DASHBOARD (Screen Only) --- */}
+      <div className="no-print max-w-4xl mx-auto">
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h1 className="text-4xl font-black text-slate-900 tracking-tight">Order History</h1>
+              <p className="text-slate-500 mt-1 font-medium">View and manage past orders</p>
+            </div>
+            <div className="w-16 h-16 bg-gradient-to-br from-orange-400 to-amber-500 rounded-3xl flex items-center justify-center shadow-lg shadow-orange-200">
+              <Coffee className="text-white" size={28} />
+            </div>
+          </div>
 
-      {/* Main Table following your "rounded-3xl" style */}
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden min-h-[400px]">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="bg-slate-50/50 text-[10px] uppercase tracking-widest text-slate-400 font-bold">
-                <th className="px-6 py-4">Order ID</th>
-                <th className="px-6 py-4">Customer</th>
-                <th className="px-6 py-4">Table</th>
-                <th className="px-6 py-4">Items</th>
-                <th className="px-6 py-4">Total</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4">Payment</th>
-                <th className="px-6 py-4">Date/Time</th>
-                <th className="px-6 py-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              <AnimatePresence mode="popLayout">
-                {historyOrders.map((order) => (
-                  <motion.tr 
-                    key={order.id}
-                    layout
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="hover:bg-slate-50/30 transition-colors"
-                  >
-                    <td className="px-6 py-4 font-bold text-brand-primary">{order.id}</td>
-                    <td className="px-6 py-4 font-medium text-slate-700">{order.customerName || 'Guest'}</td>
-                    <td className="px-6 py-4 text-slate-500">{order.tableNo}</td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-bold text-slate-700">
-                          {order.items.reduce((acc, i) => acc + i.quantity, 0)}
-                        </span>
-                        <span className="text-[10px] text-slate-400 uppercase font-bold">Items</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 font-black text-slate-900">${(order.total || 0).toFixed(2)}</td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${
-                        order.status === 'Completed' ? 'bg-emerald-100 text-emerald-600' : 
-                        order.status === 'Cancelled' ? 'bg-red-100 text-red-600' :
-                        'bg-amber-100 text-amber-600'
-                      }`}>
-                        {order.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-slate-500 text-sm">{order.paymentMethod || 'Cash'}</td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-bold text-slate-700">{new Date(order.timestamp).toLocaleDateString()}</span>
-                        <span className="text-[10px] text-slate-400 font-bold">
-                          {new Date(order.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex justify-end gap-2 text-slate-400">
-                        <button className="hover:text-brand-primary transition-colors"><Eye size={16} /></button>
-                        <button className="hover:text-brand-primary transition-colors"><Printer size={16} /></button>
-                        <button className="hover:text-red-500 transition-colors"><Trash2 size={16} /></button>
-                      </div>
-                    </td>
-                  </motion.tr>
-                ))}
-              </AnimatePresence>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Bottom Summary Cards matching the Revenue design */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        {[
-          { label: 'Total Orders', value: orders.length, color: 'slate', icon: ShoppingBag },
-          { label: 'Completed', value: completedOrders.length, color: 'emerald', icon: CheckCircle2 },
-          { label: 'Pending', value: pendingOrders.length, color: 'amber', icon: Clock },
-          { label: 'Total Revenue', value: `$${totalRevenue.toFixed(2)}`, color: 'brand', icon: DollarSign },
-        ].map((card, idx) => (
-          <div key={idx} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-            <div className="flex justify-between items-start mb-2">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{card.label}</p>
-              <div className={`p-2 rounded-lg ${
-                card.color === 'brand' ? 'bg-orange-50 text-orange-600' : 
-                `bg-${card.color}-50 text-${card.color}-500`
-              }`}>
-                <card.icon size={16} />
+          <div className="grid grid-cols-2 gap-4 mb-8">
+            <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-6 shadow-sm border border-white/50">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-orange-100 rounded-2xl flex items-center justify-center">
+                  <Clock className="text-orange-600" size={24} />
+                </div>
+                <div>
+                  <p className="text-sm text-slate-500 font-medium uppercase tracking-wider">Pending Orders</p>
+                  <p className="text-2xl font-black text-slate-900">{pendingOrders}</p>
+                </div>
               </div>
             </div>
-            <h3 className={`text-3xl font-black ${
-              card.color === 'brand' ? 'text-slate-900' : 
-              `text-${card.color}-500`
-            }`}>{card.value}</h3>
+            <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-6 shadow-sm border border-white/50">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center">
+                  <ShoppingBag className="text-blue-600" size={24} />
+                </div>
+                <div>
+                  <p className="text-sm text-slate-500 font-medium uppercase tracking-wider">Total Orders</p>
+                  <p className="text-2xl font-black text-slate-900">{totalOrders}</p>
+                </div>
+              </div>
+            </div>
           </div>
-        ))}
+
+          <div className="relative mb-6">
+            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+            <input 
+              type="text"
+              placeholder="Search by order ID or table number..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-white/80 backdrop-blur-sm border border-white/50 rounded-2xl py-4 pl-14 pr-6 text-slate-900 placeholder-slate-400 font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition-all"
+            />
+          </div>
+        </div>
+
+        <div className="grid gap-4">
+          {filteredOrders.map((order) => (
+            <div 
+              key={order.id} 
+              className="group bg-white/80 backdrop-blur-sm rounded-[24px] p-6 shadow-sm border border-white/50 hover:shadow-xl hover:shadow-orange-100/50 hover:border-orange-200 transition-all duration-300 cursor-pointer"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-5">
+                  <div className="w-14 h-14 bg-gradient-to-br from-slate-100 to-slate-200 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <span className="text-xl font-black text-slate-700">#{order.id}</span>
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full uppercase">Paid</span>
+                      <span className="px-3 py-1 bg-amber-100 text-amber-700 text-xs font-bold rounded-full uppercase">Table {order.tableNo}</span>
+                    </div>
+                    <p className="text-slate-500 text-sm font-medium flex items-center gap-1">
+                      <Calendar size={14} /> {new Date().toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-6">
+                  <div className="text-right">
+                    <p className="text-xs text-slate-400 uppercase font-bold mb-1">Total</p>
+                    <p className="text-2xl font-black text-orange-600">${((order.total || 0) * 1.1).toFixed(2)}</p>
+                  </div>
+                  <button 
+                    onClick={() => setOrderToPrint(order)}
+                    className="w-12 h-12 bg-gradient-to-br from-orange-400 to-amber-500 text-white rounded-2xl flex items-center justify-center hover:scale-110 hover:shadow-lg hover:shadow-orange-200 transition-all duration-200"
+                  >
+                    <Printer size={20} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
-    </motion.div>
+
+      {/* --- THE RECEIPT (Single Page & Centered) --- */}
+      <div id="physical-receipt" className="hidden print:flex flex-col items-center w-full font-sans">
+        {orderToPrint && (
+          <div className="w-full flex flex-col items-center">
+            <div className="w-28 h-28 mb-3 flex items-center justify-center">
+              <img 
+                src={coffeeLogo} 
+                alt="Logo" 
+                className="max-w-full max-h-full object-contain" 
+                /* NO GRAYSCALE FILTER - LOGO WILL BE FULL COLOR */
+              />
+            </div>
+            <h2 className="text-xl font-black tracking-tighter uppercase text-center">Prey Lang COFFEE</h2>
+            <p className="text-[11px] text-gray-800 text-center leading-tight">Street 371, Phnom Penh</p>
+            <div className="w-full grid grid-cols-2 gap-y-2 text-[10px] border-t border-black/20 pt-4 mb-5 mt-4">
+              <div className="text-left text-gray-600 uppercase font-bold">Receipt No</div>
+              <div className="text-right font-black">#{orderToPrint.id}</div>
+              <div className="text-left text-gray-600 uppercase font-bold">Table</div>
+              <div className="text-right font-black">Table {orderToPrint.tableNo}</div>
+            </div>
+            <div className="w-full border-t border-black/10 pt-4 space-y-3 mb-5">
+              {orderToPrint.items.map((item, i) => (
+                <div key={i} className="flex justify-between items-start text-[12px]">
+                  <div className="text-left">
+                    <p className="font-black uppercase leading-none mb-1">{item.name}</p>
+                    <p className="text-[10px] text-gray-600">{item.quantity}x ${item.price?.toFixed(2)}</p>
+                  </div>
+                  <p className="font-black">${(item.quantity * (item.price || 0)).toFixed(2)}</p>
+                </div>
+              ))}
+            </div>
+            <div className="w-full border-t border-black/20 pt-4 space-y-2 text-[11px]">
+              <div className="flex justify-between text-[18px] font-black pt-3">
+                <span>TOTAL</span>
+                <span className="text-orange-600 font-black">${((orderToPrint.total || 0) * 1.1).toFixed(2)}</span>
+              </div>
+            </div>
+            <div className="mt-10 text-center w-full">
+              <p className="text-xs font-black uppercase tracking-widest">Thank You Hope You Enjoy</p>
+              <div className="mt-8 border-b border-dashed border-black/20 w-full" />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* --- CONFIRMATION DIALOG --- */}
+      {orderToPrint && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm no-print p-4">
+          <div className="bg-white p-8 rounded-[32px] text-center max-w-sm w-full shadow-2xl animate-scale-in">
+            <h3 className="text-2xl font-black text-slate-900 mb-2 uppercase">Print Receipt?</h3>
+            <div className="flex gap-3 mt-8">
+              <button onClick={() => setOrderToPrint(null)} className="flex-1 py-4 bg-slate-100 rounded-[20px] font-bold text-slate-600">Cancel</button>
+              <button onClick={handlePrint} className="flex-1 py-4 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-[20px] font-bold">Print Now</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes scale-in { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+        .animate-scale-in { animation: scale-in 0.2s ease-out forwards; }
+      `}</style>
+    </div>
   );
 };
 

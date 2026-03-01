@@ -1,42 +1,56 @@
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
-}
+/* =========================
+   PRINT RECEIPT (A1 CENTER)
+========================= */
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
-}
+@media print {
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
+  @page {
+    size: A1;
+    margin: 0;
   }
-  to {
-    transform: rotate(360deg);
+
+  html,
+  body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
   }
-}
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
+  /* Hide everything */
+  body * {
+    visibility: hidden !important;
   }
-}
 
-.card {
-  padding: 2em;
-}
+  /* Show receipt only */
+  #physical-receipt,
+  #physical-receipt * {
+    visibility: visible !important;
+  }
 
-.read-the-docs {
-  color: #888;
+  /* CENTER CONTENT ON PAPER */
+  body {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+  }
+
+  /* RECEIPT STYLE */
+  #physical-receipt {
+    position: relative !important;
+    width: 80mm !important;   /* keep receipt real size */
+    background: white !important;
+    color: black !important;
+
+    padding: 10mm !important;
+    box-sizing: border-box !important;
+
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+  }
+
+  /* Hide dashboard & popup */
+  .no-print {
+    display: none !important;
+  }
 }
