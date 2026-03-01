@@ -1,7 +1,4 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-
-Route::get('/', function () {
-    return view('welcome');
-});
+// API-only application - no web routes needed
+// All routes are defined in api.php

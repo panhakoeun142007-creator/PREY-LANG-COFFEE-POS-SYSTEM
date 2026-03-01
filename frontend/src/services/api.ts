@@ -143,6 +143,7 @@ export interface CurrentUser {
   email: string;
   role: string;
   initials: string;
+  profile_image_url?: string | null;
 }
 
 // Dashboard
@@ -174,6 +175,132 @@ export async function fetchCurrentUser(): Promise<CurrentUser> {
   }
   
   return response.json();
+}
+
+export async function updateCurrentUser(payload: {
+  name: string;
+  email: string;
+  profile_image?: File | null;
+}): Promise<CurrentUser> {
+  const formData = new FormData();
+  formData.append("name", payload.name);
+  formData.append("email", payload.email);
+  if (payload.profile_image) {
+    formData.append("profile_image", payload.profile_image);
+  }
+
+  const response = await safeFetch("/user/me", {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw await readApiError(response, "Failed to update account");
+  }
+
+  return response.json();
+}
+
+// Customers
+export interface CustomerApiItem {
+  id: number;
+  name: string;
+  email: string;
+  salary: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FetchCustomersParams {
+  search?: string;
+  is_active?: boolean;
+  page?: number;
+}
+
+export async function fetchCustomers(
+  params: FetchCustomersParams = {},
+): Promise<PaginatedResponse<CustomerApiItem>> {
+  const queryParams = new URLSearchParams();
+  if (params.search) queryParams.append("search", params.search);
+  if (params.is_active !== undefined) queryParams.append("is_active", String(params.is_active));
+  if (params.page) queryParams.append("page", String(params.page));
+
+  const query = queryParams.toString();
+  const response = await safeFetch(`/staffs${query ? `?${query}` : ""}`);
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch customers");
+  }
+
+  const payload = await response.json();
+  if (Array.isArray(payload)) {
+    return {
+      data: payload as CustomerApiItem[],
+      current_page: 1,
+      last_page: 1,
+      per_page: payload.length,
+      total: payload.length,
+    };
+  }
+  return payload as PaginatedResponse<CustomerApiItem>;
+}
+
+export async function createCustomer(payload: {
+  name: string;
+  email: string;
+  password: string;
+  salary: number;
+  is_active?: boolean;
+}): Promise<CustomerApiItem> {
+  const response = await safeFetch("/staffs", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw await readApiError(response, "Failed to create customer");
+  }
+
+  return response.json();
+}
+
+export async function updateCustomer(
+  customerId: number,
+  payload: {
+    name?: string;
+    email?: string;
+    password?: string;
+    salary?: number;
+    is_active?: boolean;
+  },
+): Promise<CustomerApiItem> {
+  const response = await safeFetch(`/staffs/${customerId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw await readApiError(response, "Failed to update customer");
+  }
+
+  return response.json();
+}
+
+export async function deleteCustomer(customerId: number): Promise<void> {
+  const response = await safeFetch(`/staffs/${customerId}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    throw await readApiError(response, "Failed to delete customer");
+  }
 }
 
 // Order types

@@ -8,6 +8,7 @@ import {
   Settings,
   ShoppingCart,
   Table2,
+  Users,
   Wallet,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -64,7 +65,10 @@ export const navGroups: NavGroup[] = [
   },
   {
     group: "System",
-    items: [{ label: "Settings", path: "/settings", icon: Settings }],
+    items: [
+      { label: "Staff Management", path: "/staff-management", icon: Users },
+      { label: "Settings", path: "/settings", icon: Settings },
+    ],
   },
 ];
 

@@ -2,7 +2,13 @@ import { Bell, ChevronLeft, ChevronRight, LogOut, Menu, User, Settings } from "l
 import { useEffect, useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { navGroups, pageTitleByPath } from "../data/mockData";
-import { fetchCurrentUser, fetchNotifications, Notification } from "../services/api";
+import {
+  fetchCurrentUser,
+  fetchNotifications,
+  Notification,
+  CurrentUser,
+  updateCurrentUser,
+} from "../services/api";
 
 function statusClass(isActive: boolean): string {
   if (isActive) {
@@ -33,8 +39,14 @@ export default function AppLayout() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notificationsPollingEnabled, setNotificationsPollingEnabled] = useState(true);
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [currentUser, setCurrentUser] = useState<{ name: string; email: string; role: string; initials: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [showAccountModal, setShowAccountModal] = useState(false);
+  const [accountName, setAccountName] = useState("");
+  const [accountEmail, setAccountEmail] = useState("");
+  const [accountImageFile, setAccountImageFile] = useState<File | null>(null);
+  const [accountImagePreview, setAccountImagePreview] = useState<string | null>(null);
+  const [accountSaving, setAccountSaving] = useState(false);
+  const [accountError, setAccountError] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -43,15 +55,24 @@ export default function AppLayout() {
       try {
         const user = await fetchCurrentUser();
         setCurrentUser(user);
+        setAccountName(user.name);
+        setAccountEmail(user.email);
+        setAccountImagePreview(user.profile_image_url ?? null);
       } catch (err) {
         console.error("Failed to load user:", err);
         // Fallback to default values
-        setCurrentUser({
+        const fallbackUser: CurrentUser = {
+          id: 1,
           name: 'Admin User',
           email: 'admin@preylang.com',
-          role: 'Manager',
+          role: 'admin',
           initials: 'AD',
-        });
+          profile_image_url: null,
+        };
+        setCurrentUser(fallbackUser);
+        setAccountName(fallbackUser.name);
+        setAccountEmail(fallbackUser.email);
+        setAccountImagePreview(null);
       }
     }
 
@@ -111,6 +132,53 @@ export default function AppLayout() {
   const sidebarWidth = collapsed ? "md:w-20" : "md:w-64";
   const mainMargin = collapsed ? "md:ml-20" : "md:ml-64";
 
+  function roleLabel(role: string | undefined): string {
+    return role === "admin" ? "Administrator" : "Staff Member";
+  }
+
+  function openAccountModal() {
+    setAccountName(currentUser?.name ?? "Admin User");
+    setAccountEmail(currentUser?.email ?? "admin@preylang.com");
+    setAccountImagePreview(currentUser?.profile_image_url ?? null);
+    setAccountImageFile(null);
+    setAccountError(null);
+    setShowAccountModal(true);
+  }
+
+  function closeAccountModal() {
+    setShowAccountModal(false);
+    setAccountImageFile(null);
+    setAccountError(null);
+  }
+
+  async function saveAccount() {
+    const name = accountName.trim();
+    const email = accountEmail.trim();
+
+    if (!name || !email) {
+      setAccountError("Name and email are required.");
+      return;
+    }
+
+    try {
+      setAccountSaving(true);
+      setAccountError(null);
+      const updated = await updateCurrentUser({
+        name,
+        email,
+        profile_image: accountImageFile,
+      });
+      setCurrentUser(updated);
+      setAccountImageFile(null);
+      setAccountImagePreview(updated.profile_image_url ?? null);
+      setShowAccountModal(false);
+    } catch (err) {
+      setAccountError(err instanceof Error ? err.message : "Failed to update account");
+    } finally {
+      setAccountSaving(false);
+    }
+  }
+
   return (
     <div className="h-screen bg-[#FFF8F0] text-[#4B2E2B]">
       {mobileOpen && (
@@ -146,9 +214,17 @@ export default function AppLayout() {
 
         <div className="border-b border-white/10 px-4 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#F5E6D3] font-semibold text-[#4B2E2B]">
-              {currentUser?.initials ?? 'AD'}
-            </div>
+            {currentUser?.profile_image_url ? (
+              <img
+                src={currentUser.profile_image_url}
+                alt={currentUser.name}
+                className="h-10 w-10 rounded-full object-cover"
+              />
+            ) : (
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#F5E6D3] font-semibold text-[#4B2E2B]">
+                {currentUser?.initials ?? 'AD'}
+              </div>
+            )}
             {!collapsed && (
               <div>
                 <p className="text-sm font-semibold">{currentUser?.name ?? 'Admin User'}</p>
@@ -281,9 +357,17 @@ export default function AppLayout() {
                   onClick={() => setProfileOpen((prev) => !prev)}
                   className="flex items-center gap-2 rounded-xl border border-[#E5D2BB] bg-white px-2 py-1.5 shadow-sm md:px-3"
                 >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#4B2E2B] text-xs font-semibold text-white">
-                    AD
-                  </div>
+                  {currentUser?.profile_image_url ? (
+                    <img
+                      src={currentUser.profile_image_url}
+                      alt={currentUser.name}
+                      className="h-8 w-8 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#4B2E2B] text-xs font-semibold text-white">
+                      {currentUser?.initials ?? "AD"}
+                    </div>
+                  )}
                   <div className="hidden text-left md:block">
                     <p className="text-sm font-semibold leading-tight">{currentUser?.name ?? 'Admin User'}</p>
                     <p className="text-xs text-[#7C5D58]">{currentUser?.email ?? 'admin@preylang.com'}</p>
@@ -296,7 +380,7 @@ export default function AppLayout() {
                       type="button"
                       onClick={() => {
                         setProfileOpen(false);
-                        setShowAccountModal(true);
+                        openAccountModal();
                       }}
                       className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-[#4B2E2B] hover:bg-[#F8EFE4]"
                     >
@@ -342,44 +426,93 @@ export default function AppLayout() {
                 <h2 className="text-xl font-semibold text-[#4B2E2B]">Account</h2>
                 <button
                   type="button"
-                  onClick={() => setShowAccountModal(false)}
+                  onClick={closeAccountModal}
                   className="text-[#7C5D58] hover:text-[#4B2E2B]"
                 >
                   ✕
                 </button>
               </div>
-              <div className="space-y-4">
+              {accountError ? (
+                <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {accountError}
+                </p>
+              ) : null}
+              <div className="space-y-5">
                 <div className="flex items-center gap-4">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#4B2E2B] text-2xl font-semibold text-white">
-                    {currentUser?.initials ?? 'AD'}
+                  <div className="h-16 w-16 overflow-hidden rounded-full bg-[#4B2E2B]">
+                    {accountImagePreview ? (
+                      <img
+                        src={accountImagePreview}
+                        alt="Profile"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-2xl font-semibold text-white">
+                        {currentUser?.initials ?? "AD"}
+                      </div>
+                    )}
                   </div>
-                  <div>
-                    <p className="text-lg font-semibold text-[#4B2E2B]">{currentUser?.name ?? 'Admin User'}</p>
-                    <p className="text-sm text-[#7C5D58]">{currentUser?.role === 'admin' ? 'Manager' : 'Staff'}</p>
+                  <div className="flex-1">
+                    <p className="text-lg font-semibold text-[#4B2E2B]">
+                      {currentUser?.name ?? "Admin User"}
+                    </p>
+                    <p className="text-sm text-[#7C5D58]">{roleLabel(currentUser?.role)}</p>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0] ?? null;
+                        setAccountImageFile(file);
+                        if (file) {
+                          setAccountImagePreview(URL.createObjectURL(file));
+                        } else {
+                          setAccountImagePreview(currentUser?.profile_image_url ?? null);
+                        }
+                      }}
+                      className="mt-2 block w-full text-xs text-[#7C5D58] file:mr-3 file:rounded-md file:border-0 file:bg-[#F5E6D3] file:px-2 file:py-1 file:text-xs file:font-medium file:text-[#4B2E2B]"
+                    />
                   </div>
                 </div>
                 <div className="border-t border-[#EAD6C0] pt-4 space-y-3">
                   <div>
+                    <label className="text-xs text-[#7C5D58]">Name</label>
+                    <input
+                      type="text"
+                      value={accountName}
+                      onChange={(event) => setAccountName(event.target.value)}
+                      className="mt-1 w-full rounded-lg border border-[#EAD6C0] px-3 py-2 text-sm text-[#4B2E2B] focus:border-[#B28A6E] focus:outline-none"
+                    />
+                  </div>
+                  <div>
                     <label className="text-xs text-[#7C5D58]">Email</label>
-                    <p className="text-sm text-[#4B2E2B]">{currentUser?.email ?? 'admin@preylang.com'}</p>
+                    <input
+                      type="email"
+                      value={accountEmail}
+                      onChange={(event) => setAccountEmail(event.target.value)}
+                      className="mt-1 w-full rounded-lg border border-[#EAD6C0] px-3 py-2 text-sm text-[#4B2E2B] focus:border-[#B28A6E] focus:outline-none"
+                    />
                   </div>
                   <div>
                     <label className="text-xs text-[#7C5D58]">Role</label>
-                    <p className="text-sm text-[#4B2E2B]">{currentUser?.role === 'admin' ? 'Administrator' : 'Staff Member'}</p>
-                  </div>
-                  <div>
-                    <label className="text-xs text-[#7C5D58]">Account Status</label>
-                    <p className="text-sm text-green-600 font-medium">Active</p>
+                    <p className="text-sm text-[#4B2E2B]">{roleLabel(currentUser?.role)}</p>
                   </div>
                 </div>
               </div>
-              <div className="mt-6 flex justify-end">
+              <div className="mt-6 flex justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => setShowAccountModal(false)}
-                  className="rounded-lg bg-[#4B2E2B] px-4 py-2 text-sm font-medium text-white hover:bg-[#6B4E4B]"
+                  onClick={closeAccountModal}
+                  className="rounded-lg border border-[#EAD6C0] px-4 py-2 text-sm font-medium text-[#4B2E2B] hover:bg-[#F8EFE4]"
                 >
-                  Close
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={saveAccount}
+                  disabled={accountSaving}
+                  className="rounded-lg bg-[#4B2E2B] px-4 py-2 text-sm font-medium text-white hover:bg-[#6B4E4B] disabled:opacity-70"
+                >
+                  {accountSaving ? "Saving..." : "Save"}
                 </button>
               </div>
             </div>

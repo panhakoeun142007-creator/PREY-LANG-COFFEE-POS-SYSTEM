@@ -2,15 +2,14 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\Model;
 
-class User extends Authenticatable
+class Staff extends Model
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory;
+
+    protected $table = 'staffs';
 
     /**
      * The attributes that are mass assignable.
@@ -20,12 +19,9 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
-        'staff_id',
-        'pin',
         'password',
-        'role',
+        'salary',
         'is_active',
-        'profile_image',
     ];
 
     /**
@@ -35,20 +31,18 @@ class User extends Authenticatable
      */
     protected $hidden = [
         'password',
-        'pin',
-        'remember_token',
     ];
 
     /**
-     * Get the attributes that should be cast.
+     * The attributes that should be cast.
      *
      * @return array<string, string>
      */
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'salary' => 'decimal:2',
             'is_active' => 'boolean',
         ];
     }
