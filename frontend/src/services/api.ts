@@ -411,3 +411,145 @@ export async function deleteTable(id: number): Promise<void> {
     throw new Error('Failed to delete table');
   }
 }
+
+// Ingredients
+export interface ApiIngredient {
+  id: number;
+  name: string;
+  unit: string;
+  stock_qty: number;
+  min_stock: number;
+  unit_cost?: number;
+}
+
+export async function fetchIngredients(): Promise<PaginatedResponse<ApiIngredient>> {
+  const response = await fetch(`${API_URL}/ingredients`);
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch ingredients');
+  }
+
+  return response.json();
+}
+
+// Recipes board
+export type RecipeSize = 'small' | 'medium' | 'large';
+
+export interface RecipeBoardIngredient {
+  ingredient_id: number;
+  ingredient_name?: string;
+  amount: number;
+}
+
+export interface RecipeBoardRow {
+  id: string;
+  product_id: number;
+  product: string;
+  category_id: number;
+  category: string;
+  size: string;
+  ingredients_count: number;
+  est_cost: number;
+  status: 'active' | 'inactive';
+  ingredients: RecipeBoardIngredient[];
+}
+
+export interface FetchRecipeBoardParams {
+  search?: string;
+  category_id?: number;
+  status?: 'all' | 'active' | 'inactive';
+}
+
+export interface RecipeBoardPayload {
+  product_id: number;
+  size: RecipeSize;
+  ingredients: Array<{
+    ingredient_id: number;
+    amount: number;
+  }>;
+}
+
+export async function fetchRecipeBoard(
+  params: FetchRecipeBoardParams = {},
+): Promise<{ data: RecipeBoardRow[] }> {
+  const queryParams = new URLSearchParams();
+  if (params.search) queryParams.append('search', params.search);
+  if (params.category_id) queryParams.append('category_id', String(params.category_id));
+  if (params.status) queryParams.append('status', params.status);
+
+  const query = queryParams.toString();
+  const response = await fetch(`${API_URL}/recipes-board${query ? `?${query}` : ''}`);
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch recipe board');
+  }
+
+  return response.json();
+}
+
+export async function createRecipeBoard(payload: RecipeBoardPayload): Promise<RecipeBoardRow> {
+  const response = await fetch(`${API_URL}/recipes-board`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Failed to create recipe' }));
+    throw new Error(error.message || 'Failed to create recipe');
+  }
+
+  return response.json();
+}
+
+export async function updateRecipeBoard(
+  productId: number,
+  payload: Omit<RecipeBoardPayload, 'product_id'>,
+): Promise<RecipeBoardRow> {
+  const response = await fetch(`${API_URL}/recipes-board/${productId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Failed to update recipe' }));
+    throw new Error(error.message || 'Failed to update recipe');
+  }
+
+  return response.json();
+}
+
+export async function updateRecipeBoardStatus(
+  productId: number,
+  isActive: boolean,
+): Promise<{ product_id: number; status: 'active' | 'inactive' }> {
+  const response = await fetch(`${API_URL}/recipes-board/${productId}/status`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ is_active: isActive }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Failed to update recipe status' }));
+    throw new Error(error.message || 'Failed to update recipe status');
+  }
+
+  return response.json();
+}
+
+export async function deleteRecipeBoard(productId: number, size: RecipeSize): Promise<void> {
+  const response = await fetch(`${API_URL}/recipes-board/${productId}/${size}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to delete recipe');
+  }
+}

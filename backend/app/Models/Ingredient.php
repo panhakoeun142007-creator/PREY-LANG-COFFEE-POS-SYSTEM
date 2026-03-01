@@ -20,6 +20,7 @@ class Ingredient extends Model
         'unit',
         'stock_qty',
         'min_stock',
+        'unit_cost',
     ];
 
     /**
@@ -32,6 +33,7 @@ class Ingredient extends Model
         return [
             'stock_qty' => 'decimal:2',
             'min_stock' => 'decimal:2',
+            'unit_cost' => 'decimal:2',
         ];
     }
 

@@ -34,6 +34,7 @@ class IngredientController extends Controller
             'unit' => ['required', 'string', 'max:20'],
             'stock_qty' => ['required', 'numeric', 'min:0'],
             'min_stock' => ['required', 'numeric', 'min:0'],
+            'unit_cost' => ['sometimes', 'numeric', 'min:0'],
         ]);
 
         $ingredient = Ingredient::create($validated);
@@ -59,6 +60,7 @@ class IngredientController extends Controller
             'unit' => ['sometimes', 'required', 'string', 'max:20'],
             'stock_qty' => ['sometimes', 'required', 'numeric', 'min:0'],
             'min_stock' => ['sometimes', 'required', 'numeric', 'min:0'],
+            'unit_cost' => ['sometimes', 'numeric', 'min:0'],
         ]);
 
         $ingredient->update($validated);
