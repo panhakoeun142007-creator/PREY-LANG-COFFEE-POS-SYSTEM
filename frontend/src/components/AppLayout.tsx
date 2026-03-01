@@ -31,6 +31,7 @@ export default function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notificationsPollingEnabled, setNotificationsPollingEnabled] = useState(true);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [currentUser, setCurrentUser] = useState<{ name: string; email: string; role: string; initials: string } | null>(null);
   const [showAccountModal, setShowAccountModal] = useState(false);
@@ -58,11 +59,30 @@ export default function AppLayout() {
   }, []);
 
   useEffect(() => {
+    if (!notificationsPollingEnabled) {
+      return;
+    }
+
+    function isConnectionError(err: unknown): boolean {
+      if (!(err instanceof Error)) {
+        return false;
+      }
+      return (
+        err.message.includes("Cannot connect to API server") ||
+        err.message.includes("Failed to fetch") ||
+        err.message.includes("ECONNREFUSED")
+      );
+    }
+
     async function loadNotifications() {
       try {
         const data = await fetchNotifications();
         setNotifications(data.notifications);
       } catch (err) {
+        if (isConnectionError(err)) {
+          setNotificationsPollingEnabled(false);
+          return;
+        }
         console.error("Failed to load notifications:", err);
       }
     }
@@ -72,7 +92,7 @@ export default function AppLayout() {
     // Refresh notifications every 30 seconds
     const interval = setInterval(loadNotifications, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [notificationsPollingEnabled]);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 

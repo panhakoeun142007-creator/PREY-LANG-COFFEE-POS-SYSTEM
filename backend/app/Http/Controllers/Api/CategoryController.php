@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Category;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 
 class CategoryController extends Controller
@@ -15,7 +16,9 @@ class CategoryController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Category::query()->latest();
+        $query = Category::query()
+            ->withCount('products')
+            ->latest();
 
         if ($request->has('is_active')) {
             $query->where('is_active', $request->boolean('is_active'));
@@ -29,13 +32,19 @@ class CategoryController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-        $validated = $request->validate([
+        $rules = [
             'name' => ['required', 'string', 'max:120', Rule::unique('categories', 'name')],
             'description' => ['nullable', 'string', 'max:500'],
             'is_active' => ['sometimes', 'boolean'],
-        ]);
+        ];
 
-        $category = Category::create($validated);
+        if (Schema::hasColumn('categories', 'quantity')) {
+            $rules['quantity'] = ['sometimes', 'integer', 'min:0'];
+        }
+
+        $validated = $request->validate($rules);
+
+        $category = Category::create($validated)->loadCount('products');
 
         return response()->json($category, 201);
     }
@@ -45,7 +54,7 @@ class CategoryController extends Controller
      */
     public function show(Category $category): JsonResponse
     {
-        return response()->json($category);
+        return response()->json($category->loadCount('products'));
     }
 
     /**
@@ -53,15 +62,21 @@ class CategoryController extends Controller
      */
     public function update(Request $request, Category $category): JsonResponse
     {
-        $validated = $request->validate([
+        $rules = [
             'name' => ['sometimes', 'required', 'string', 'max:120', Rule::unique('categories', 'name')->ignore($category->id)],
             'description' => ['nullable', 'string', 'max:500'],
             'is_active' => ['sometimes', 'boolean'],
-        ]);
+        ];
+
+        if (Schema::hasColumn('categories', 'quantity')) {
+            $rules['quantity'] = ['sometimes', 'integer', 'min:0'];
+        }
+
+        $validated = $request->validate($rules);
 
         $category->update($validated);
 
-        return response()->json($category->fresh());
+        return response()->json($category->fresh()->loadCount('products'));
     }
 
     /**

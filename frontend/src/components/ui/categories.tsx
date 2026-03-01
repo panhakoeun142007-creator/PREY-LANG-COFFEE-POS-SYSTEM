@@ -45,7 +45,10 @@ type IconKey = "coffee" | "bakery" | "hot" | "iced" | "merch" | "seasonal";
 interface Category {
   id: number;
   name: string;
+<<<<<<< HEAD
   description: string | null;
+=======
+>>>>>>> feature/admin-ingredients
   count: number;
   status: CategoryStatus;
   icon: IconKey;
@@ -53,7 +56,10 @@ interface Category {
 
 interface CategoryFormState {
   name: string;
+<<<<<<< HEAD
   description: string;
+=======
+>>>>>>> feature/admin-ingredients
   count: string;
   status: CategoryStatus;
   icon: IconKey;
@@ -88,7 +94,10 @@ export default function CategoriesUI() {
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<CategoryFormState>({
     name: "",
+<<<<<<< HEAD
     description: "",
+=======
+>>>>>>> feature/admin-ingredients
     count: "0",
     status: "active",
     icon: "coffee",
@@ -104,11 +113,18 @@ export default function CategoriesUI() {
       setLoading(true);
       setError(null);
       const items = await fetchCategories();
+<<<<<<< HEAD
       const mapped: Category[] = items.data.map((item) => ({
         id: item.id,
         name: item.name,
         description: item.description,
         count: item.products_count ?? 0,
+=======
+      const mapped: Category[] = items.map((item) => ({
+        id: item.id,
+        name: item.name,
+        count: item.quantity ?? item.products_count ?? 0,
+>>>>>>> feature/admin-ingredients
         status: item.is_active ? "active" : "archived",
         icon: "coffee",
       }));
@@ -134,7 +150,10 @@ export default function CategoriesUI() {
     setEditingId(null);
     setForm({
       name: "",
+<<<<<<< HEAD
       description: "",
+=======
+>>>>>>> feature/admin-ingredients
       count: "0",
       status: "active",
       icon: "coffee",
@@ -146,7 +165,10 @@ export default function CategoriesUI() {
     setEditingId(category.id);
     setForm({
       name: category.name,
+<<<<<<< HEAD
       description: category.description || "",
+=======
+>>>>>>> feature/admin-ingredients
       count: String(category.count),
       status: category.status,
       icon: category.icon,
@@ -156,7 +178,10 @@ export default function CategoriesUI() {
 
   async function submitForm() {
     const name = form.name.trim();
+<<<<<<< HEAD
     const description = form.description.trim();
+=======
+>>>>>>> feature/admin-ingredients
     const count = form.count.trim() === "" ? 0 : Number(form.count);
 
     if (!name || Number.isNaN(count) || count < 0) {
@@ -170,13 +195,21 @@ export default function CategoriesUI() {
       if (editingId !== null) {
         await updateCategory(editingId, {
           name,
+<<<<<<< HEAD
           description: description || undefined,
+=======
+          quantity: count,
+>>>>>>> feature/admin-ingredients
           is_active: form.status === "active",
         });
       } else {
         await createCategory({
           name,
+<<<<<<< HEAD
           description: description || undefined,
+=======
+          quantity: count,
+>>>>>>> feature/admin-ingredients
           is_active: form.status === "active",
         });
       }
@@ -341,6 +374,7 @@ export default function CategoriesUI() {
             </div>
 
             <div className="space-y-1.5">
+<<<<<<< HEAD
               <label className="text-sm font-medium text-[#4B2E2B]">Description</label>
               <Input
                 value={form.description}
@@ -350,6 +384,8 @@ export default function CategoriesUI() {
             </div>
 
             <div className="space-y-1.5">
+=======
+>>>>>>> feature/admin-ingredients
               <label className="text-sm font-medium text-[#4B2E2B]">Products Count</label>
               <Input
                 type="number"
