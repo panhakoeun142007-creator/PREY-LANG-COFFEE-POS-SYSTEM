@@ -168,6 +168,23 @@ export interface DashboardData {
   notifications: Notification[];
 }
 
+export interface SalesTrendDataPoint {
+  month: string;
+  sales: number;
+  orders: number;
+}
+
+export interface PeakHourDataPoint {
+  hour: string;
+  orders: number;
+}
+
+export interface SalesAnalyticsData {
+  monthlyTrendData: SalesTrendDataPoint[];
+  peakHoursData: PeakHourDataPoint[];
+  monthlyPerformanceData: SalesTrendDataPoint[];
+}
+
 export interface CurrentUser {
   id: number;
   name: string;
@@ -245,6 +262,16 @@ export async function fetchCurrentUser(): Promise<CurrentUser> {
     throw new Error('Failed to fetch current user');
   }
   
+  return response.json();
+}
+
+export async function fetchSalesAnalyticsData(): Promise<SalesAnalyticsData> {
+  const response = await safeFetch("/sales-analytics");
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch sales analytics");
+  }
+
   return response.json();
 }
 
