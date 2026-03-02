@@ -1,4 +1,4 @@
-import { Bell, ChevronLeft, ChevronRight, LogOut, Menu, User, Settings } from "lucide-react";
+import { Bell, ChevronLeft, ChevronRight, LogOut, Menu, Moon, Settings, Sun, User } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { navGroups, pageTitleByPath } from "../data/mockData";
@@ -11,11 +11,13 @@ import {
   updateCurrentUser,
 } from "../services/api";
 
-function statusClass(isActive: boolean): string {
+function statusClass(isActive: boolean, isDarkMode: boolean): string {
   if (isActive) {
-    return "bg-[#F5E6D3] text-[#4B2E2B] font-semibold shadow";
+    return isDarkMode
+      ? "bg-slate-700 text-slate-100 font-semibold shadow"
+      : "bg-[#F5E6D3] text-[#4B2E2B] font-semibold shadow";
   }
-  return "text-white/80 hover:bg-white/10";
+  return isDarkMode ? "text-slate-200 hover:bg-slate-700/70" : "text-white/80 hover:bg-white/10";
 }
 
 function getNotificationIcon(type: string) {
@@ -48,8 +50,33 @@ export default function AppLayout() {
   const [accountImagePreview, setAccountImagePreview] = useState<string | null>(null);
   const [accountSaving, setAccountSaving] = useState(false);
   const [accountError, setAccountError] = useState<string | null>(null);
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("theme");
+    if (savedTheme === "dark") {
+      setIsDarkMode(true);
+      document.documentElement.classList.add("dark");
+      return;
+    }
+
+    if (savedTheme === "light") {
+      setIsDarkMode(false);
+      document.documentElement.classList.remove("dark");
+      return;
+    }
+
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    setIsDarkMode(prefersDark);
+    document.documentElement.classList.toggle("dark", prefersDark);
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", isDarkMode);
+    localStorage.setItem("theme", isDarkMode ? "dark" : "light");
+  }, [isDarkMode]);
 
   useEffect(() => {
     async function loadUser() {
@@ -172,8 +199,18 @@ export default function AppLayout() {
     }
   }
 
+  function toggleTheme(): void {
+    setIsDarkMode((prev) => !prev);
+  }
+
   return (
-    <div className="h-screen bg-[#FFF8F0] text-[#4B2E2B]">
+    <div
+      className={`h-screen ${
+        isDarkMode
+          ? "bg-[radial-gradient(circle_at_top,#1e293b_0%,#0b1220_55%)] text-slate-100"
+          : "bg-[#FFF8F0] text-[#4B2E2B]"
+      }`}
+    >
       {mobileOpen && (
         <button
           type="button"
@@ -185,13 +222,17 @@ export default function AppLayout() {
 
       <aside
         className={[
-          "fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-[#4B2E2B] text-white transition-transform duration-300 md:translate-x-0",
+          `fixed inset-y-0 left-0 z-40 flex w-64 flex-col text-white transition-transform duration-300 md:translate-x-0 ${
+            isDarkMode
+              ? "border-r border-slate-700/70 bg-slate-950/90 backdrop-blur-xl"
+              : "bg-[#4B2E2B]"
+          }`,
           sidebarWidth,
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         ].join(" ")}
       >
         {/* Logo and User Info */}
-        <div className="flex items-center gap-3 border-b border-white/10 px-4 py-5">
+        <div className={`flex items-center gap-3 px-4 py-5 ${isDarkMode ? "border-b border-slate-800" : "border-b border-white/10"}`}>
           <img
             src="/img/logo-coffee.png"
             alt="PREY LANG Logo"
@@ -205,7 +246,7 @@ export default function AppLayout() {
           )}
         </div>
 
-        <div className="border-b border-white/10 px-4 py-4">
+        <div className={`px-4 py-4 ${isDarkMode ? "border-b border-slate-800" : "border-b border-white/10"}`}>
           <div className="flex items-center gap-3">
             {currentUser?.profile_image_url ? (
               <img
@@ -214,7 +255,7 @@ export default function AppLayout() {
                 className="h-10 w-10 rounded-full object-cover"
               />
             ) : (
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#F5E6D3] font-semibold text-[#4B2E2B]">
+              <div className={`flex h-10 w-10 items-center justify-center rounded-full font-semibold ${isDarkMode ? "bg-slate-700 text-slate-100" : "bg-[#F5E6D3] text-[#4B2E2B]"}`}>
                 {currentUser?.initials ?? 'AD'}
               </div>
             )}
@@ -232,7 +273,7 @@ export default function AppLayout() {
             {navGroups.map((group) => (
               <div key={group.group} className="space-y-2">
                 {!collapsed && (
-                  <p className="px-2 text-[11px] font-semibold uppercase tracking-widest text-white/50">
+                  <p className={`px-2 text-[11px] font-semibold uppercase tracking-widest ${isDarkMode ? "text-slate-500" : "text-white/50"}`}>
                     {group.group}
                   </p>
                 )}
@@ -245,6 +286,7 @@ export default function AppLayout() {
                       onClick={() => setMobileOpen(false)}
                       className={`flex items-center rounded-xl px-3 py-2.5 text-sm transition ${statusClass(
                         isActive,
+                        isDarkMode,
                       )}`}
                       title={collapsed ? item.label : undefined}
                     >
@@ -258,10 +300,12 @@ export default function AppLayout() {
           </div>
         </nav>
 
-        <div className="border-t border-white/10 p-3">
+        <div className={`p-3 ${isDarkMode ? "border-t border-slate-800" : "border-t border-white/10"}`}>
           <button
             type="button"
-            className="flex w-full items-center rounded-xl px-3 py-2.5 text-sm text-white/80 transition hover:bg-white/10"
+            className={`flex w-full items-center rounded-xl px-3 py-2.5 text-sm transition ${
+              isDarkMode ? "text-slate-300 hover:bg-slate-800/70" : "text-white/80 hover:bg-white/10"
+            }`}
           >
             <LogOut size={18} />
             {!collapsed && <span className="ml-3">Logout</span>}
@@ -271,7 +315,11 @@ export default function AppLayout() {
         <button
           type="button"
           onClick={() => setCollapsed((prev) => !prev)}
-          className="absolute -right-3 top-24 hidden h-7 w-7 items-center justify-center rounded-full border border-[#EAD6C0] bg-[#FFF8F0] text-[#4B2E2B] shadow md:flex"
+          className={`absolute -right-3 top-24 hidden h-7 w-7 items-center justify-center rounded-full shadow md:flex ${
+            isDarkMode
+              ? "border-slate-600 bg-slate-800 text-slate-100"
+              : "border-[#EAD6C0] bg-[#FFF8F0] text-[#4B2E2B]"
+          }`}
           aria-label="Toggle sidebar"
         >
           {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
@@ -279,29 +327,55 @@ export default function AppLayout() {
       </aside>
 
       <div className={`flex h-screen flex-col transition-all duration-300 ${mainMargin}`}>
-        <header className="sticky top-0 z-20 border-b border-[#EAD6C0] bg-[#FFF8F0]/95 px-4 py-4 backdrop-blur md:px-8">
+        <header
+          className={`sticky top-0 z-20 px-4 py-4 backdrop-blur md:px-8 ${
+            isDarkMode ? "border-b border-slate-700/80 bg-slate-950/70" : "border-b border-[#EAD6C0] bg-[#FFF8F0]/95"
+          }`}
+        >
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <button
                 type="button"
                 aria-label="Toggle mobile menu"
                 onClick={() => setMobileOpen((prev) => !prev)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#E5D2BB] bg-white text-[#4B2E2B] md:hidden"
+                className={`inline-flex h-10 w-10 items-center justify-center rounded-lg md:hidden ${
+                  isDarkMode
+                    ? "border border-slate-600 bg-slate-800 text-slate-100"
+                    : "border border-[#E5D2BB] bg-white text-[#4B2E2B]"
+                }`}
               >
                 <Menu size={18} />
               </button>
               <div>
                 <h1 className="text-lg font-semibold md:text-2xl">{pageTitle}</h1>
-                <p className="text-xs text-[#7C5D58] md:text-sm">{dateText}</p>
+                <p className={`text-xs md:text-sm ${isDarkMode ? "text-slate-400" : "text-[#7C5D58]"}`}>{dateText}</p>
               </div>
             </div>
 
             <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={toggleTheme}
+                className={`inline-flex h-10 w-10 items-center justify-center rounded-full shadow-sm ${
+                  isDarkMode
+                    ? "border border-slate-600 bg-slate-800 text-amber-300"
+                    : "border border-[#E5D2BB] bg-white text-[#4B2E2B]"
+                }`}
+                aria-label={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
+                title={isDarkMode ? "Light mode" : "Dark mode"}
+              >
+                {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+              </button>
+
               <div className="relative">
                 <button
                   type="button"
                   onClick={() => setNotificationsOpen((prev) => !prev)}
-                  className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#E5D2BB] bg-white text-[#4B2E2B] shadow-sm"
+                  className={`relative inline-flex h-10 w-10 items-center justify-center rounded-full shadow-sm ${
+                    isDarkMode
+                      ? "border border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800"
+                      : "border border-[#E5D2BB] bg-white text-[#4B2E2B]"
+                  }`}
                   aria-label="Notifications"
                 >
                   <Bell size={18} />
@@ -313,29 +387,31 @@ export default function AppLayout() {
                 </button>
 
                 {notificationsOpen && (
-                  <div className="absolute right-0 top-12 w-80 rounded-xl border border-[#EAD6C0] bg-white p-2 shadow-lg">
-                    <div className="border-b border-[#F1E3D3] px-3 py-2">
-                      <h3 className="font-semibold text-[#4B2E2B]">Notifications</h3>
+                  <div className={`absolute right-0 top-12 w-80 rounded-xl p-2 shadow-lg ${isDarkMode ? "border border-slate-700 bg-slate-900" : "border border-[#EAD6C0] bg-white"}`}>
+                    <div className={`px-3 py-2 ${isDarkMode ? "border-b border-slate-700" : "border-b border-[#F1E3D3]"}`}>
+                      <h3 className={`font-semibold ${isDarkMode ? "text-slate-100" : "text-[#4B2E2B]"}`}>Notifications</h3>
                     </div>
                     <div className="max-h-80 overflow-y-auto">
                       {notifications.length > 0 ? (
                         notifications.slice(0, 10).map((notification) => (
                           <div
                             key={notification.id}
-                            className={`flex items-start gap-3 rounded-lg p-3 hover:bg-[#F8EFE4] ${
-                              !notification.read ? 'bg-amber-50' : ''
+                            className={`flex items-start gap-3 rounded-lg p-3 ${
+                              isDarkMode ? "hover:bg-slate-800" : "hover:bg-[#F8EFE4]"
+                            } ${
+                              !notification.read ? (isDarkMode ? "bg-slate-800/70" : "bg-amber-50") : ""
                             }`}
                           >
                             <span className="text-xl">{getNotificationIcon(notification.type)}</span>
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-[#4B2E2B]">{notification.title}</p>
-                              <p className="text-xs text-[#7C5D58] truncate">{notification.message}</p>
-                              <p className="text-xs text-[#8E706B]">{notification.time}</p>
+                              <p className={`text-sm font-medium ${isDarkMode ? "text-slate-100" : "text-[#4B2E2B]"}`}>{notification.title}</p>
+                              <p className={`truncate text-xs ${isDarkMode ? "text-slate-300" : "text-[#7C5D58]"}`}>{notification.message}</p>
+                              <p className={`text-xs ${isDarkMode ? "text-slate-400" : "text-[#8E706B]"}`}>{notification.time}</p>
                             </div>
                           </div>
                         ))
                       ) : (
-                        <div className="p-4 text-center text-sm text-[#7C5D58]">
+                        <div className={`p-4 text-center text-sm ${isDarkMode ? "text-slate-400" : "text-[#7C5D58]"}`}>
                           No notifications
                         </div>
                       )}
@@ -348,7 +424,11 @@ export default function AppLayout() {
                 <button
                   type="button"
                   onClick={() => setProfileOpen((prev) => !prev)}
-                  className="flex items-center gap-2 rounded-xl border border-[#E5D2BB] bg-white px-2 py-1.5 shadow-sm md:px-3"
+                  className={`flex items-center gap-2 rounded-xl px-2 py-1.5 shadow-sm md:px-3 ${
+                    isDarkMode
+                      ? "border border-slate-700 bg-slate-900 text-slate-100"
+                      : "border border-[#E5D2BB] bg-white"
+                  }`}
                 >
                   {currentUser?.profile_image_url ? (
                     <img
@@ -357,25 +437,27 @@ export default function AppLayout() {
                       className="h-8 w-8 rounded-full object-cover"
                     />
                   ) : (
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#4B2E2B] text-xs font-semibold text-white">
+                    <div className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold text-white ${isDarkMode ? "bg-slate-700" : "bg-[#4B2E2B]"}`}>
                       {currentUser?.initials ?? "AD"}
                     </div>
                   )}
                   <div className="hidden text-left md:block">
                     <p className="text-sm font-semibold leading-tight">{currentUser?.name ?? 'Admin User'}</p>
-                    <p className="text-xs text-[#7C5D58]">{currentUser?.email ?? 'admin@preylang.com'}</p>
+                    <p className={`text-xs ${isDarkMode ? "text-slate-400" : "text-[#7C5D58]"}`}>{currentUser?.email ?? 'admin@preylang.com'}</p>
                   </div>
                 </button>
 
                 {profileOpen && (
-                  <div className="absolute right-0 top-12 w-48 rounded-xl border border-[#EAD6C0] bg-white p-2 shadow-lg z-50">
+                  <div className={`absolute right-0 top-12 z-50 w-48 rounded-xl p-2 shadow-lg ${isDarkMode ? "border border-slate-700 bg-slate-900" : "border border-[#EAD6C0] bg-white"}`}>
                     <button
                       type="button"
                       onClick={() => {
                         setProfileOpen(false);
                         openAccountModal();
                       }}
-                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-[#4B2E2B] hover:bg-[#F8EFE4]"
+                      className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm ${
+                        isDarkMode ? "text-slate-100 hover:bg-slate-800" : "text-[#4B2E2B] hover:bg-[#F8EFE4]"
+                      }`}
                     >
                       <User size={16} />
                       Account
@@ -386,7 +468,9 @@ export default function AppLayout() {
                         setProfileOpen(false);
                         navigate('/settings');
                       }}
-                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-[#4B2E2B] hover:bg-[#F8EFE4]"
+                      className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm ${
+                        isDarkMode ? "text-slate-100 hover:bg-slate-800" : "text-[#4B2E2B] hover:bg-[#F8EFE4]"
+                      }`}
                     >
                       <Settings size={16} />
                       Settings
@@ -419,13 +503,13 @@ export default function AppLayout() {
         {/* Account Modal */}
         {showAccountModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <div className={`w-full max-w-md rounded-2xl p-6 shadow-xl ${isDarkMode ? "border border-slate-700 bg-slate-900" : "bg-white"}`}>
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-[#4B2E2B]">Account</h2>
+                <h2 className={`text-xl font-semibold ${isDarkMode ? "text-slate-100" : "text-[#4B2E2B]"}`}>Account</h2>
                 <button
                   type="button"
                   onClick={closeAccountModal}
-                  className="text-[#7C5D58] hover:text-[#4B2E2B]"
+                  className={isDarkMode ? "text-slate-400 hover:text-slate-100" : "text-[#7C5D58] hover:text-[#4B2E2B]"}
                 >
                   ✕
                 </button>
@@ -437,7 +521,7 @@ export default function AppLayout() {
               ) : null}
               <div className="space-y-5">
                 <div className="flex items-center gap-4">
-                  <div className="h-16 w-16 overflow-hidden rounded-full bg-[#4B2E2B]">
+                  <div className={`h-16 w-16 overflow-hidden rounded-full ${isDarkMode ? "bg-slate-700" : "bg-[#4B2E2B]"}`}>
                     {accountImagePreview ? (
                       <img
                         src={accountImagePreview}
@@ -451,10 +535,10 @@ export default function AppLayout() {
                     )}
                   </div>
                   <div className="flex-1">
-                    <p className="text-lg font-semibold text-[#4B2E2B]">
+                    <p className={`text-lg font-semibold ${isDarkMode ? "text-slate-100" : "text-[#4B2E2B]"}`}>
                       {currentUser?.name ?? "Admin User"}
                     </p>
-                    <p className="text-sm text-[#7C5D58]">{roleLabel(currentUser?.role)}</p>
+                    <p className={`text-sm ${isDarkMode ? "text-slate-400" : "text-[#7C5D58]"}`}>{roleLabel(currentUser?.role)}</p>
                     <input
                       type="file"
                       accept="image/*"
@@ -467,32 +551,44 @@ export default function AppLayout() {
                           setAccountImagePreview(currentUser?.profile_image_url ?? null);
                         }
                       }}
-                      className="mt-2 block w-full text-xs text-[#7C5D58] file:mr-3 file:rounded-md file:border-0 file:bg-[#F5E6D3] file:px-2 file:py-1 file:text-xs file:font-medium file:text-[#4B2E2B]"
+                      className={`mt-2 block w-full text-xs file:mr-3 file:rounded-md file:border-0 file:px-2 file:py-1 file:text-xs file:font-medium ${
+                        isDarkMode
+                          ? "text-slate-400 file:bg-slate-700 file:text-slate-100"
+                          : "text-[#7C5D58] file:bg-[#F5E6D3] file:text-[#4B2E2B]"
+                      }`}
                     />
                   </div>
                 </div>
-                <div className="border-t border-[#EAD6C0] pt-4 space-y-3">
+                <div className={`pt-4 space-y-3 ${isDarkMode ? "border-t border-slate-700" : "border-t border-[#EAD6C0]"}`}>
                   <div>
-                    <label className="text-xs text-[#7C5D58]">Name</label>
+                    <label className={`text-xs ${isDarkMode ? "text-slate-400" : "text-[#7C5D58]"}`}>Name</label>
                     <input
                       type="text"
                       value={accountName}
                       onChange={(event) => setAccountName(event.target.value)}
-                      className="mt-1 w-full rounded-lg border border-[#EAD6C0] px-3 py-2 text-sm text-[#4B2E2B] focus:border-[#B28A6E] focus:outline-none"
+                      className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${
+                        isDarkMode
+                          ? "border-slate-600 bg-slate-800 text-slate-100 focus:border-slate-400"
+                          : "border-[#EAD6C0] text-[#4B2E2B] focus:border-[#B28A6E]"
+                      }`}
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-[#7C5D58]">Email</label>
+                    <label className={`text-xs ${isDarkMode ? "text-slate-400" : "text-[#7C5D58]"}`}>Email</label>
                     <input
                       type="email"
                       value={accountEmail}
                       onChange={(event) => setAccountEmail(event.target.value)}
-                      className="mt-1 w-full rounded-lg border border-[#EAD6C0] px-3 py-2 text-sm text-[#4B2E2B] focus:border-[#B28A6E] focus:outline-none"
+                      className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${
+                        isDarkMode
+                          ? "border-slate-600 bg-slate-800 text-slate-100 focus:border-slate-400"
+                          : "border-[#EAD6C0] text-[#4B2E2B] focus:border-[#B28A6E]"
+                      }`}
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-[#7C5D58]">Role</label>
-                    <p className="text-sm text-[#4B2E2B]">{roleLabel(currentUser?.role)}</p>
+                    <label className={`text-xs ${isDarkMode ? "text-slate-400" : "text-[#7C5D58]"}`}>Role</label>
+                    <p className={`text-sm ${isDarkMode ? "text-slate-100" : "text-[#4B2E2B]"}`}>{roleLabel(currentUser?.role)}</p>
                   </div>
                 </div>
               </div>
@@ -500,7 +596,11 @@ export default function AppLayout() {
                 <button
                   type="button"
                   onClick={closeAccountModal}
-                  className="rounded-lg border border-[#EAD6C0] px-4 py-2 text-sm font-medium text-[#4B2E2B] hover:bg-[#F8EFE4]"
+                  className={`rounded-lg border px-4 py-2 text-sm font-medium ${
+                    isDarkMode
+                      ? "border-slate-600 text-slate-200 hover:bg-slate-800"
+                      : "border-[#EAD6C0] text-[#4B2E2B] hover:bg-[#F8EFE4]"
+                  }`}
                 >
                   Cancel
                 </button>
@@ -508,7 +608,9 @@ export default function AppLayout() {
                   type="button"
                   onClick={saveAccount}
                   disabled={accountSaving}
-                  className="rounded-lg bg-[#4B2E2B] px-4 py-2 text-sm font-medium text-white hover:bg-[#6B4E4B] disabled:opacity-70"
+                  className={`rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-70 ${
+                    isDarkMode ? "bg-indigo-500 hover:bg-indigo-400" : "bg-[#4B2E2B] hover:bg-[#6B4E4B]"
+                  }`}
                 >
                   {accountSaving ? "Saving..." : "Save"}
                 </button>
