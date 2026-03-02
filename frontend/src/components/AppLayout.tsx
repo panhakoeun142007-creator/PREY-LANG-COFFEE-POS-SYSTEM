@@ -7,6 +7,7 @@ import {
   fetchNotifications,
   Notification,
   CurrentUser,
+  logoutAdmin,
   updateCurrentUser,
 } from "../services/api";
 
@@ -60,18 +61,9 @@ export default function AppLayout() {
         setAccountImagePreview(user.profile_image_url ?? null);
       } catch (err) {
         console.error("Failed to load user:", err);
-        // Fallback to default values
-        const fallbackUser: CurrentUser = {
-          id: 1,
-          name: 'Admin User',
-          email: 'admin@preylang.com',
-          role: 'admin',
-          initials: 'AD',
-          profile_image_url: null,
-        };
-        setCurrentUser(fallbackUser);
-        setAccountName(fallbackUser.name);
-        setAccountEmail(fallbackUser.email);
+        setCurrentUser(null);
+        setAccountName("");
+        setAccountEmail("");
         setAccountImagePreview(null);
       }
     }
@@ -133,7 +125,8 @@ export default function AppLayout() {
   const mainMargin = collapsed ? "md:ml-20" : "md:ml-64";
 
   function roleLabel(role: string | undefined): string {
-    return role === "admin" ? "Administrator" : "Staff Member";
+    void role;
+    return "Admin";
   }
 
   function openAccountModal() {
@@ -228,7 +221,7 @@ export default function AppLayout() {
             {!collapsed && (
               <div>
                 <p className="text-sm font-semibold">{currentUser?.name ?? 'Admin User'}</p>
-                <p className="text-xs text-white/70">{currentUser?.role === 'admin' ? 'Manager' : 'Staff'}</p>
+                <p className="text-xs text-white/70">Admin</p>
               </div>
             )}
           </div>
@@ -400,11 +393,16 @@ export default function AppLayout() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => {
-                        // Handle logout
-                        localStorage.removeItem('auth_token');
-                        localStorage.removeItem('user');
-                        window.location.href = '/';
+                      onClick={async () => {
+                        try {
+                          await logoutAdmin();
+                        } catch (err) {
+                          console.error("Failed to logout:", err);
+                        } finally {
+                          localStorage.removeItem('auth_token');
+                          localStorage.removeItem('user');
+                          window.location.href = '/';
+                        }
                       }}
                       className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
                     >

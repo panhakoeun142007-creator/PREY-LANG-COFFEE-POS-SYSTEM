@@ -19,14 +19,7 @@ class UserController extends Controller
         $user = $this->resolveCurrentUser();
 
         if (!$user) {
-            return response()->json([
-                'id' => 1,
-                'name' => 'Admin User',
-                'email' => 'admin@preylang.com',
-                'role' => 'admin',
-                'initials' => 'AD',
-                'profile_image_url' => null,
-            ]);
+            return response()->json(['message' => 'Unauthorized'], 401);
         }
 
         return response()->json($this->serializeUser($user));
@@ -39,7 +32,7 @@ class UserController extends Controller
     {
         $user = $this->resolveCurrentUser();
         if (!$user) {
-            return response()->json(['message' => 'No active user found'], 404);
+            return response()->json(['message' => 'Unauthorized'], 401);
         }
 
         $validated = $request->validate([
@@ -50,7 +43,7 @@ class UserController extends Controller
                 'max:255',
                 Rule::unique('users', 'email')->ignore($user->id),
             ],
-            'profile_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'profile_image' => ['nullable', 'image', 'max:5120'],
         ]);
 
         $user->name = $validated['name'];
@@ -83,15 +76,17 @@ class UserController extends Controller
 
     private function resolveCurrentUser(): ?User
     {
-        $user = User::where('role', 'admin')
-            ->where('is_active', true)
-            ->first();
-
-        if (!$user) {
-            $user = User::where('is_active', true)->first();
+        /** @var User|null $user */
+        $user = request()->user();
+        if ($user && $user->is_active && $user->role === 'admin') {
+            return $user;
         }
 
-        return $user;
+        return User::query()
+            ->where('role', 'admin')
+            ->where('is_active', true)
+            ->orderBy('id')
+            ->first();
     }
 
     private function serializeUser(User $user): array

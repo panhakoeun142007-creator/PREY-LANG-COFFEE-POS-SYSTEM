@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Ingredient extends Model
@@ -17,6 +18,7 @@ class Ingredient extends Model
      */
     protected $fillable = [
         'name',
+        'category_id',
         'unit',
         'stock_qty',
         'min_stock',
@@ -51,5 +53,13 @@ class Ingredient extends Model
     public function purchases(): HasMany
     {
         return $this->hasMany(Purchase::class);
+    }
+
+    /**
+     * Get menu category for this ingredient.
+     */
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(Category::class);
     }
 }

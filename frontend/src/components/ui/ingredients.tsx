@@ -21,14 +21,16 @@ import {
 import {
   createIngredient,
   deleteIngredient,
+  fetchCategories,
   fetchIngredients,
   updateIngredient,
+  type CategoryApiItem,
   type IngredientApiItem,
 } from "../../services/api";
 
 interface IngredientFormState {
   name: string;
-  category: string;
+  category_id: string;
   unit: string;
   stock_qty: string;
   min_stock: string;
@@ -48,6 +50,7 @@ function toNumber(value: string): number | null {
 
 export default function IngredientsUI() {
   const [ingredients, setIngredients] = useState<IngredientApiItem[]>([]);
+  const [menuCategories, setMenuCategories] = useState<CategoryApiItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [stockSaving, setStockSaving] = useState(false);
@@ -64,7 +67,7 @@ export default function IngredientsUI() {
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
   const [form, setForm] = useState<IngredientFormState>({
     name: "",
-    category: "General",
+    category_id: "",
     unit: "kg",
     stock_qty: "0",
     min_stock: "0",
@@ -81,8 +84,12 @@ export default function IngredientsUI() {
     try {
       setLoading(true);
       setError(null);
-      const data = await fetchIngredients();
-      setIngredients(data);
+      const [ingredientsData, categoriesData] = await Promise.all([
+        fetchIngredients(),
+        fetchCategories().catch(() => [] as CategoryApiItem[]),
+      ]);
+      setIngredients(ingredientsData);
+      setMenuCategories(categoriesData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load ingredients");
     } finally {
@@ -91,28 +98,32 @@ export default function IngredientsUI() {
   }
 
   const categories = useMemo(() => {
-    const set = new Set<string>();
-    ingredients.forEach((item) => set.add(item.category || "General"));
-    return Array.from(set).sort();
-  }, [ingredients]);
+    return [...menuCategories].sort((a, b) => a.name.localeCompare(b.name));
+  }, [menuCategories]);
+
+  const categoryMap = useMemo(() => {
+    const map = new Map<number, string>();
+    categories.forEach((item) => map.set(item.id, item.name));
+    return map;
+  }, [categories]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return ingredients.filter((item) => {
-      const category = item.category || "General";
+      const categoryLabel = item.category || (item.category_id ? categoryMap.get(item.category_id) : null) || "";
       const isLow = Number(item.stock_qty) < Number(item.min_stock);
       const status = isLow ? "low_stock" : "in_stock";
 
       const matchSearch =
         q === "" ||
         item.name.toLowerCase().includes(q) ||
-        category.toLowerCase().includes(q);
-      const matchCategory = categoryFilter === "all" || category === categoryFilter;
+        categoryLabel.toLowerCase().includes(q);
+      const matchCategory = categoryFilter === "all" || String(item.category_id ?? "") === categoryFilter;
       const matchStatus = statusFilter === "all" || status === statusFilter;
 
       return matchSearch && matchCategory && matchStatus;
     });
-  }, [ingredients, search, categoryFilter, statusFilter]);
+  }, [ingredients, categoryMap, search, categoryFilter, statusFilter]);
 
   const pendingDelete = useMemo(
     () => ingredients.find((item) => item.id === pendingDeleteId) ?? null,
@@ -128,7 +139,7 @@ export default function IngredientsUI() {
     setEditingId(null);
     setForm({
       name: "",
-      category: "General",
+      category_id: categories[0] ? String(categories[0].id) : "",
       unit: "kg",
       stock_qty: "0",
       min_stock: "0",
@@ -140,7 +151,7 @@ export default function IngredientsUI() {
     setEditingId(item.id);
     setForm({
       name: item.name,
-      category: item.category || "General",
+      category_id: item.category_id ? String(item.category_id) : "",
       unit: item.unit,
       stock_qty: String(item.stock_qty),
       min_stock: String(item.min_stock),
@@ -158,12 +169,12 @@ export default function IngredientsUI() {
 
   async function submitForm() {
     const name = form.name.trim();
-    const category = form.category.trim();
+    const categoryId = Number(form.category_id);
     const stockQty = toNumber(form.stock_qty.trim() || "0");
     const minStock = toNumber(form.min_stock.trim() || "0");
     const unit = form.unit.trim();
 
-    if (!name || !category || !unit || stockQty === null || minStock === null) {
+    if (!name || !Number.isInteger(categoryId) || categoryId <= 0 || !unit || stockQty === null || minStock === null) {
       return;
     }
 
@@ -174,7 +185,7 @@ export default function IngredientsUI() {
       if (editingId !== null) {
         await updateIngredient(editingId, {
           name,
-          category,
+          category_id: categoryId,
           unit,
           stock_qty: stockQty,
           min_stock: minStock,
@@ -182,7 +193,7 @@ export default function IngredientsUI() {
       } else {
         await createIngredient({
           name,
-          category,
+          category_id: categoryId,
           unit,
           stock_qty: stockQty,
           min_stock: minStock,
@@ -243,6 +254,9 @@ export default function IngredientsUI() {
     <div className="space-y-6">
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
       {loading ? <p className="text-sm text-[#7C5D58]">Loading ingredients...</p> : null}
+      {!loading && categories.length === 0 ? (
+        <p className="text-sm text-[#7C5D58]">Create at least one category on the Categories page before adding ingredients.</p>
+      ) : null}
 
       <Card>
         <CardContent className="p-4">
@@ -263,8 +277,8 @@ export default function IngredientsUI() {
               <SelectContent>
                 <SelectItem value="all">All Categories</SelectItem>
                 {categories.map((category) => (
-                  <SelectItem key={category} value={category}>
-                    {category}
+                  <SelectItem key={category.id} value={String(category.id)}>
+                    {category.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -279,7 +293,7 @@ export default function IngredientsUI() {
                 <SelectItem value="low_stock">Low Stock</SelectItem>
               </SelectContent>
             </Select>
-            <Button onClick={openAddDialog}>
+            <Button onClick={openAddDialog} disabled={categories.length === 0}>
               <Plus className="h-4 w-4" />
               Add Ingredient
             </Button>
@@ -307,7 +321,10 @@ export default function IngredientsUI() {
               </thead>
               <tbody>
                 {filtered.map((item) => {
-                  const category = item.category || "General";
+                  const category =
+                    item.category ||
+                    (item.category_id ? categoryMap.get(item.category_id) : null) ||
+                    "Uncategorized";
                   const isLow = Number(item.stock_qty) < Number(item.min_stock);
                   return (
                     <tr
@@ -409,11 +426,21 @@ export default function IngredientsUI() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-[#4B2E2B]">Category</label>
-                <Input
-                  value={form.category}
-                  onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))}
-                  placeholder="e.g. Coffee"
-                />
+                <Select
+                  value={form.category_id}
+                  onValueChange={(value) => setForm((prev) => ({ ...prev, category_id: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((category) => (
+                      <SelectItem key={category.id} value={String(category.id)}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-[#4B2E2B]">Unit</label>
@@ -455,7 +482,7 @@ export default function IngredientsUI() {
               disabled={
                 saving ||
                 !form.name.trim() ||
-                !form.category.trim() ||
+                !form.category_id.trim() ||
                 !form.unit.trim() ||
                 toNumber(form.stock_qty) === null ||
                 toNumber(form.min_stock) === null

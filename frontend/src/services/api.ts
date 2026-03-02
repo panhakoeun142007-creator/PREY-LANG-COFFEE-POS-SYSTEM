@@ -48,12 +48,37 @@ export async function safeFetch(path: string, init?: globalThis.RequestInit): Pr
   const bases = buildCandidateBases();
   let lastError: unknown = null;
   const attempted: string[] = [];
+  const htmlResponses: string[] = [];
+  const authToken = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
 
   for (const base of bases) {
     const url = buildUrl(path, base);
     attempted.push(url);
     try {
-      const response = await fetch(url, init);
+      const headers = new Headers(init?.headers);
+      if (!headers.has("Accept")) {
+        headers.set("Accept", "application/json");
+      }
+      if (!headers.has("X-Requested-With")) {
+        headers.set("X-Requested-With", "XMLHttpRequest");
+      }
+      if (authToken) {
+        headers.set("Authorization", `Bearer ${authToken}`);
+      }
+
+      const response = await fetch(url, {
+        ...init,
+        headers,
+      });
+      const contentType = response.headers.get("content-type")?.toLowerCase() || "";
+
+      // If this base points to a frontend/dev server route, we may get HTML.
+      // Skip it and continue trying API bases that return JSON.
+      if (contentType.includes("text/html")) {
+        htmlResponses.push(url);
+        continue;
+      }
+
       if ([502, 503, 504].includes(response.status)) {
         continue;
       }
@@ -66,6 +91,12 @@ export async function safeFetch(path: string, init?: globalThis.RequestInit): Pr
   if (lastError instanceof Error) {
     throw new Error(
       `Cannot connect to API server. Start Laravel with: php artisan serve. Tried: ${attempted.join(", ")}`,
+    );
+  }
+
+  if (htmlResponses.length > 0) {
+    throw new Error(
+      `API base URL is misconfigured (received HTML instead of JSON). Check VITE_API_URL. Tried: ${htmlResponses.join(", ")}`,
     );
   }
 
@@ -144,6 +175,46 @@ export interface CurrentUser {
   role: string;
   initials: string;
   profile_image_url?: string | null;
+}
+
+export interface LoginResponse {
+  token: string;
+  user: {
+    id: number;
+    name: string;
+    email: string;
+    role: string;
+  };
+}
+
+export async function loginAdmin(email: string, password: string): Promise<LoginResponse> {
+  const response = await safeFetch("/login", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ email, password }),
+  });
+
+  if (!response.ok) {
+    throw await readApiError(response, "Login failed");
+  }
+
+  const payload = (await response.json()) as LoginResponse;
+  localStorage.setItem("auth_token", payload.token);
+  return payload;
+}
+
+export async function logoutAdmin(): Promise<void> {
+  const response = await safeFetch("/logout", {
+    method: "POST",
+  });
+
+  localStorage.removeItem("auth_token");
+
+  if (!response.ok) {
+    throw await readApiError(response, "Logout failed");
+  }
 }
 
 // Dashboard
@@ -663,6 +734,8 @@ export async function deleteTable(id: number): Promise<void> {
 export interface ApiIngredient {
   id: number;
   name: string;
+  category_id: number | null;
+  category?: string | null;
   unit: string;
   stock_qty: number;
   min_stock: number;
@@ -672,10 +745,12 @@ export interface ApiIngredient {
 export interface IngredientApiItem {
   id: number;
   name: string;
-  category: string;
+  category_id: number | null;
+  category: string | null;
   unit: string;
   stock_qty: number;
   min_stock: number;
+  unit_cost?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -699,7 +774,7 @@ export async function fetchIngredients(): Promise<IngredientApiItem[]> {
 
 export async function createIngredient(payload: {
   name: string;
-  category: string;
+  category_id: number;
   unit: string;
   stock_qty: number;
   min_stock: number;
@@ -723,7 +798,7 @@ export async function updateIngredient(
   ingredientId: number,
   payload: {
     name?: string;
-    category?: string;
+    category_id?: number;
     unit?: string;
     stock_qty?: number;
     min_stock?: number;

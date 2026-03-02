@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DiningTableController;
@@ -19,11 +20,14 @@ Route::get('/health', function () {
     return response()->json(['status' => 'ok']);
 });
 
+Route::post('/login', [AuthController::class, 'login']);
+
 // Dashboard statistics
 Route::get('/dashboard', [DashboardController::class, 'index']);
 Route::get('/dashboard/notifications', [DashboardController::class, 'notifications']);
 
 // User info
+Route::post('/logout', [AuthController::class, 'logout'])->middleware('admin.api');
 Route::get('/user/me', [UserController::class, 'me']);
 Route::post('/user/me', [UserController::class, 'updateMe']);
 
