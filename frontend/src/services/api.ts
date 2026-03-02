@@ -25,9 +25,9 @@ function buildUrl(path: string, base: string): string {
 function buildCandidateBases(): string[] {
   const bases = new Set<string>();
   bases.add(API_URL);
-  bases.add("/api");
   bases.add("http://127.0.0.1:8000/api");
   bases.add("http://localhost:8000/api");
+  bases.add("/api");
 
   if (API_URL.includes("localhost:8000")) {
     bases.add("http://127.0.0.1:8000/api");
@@ -232,7 +232,7 @@ export async function fetchNotifications(): Promise<{ notifications: Notificatio
   const response = await safeFetch("/dashboard/notifications");
   
   if (!response.ok) {
-    throw new Error('Failed to fetch notifications');
+    return { notifications: [] };
   }
   
   return response.json();
