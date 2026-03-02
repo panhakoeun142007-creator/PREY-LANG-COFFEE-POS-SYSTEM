@@ -31,6 +31,7 @@ class IngredientController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:100', Rule::unique('ingredients', 'name')],
+            'category' => ['required', 'string', 'max:50'],
             'unit' => ['required', 'string', 'max:20'],
             'stock_qty' => ['required', 'numeric', 'min:0'],
             'min_stock' => ['required', 'numeric', 'min:0'],
@@ -56,6 +57,7 @@ class IngredientController extends Controller
     {
         $validated = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:100', Rule::unique('ingredients', 'name')->ignore($ingredient->id)],
+            'category' => ['sometimes', 'required', 'string', 'max:50'],
             'unit' => ['sometimes', 'required', 'string', 'max:20'],
             'stock_qty' => ['sometimes', 'required', 'numeric', 'min:0'],
             'min_stock' => ['sometimes', 'required', 'numeric', 'min:0'],

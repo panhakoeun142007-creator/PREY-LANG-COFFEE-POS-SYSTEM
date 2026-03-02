@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\RecipeController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
+
 Route::get('/health', function () {
     return response()->json(['status' => 'ok']);
 });

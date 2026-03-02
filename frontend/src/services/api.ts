@@ -44,7 +44,7 @@ function buildCandidateBases(): string[] {
   return Array.from(bases);
 }
 
-async function safeFetch(path: string, init?: RequestInit): Promise<Response> {
+async function safeFetch(path: string, init?: globalThis.RequestInit): Promise<Response> {
   const bases = buildCandidateBases();
   let lastError: unknown = null;
   const attempted: string[] = [];
@@ -265,6 +265,19 @@ export interface IngredientApiItem {
   updated_at: string;
 }
 
+export type ExpenseCategory = "ingredients" | "utilities" | "salary" | "rent" | "other";
+
+export interface ExpenseApiItem {
+  id: number;
+  title: string;
+  amount: number;
+  category: ExpenseCategory;
+  date: string;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export async function fetchOrderHistory(params: OrderHistoryParams = {}): Promise<PaginatedResponse<LiveOrder>> {
   const queryParams = new URLSearchParams();
   
@@ -420,5 +433,77 @@ export async function deleteCategory(categoryId: number): Promise<void> {
 
   if (!response.ok) {
     throw await readApiError(response, 'Failed to delete category');
+  }
+}
+
+export async function fetchExpenses(params: { category?: ExpenseCategory; page?: number } = {}): Promise<PaginatedResponse<ExpenseApiItem>> {
+  const queryParams = new URLSearchParams();
+  if (params.category) queryParams.append("category", params.category);
+  if (params.page) queryParams.append("page", String(params.page));
+
+  const query = queryParams.toString();
+  const response = await safeFetch(query ? `/expenses?${query}` : "/expenses");
+
+  if (!response.ok) {
+    throw await readApiError(response, "Failed to fetch expenses");
+  }
+
+  return response.json();
+}
+
+export async function createExpense(payload: {
+  title: string;
+  amount: number;
+  category: ExpenseCategory;
+  date: string;
+  note?: string;
+}): Promise<ExpenseApiItem> {
+  const response = await safeFetch("/expenses", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw await readApiError(response, "Failed to create expense");
+  }
+
+  return response.json();
+}
+
+export async function updateExpense(
+  expenseId: number,
+  payload: {
+    title?: string;
+    amount?: number;
+    category?: ExpenseCategory;
+    date?: string;
+    note?: string | null;
+  },
+): Promise<ExpenseApiItem> {
+  const response = await safeFetch(`/expenses/${expenseId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw await readApiError(response, "Failed to update expense");
+  }
+
+  return response.json();
+}
+
+export async function deleteExpense(expenseId: number): Promise<void> {
+  const response = await safeFetch(`/expenses/${expenseId}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    throw await readApiError(response, "Failed to delete expense");
   }
 }

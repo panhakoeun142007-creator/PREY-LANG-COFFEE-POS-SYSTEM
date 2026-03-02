@@ -7,6 +7,7 @@ import OrderHistory from "./pages/OrderHistory";
 import PlaceholderPage from "./pages/PlaceholderPage";
 import ReceiptsPage from "./pages/ReceiptsPage";
 import IngredientsPage from "./pages/IngredientsPage";
+import IncomePage from "./components/ui/income";
 
 export default function App() {
   return (
@@ -21,7 +22,7 @@ export default function App() {
         <Route path="tables" element={<PlaceholderPage title="Table Management" />} />
         <Route path="recipes" element={<PlaceholderPage title="Recipes" />} />
         <Route path="stock" element={<IngredientsPage />} />
-        <Route path="finance" element={<PlaceholderPage title="Income & Expenses" />} />
+        <Route path="finance" element={<IncomePage />} />
         <Route path="analytics" element={<PlaceholderPage title="Sales Analytics" />} />
         <Route path="settings" element={<PlaceholderPage title="Settings" />} />
         <Route path="*" element={<Navigate to="/" replace />} />
