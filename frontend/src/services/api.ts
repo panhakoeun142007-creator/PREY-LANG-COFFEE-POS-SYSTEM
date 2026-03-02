@@ -538,6 +538,19 @@ export async function fetchOrderHistory(params: OrderHistoryParams = {}): Promis
   return response.json() as Promise<PaginatedOrderHistoryResponse>;
 }
 
+export type ExpenseCategory = "ingredients" | "utilities" | "salary" | "rent" | "other";
+
+export interface ExpenseApiItem {
+  id: number;
+  title: string;
+  amount: number;
+  category: ExpenseCategory;
+  date: string;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // Categories
 export interface Category {
   id: number;
@@ -1011,5 +1024,77 @@ export async function deleteRecipeBoard(productId: number, size: RecipeSize): Pr
 
   if (!response.ok) {
     throw new Error('Failed to delete recipe');
+  }
+}
+
+export async function fetchExpenses(params: { category?: ExpenseCategory; page?: number } = {}): Promise<PaginatedResponse<ExpenseApiItem>> {
+  const queryParams = new URLSearchParams();
+  if (params.category) queryParams.append("category", params.category);
+  if (params.page) queryParams.append("page", String(params.page));
+
+  const query = queryParams.toString();
+  const response = await safeFetch(query ? `/expenses?${query}` : "/expenses");
+
+  if (!response.ok) {
+    throw await readApiError(response, "Failed to fetch expenses");
+  }
+
+  return response.json();
+}
+
+export async function createExpense(payload: {
+  title: string;
+  amount: number;
+  category: ExpenseCategory;
+  date: string;
+  note?: string;
+}): Promise<ExpenseApiItem> {
+  const response = await safeFetch("/expenses", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw await readApiError(response, "Failed to create expense");
+  }
+
+  return response.json();
+}
+
+export async function updateExpense(
+  expenseId: number,
+  payload: {
+    title?: string;
+    amount?: number;
+    category?: ExpenseCategory;
+    date?: string;
+    note?: string | null;
+  },
+): Promise<ExpenseApiItem> {
+  const response = await safeFetch(`/expenses/${expenseId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw await readApiError(response, "Failed to update expense");
+  }
+
+  return response.json();
+}
+
+export async function deleteExpense(expenseId: number): Promise<void> {
+  const response = await safeFetch(`/expenses/${expenseId}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    throw await readApiError(response, "Failed to delete expense");
   }
 }

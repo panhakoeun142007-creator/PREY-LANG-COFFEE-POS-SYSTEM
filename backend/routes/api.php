@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\StaffController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
+
 Route::get('/health', function () {
     return response()->json(['status' => 'ok']);
 });

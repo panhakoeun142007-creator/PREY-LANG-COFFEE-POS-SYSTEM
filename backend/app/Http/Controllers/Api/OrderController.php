@@ -97,7 +97,7 @@ class OrderController extends Controller
     public function update(Request $request, Order $order): JsonResponse
     {
         $validated = $request->validate([
-            'table_id' => ['sometimes', 'required', 'exists:tables,id'],
+            'table_id' => ['sometimes', 'required', 'exists:dining_tables,id'],
             'status' => ['sometimes', Rule::in(['pending', 'preparing', 'ready', 'completed', 'cancelled'])],
             'payment_type' => ['sometimes', 'required', Rule::in(['cash', 'khqr'])],
             'queue_number' => ['sometimes', 'nullable', 'integer', 'min:1'],
