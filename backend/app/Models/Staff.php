@@ -22,6 +22,7 @@ class Staff extends Model
         'password',
         'salary',
         'is_active',
+        'profile_image',
     ];
 
     /**

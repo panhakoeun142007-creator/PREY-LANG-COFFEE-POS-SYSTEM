@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Eye, EyeOff, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import {
@@ -21,29 +21,31 @@ import {
   TableRow,
 } from "../components/ui/table";
 import {
-  createCustomer,
-  CustomerApiItem,
-  deleteCustomer,
-  fetchCustomers,
-  updateCustomer,
+  createStaff,
+  deleteStaff,
+  fetchStaffs,
+  StaffApiItem,
+  updateStaff,
 } from "../services/api";
 
 type StatusFilter = "all" | "active" | "inactive";
 
-type CustomerFormState = {
+type StaffFormState = {
   name: string;
   email: string;
   password: string;
   salary: string;
   is_active: boolean;
+  profile_image: File | null;
 };
 
-const initialForm: CustomerFormState = {
+const initialForm: StaffFormState = {
   name: "",
   email: "",
   password: "",
   salary: "0",
   is_active: true,
+  profile_image: null,
 };
 
 const money = new Intl.NumberFormat("en-US", {
@@ -51,64 +53,102 @@ const money = new Intl.NumberFormat("en-US", {
   currency: "USD",
 });
 
-export default function CustomerManagementPage() {
-  const [customers, setCustomers] = useState<CustomerApiItem[]>([]);
+export default function StaffManagementPage() {
+  const [staffs, setStaffs] = useState<StaffApiItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingCustomer, setEditingCustomer] = useState<CustomerApiItem | null>(null);
-  const [form, setForm] = useState<CustomerFormState>(initialForm);
+  const [editingStaff, setEditingStaff] = useState<StaffApiItem | null>(null);
+  const [form, setForm] = useState<StaffFormState>(initialForm);
+  const [profilePreviewUrl, setProfilePreviewUrl] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [staffPasswordVisibility, setStaffPasswordVisibility] = useState<Record<number, boolean>>({});
+  const [staffPasswordCache, setStaffPasswordCache] = useState<Record<number, string>>({});
 
   useEffect(() => {
-    void loadCustomers();
+    void loadStaffs();
   }, [statusFilter]);
 
-  async function loadCustomers() {
+  useEffect(() => {
+    return () => {
+      if (profilePreviewUrl?.startsWith("blob:")) {
+        URL.revokeObjectURL(profilePreviewUrl);
+      }
+    };
+  }, [profilePreviewUrl]);
+
+  async function loadStaffs() {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetchCustomers({
+      const response = await fetchStaffs({
         is_active: statusFilter === "all" ? undefined : statusFilter === "active",
       });
-      setCustomers(response.data);
+      setStaffs(response.data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load staff");
-      setCustomers([]);
+      setStaffs([]);
     } finally {
       setLoading(false);
     }
   }
 
-  const filteredCustomers = useMemo(() => {
+  const filteredStaffs = useMemo(() => {
     const term = search.trim().toLowerCase();
-    if (!term) return customers;
-    return customers.filter(
+    if (!term) return staffs;
+    return staffs.filter(
       (item) =>
         item.name.toLowerCase().includes(term) || item.email.toLowerCase().includes(term),
     );
-  }, [customers, search]);
+  }, [staffs, search]);
 
-  const totalSalary = filteredCustomers.reduce((sum, c) => sum + Number(c.salary || 0), 0);
+  const totalSalary = filteredStaffs.reduce((sum, c) => sum + Number(c.salary || 0), 0);
 
   function openAddDialog() {
-    setEditingCustomer(null);
+    if (profilePreviewUrl?.startsWith("blob:")) {
+      URL.revokeObjectURL(profilePreviewUrl);
+    }
+    setEditingStaff(null);
     setForm(initialForm);
+    setProfilePreviewUrl(null);
+    setShowPassword(false);
     setDialogOpen(true);
   }
 
-  function openEditDialog(customer: CustomerApiItem) {
-    setEditingCustomer(customer);
+  function openEditDialog(staff: StaffApiItem) {
+    setEditingStaff(staff);
     setForm({
-      name: customer.name,
-      email: customer.email,
+      name: staff.name,
+      email: staff.email,
       password: "",
-      salary: String(customer.salary),
-      is_active: customer.is_active,
+      salary: String(staff.salary),
+      is_active: staff.is_active,
+      profile_image: null,
     });
+    if (profilePreviewUrl?.startsWith("blob:")) {
+      URL.revokeObjectURL(profilePreviewUrl);
+    }
+    setProfilePreviewUrl(staff.profile_image_url ?? null);
+    setShowPassword(false);
     setDialogOpen(true);
+  }
+
+  function handleProfileImageChange(file: File | null) {
+    if (profilePreviewUrl?.startsWith("blob:")) {
+      URL.revokeObjectURL(profilePreviewUrl);
+    }
+
+    if (!file) {
+      setForm((prev) => ({ ...prev, profile_image: null }));
+      setProfilePreviewUrl(editingStaff?.profile_image_url ?? null);
+      return;
+    }
+
+    setForm((prev) => ({ ...prev, profile_image: file }));
+    setProfilePreviewUrl(URL.createObjectURL(file));
   }
 
   async function handleSave() {
@@ -121,8 +161,8 @@ export default function CustomerManagementPage() {
       return;
     }
 
-    if (!editingCustomer && password.length < 6) {
-      setError("Password must be at least 6 characters for new customer.");
+    if (!editingStaff && password.length < 6) {
+      setError("Password must be at least 6 characters for new staff.");
       return;
     }
 
@@ -130,43 +170,67 @@ export default function CustomerManagementPage() {
       setSaving(true);
       setError(null);
 
-      if (editingCustomer) {
-        await updateCustomer(editingCustomer.id, {
+      if (editingStaff) {
+        const updated = await updateStaff(editingStaff.id, {
           name,
           email,
           salary,
           is_active: form.is_active,
           password: password ? password : undefined,
+          profile_image: form.profile_image,
         });
+        if (password) {
+          setStaffPasswordCache((prev) => ({ ...prev, [updated.id]: password }));
+          setStaffPasswordVisibility((prev) => ({ ...prev, [updated.id]: false }));
+        }
       } else {
-        await createCustomer({
+        const created = await createStaff({
           name,
           email,
           salary,
           is_active: form.is_active,
           password,
+          profile_image: form.profile_image,
         });
+        if (password) {
+          setStaffPasswordCache((prev) => ({ ...prev, [created.id]: password }));
+          setStaffPasswordVisibility((prev) => ({ ...prev, [created.id]: false }));
+        }
       }
 
-      await loadCustomers();
+      await loadStaffs();
       setDialogOpen(false);
+      if (profilePreviewUrl?.startsWith("blob:")) {
+        URL.revokeObjectURL(profilePreviewUrl);
+      }
+      setProfilePreviewUrl(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save customer");
+      setError(err instanceof Error ? err.message : "Failed to save staff");
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleDelete(customer: CustomerApiItem) {
-    const confirmed = window.confirm(`Delete staff "${customer.name}"?`);
+  async function handleDelete(staff: StaffApiItem) {
+    const confirmed = window.confirm(`Delete staff "${staff.name}"?`);
     if (!confirmed) {
       return;
     }
 
     try {
       setError(null);
-      await deleteCustomer(customer.id);
-      await loadCustomers();
+      await deleteStaff(staff.id);
+      await loadStaffs();
+      setStaffPasswordCache((prev) => {
+        const next = { ...prev };
+        delete next[staff.id];
+        return next;
+      });
+      setStaffPasswordVisibility((prev) => {
+        const next = { ...prev };
+        delete next[staff.id];
+        return next;
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete staff");
     }
@@ -220,7 +284,7 @@ export default function CustomerManagementPage() {
           <div className="flex flex-wrap items-center gap-3 text-sm text-[#7C5D58]">
             <p>
               Total Staff:{" "}
-              <span className="font-semibold text-[#4B2E2B]">{filteredCustomers.length}</span>
+              <span className="font-semibold text-[#4B2E2B]">{filteredStaffs.length}</span>
             </p>
             <p>
               Total Salary:{" "}
@@ -233,6 +297,7 @@ export default function CustomerManagementPage() {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
+                <TableHead>Password</TableHead>
                 <TableHead>Salary</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -241,31 +306,79 @@ export default function CustomerManagementPage() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-[#7C5D58]">
+                  <TableCell colSpan={6} className="py-8 text-center text-[#7C5D58]">
                     Loading staff...
                   </TableCell>
                 </TableRow>
-              ) : filteredCustomers.length === 0 ? (
+              ) : filteredStaffs.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-[#7C5D58]">
+                  <TableCell colSpan={6} className="py-8 text-center text-[#7C5D58]">
                     No staff found.
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredCustomers.map((customer) => (
-                  <TableRow key={customer.id}>
-                    <TableCell className="font-medium">{customer.name}</TableCell>
-                    <TableCell>{customer.email}</TableCell>
-                    <TableCell>{money.format(Number(customer.salary || 0))}</TableCell>
+                filteredStaffs.map((staff) => (
+                  <TableRow key={staff.id}>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        {staff.profile_image_url ? (
+                          <img
+                            src={staff.profile_image_url}
+                            alt={staff.name}
+                            className="h-8 w-8 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#F5E6D3] text-xs font-semibold text-[#4B2E2B]">
+                            {staff.name
+                              .split(" ")
+                              .filter(Boolean)
+                              .slice(0, 2)
+                              .map((part) => part[0]?.toUpperCase() ?? "")
+                              .join("") || "ST"}
+                          </div>
+                        )}
+                        <span>{staff.name}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>{staff.email}</TableCell>
+                    <TableCell>
+                      {staffPasswordCache[staff.id] ? (
+                        <div className="inline-flex items-center gap-2">
+                          <span className="font-mono text-xs">
+                            {staffPasswordVisibility[staff.id] ? staffPasswordCache[staff.id] : "••••••••"}
+                          </span>
+                          <button
+                            type="button"
+                            className="text-[#7C5D58] hover:text-[#4B2E2B]"
+                            aria-label={staffPasswordVisibility[staff.id] ? "Hide staff password" : "Show staff password"}
+                            onClick={() =>
+                              setStaffPasswordVisibility((prev) => ({
+                                ...prev,
+                                [staff.id]: !prev[staff.id],
+                              }))
+                            }
+                          >
+                            {staffPasswordVisibility[staff.id] ? (
+                              <EyeOff className="h-4 w-4" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-[#7C5D58]">Set in Edit</span>
+                      )}
+                    </TableCell>
+                    <TableCell>{money.format(Number(staff.salary || 0))}</TableCell>
                     <TableCell>
                       <span
                         className={
-                          customer.is_active
+                          staff.is_active
                             ? "font-semibold text-green-600"
                             : "font-semibold text-[#7C5D58]"
                         }
                       >
-                        {customer.is_active ? "Active" : "Inactive"}
+                        {staff.is_active ? "Active" : "Inactive"}
                       </span>
                     </TableCell>
                     <TableCell className="text-right">
@@ -273,7 +386,7 @@ export default function CustomerManagementPage() {
                         <Button
                           variant="outline"
                           size="icon"
-                          onClick={() => openEditDialog(customer)}
+                          onClick={() => openEditDialog(staff)}
                         >
                           <Pencil className="h-4 w-4" />
                         </Button>
@@ -281,7 +394,7 @@ export default function CustomerManagementPage() {
                           variant="outline"
                           size="icon"
                           className="text-red-600 hover:bg-red-50"
-                          onClick={() => handleDelete(customer)}
+                          onClick={() => handleDelete(staff)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -298,15 +411,43 @@ export default function CustomerManagementPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingCustomer ? "Edit Staff" : "Add Staff"}</DialogTitle>
+            <DialogTitle>{editingStaff ? "Edit Staff" : "Add Staff"}</DialogTitle>
             <DialogDescription>
-              {editingCustomer
-                ? "Update staff email, password, salary and account status."
-                : "Create a staff account with email, password and salary."}
+              {editingStaff
+                ? "Update staff profile image, email, password, salary and account status."
+                : "Create a staff account with profile image, email, password and salary."}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Profile Image</label>
+              <div className="flex items-center gap-3">
+                {profilePreviewUrl ? (
+                  <img
+                    src={profilePreviewUrl}
+                    alt="Profile preview"
+                    className="h-14 w-14 rounded-full border object-cover"
+                  />
+                ) : (
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full border bg-[#F5E6D3] text-sm font-semibold text-[#4B2E2B]">
+                    {form.name
+                      .split(" ")
+                      .filter(Boolean)
+                      .slice(0, 2)
+                      .map((part) => part[0]?.toUpperCase() ?? "")
+                      .join("") || "ST"}
+                  </div>
+                )}
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={(event) => handleProfileImageChange(event.target.files?.[0] ?? null)}
+                />
+              </div>
+              <p className="text-xs text-[#7C5D58]">Optional. JPG/PNG/WEBP up to 5MB.</p>
+            </div>
+
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Name</label>
               <Input
@@ -328,16 +469,27 @@ export default function CustomerManagementPage() {
 
             <div className="space-y-1.5">
               <label className="text-sm font-medium">
-                Password {editingCustomer ? "(leave blank to keep current)" : ""}
+                Password {editingStaff ? "(leave blank to keep current)" : ""}
               </label>
-              <Input
-                type="password"
-                value={form.password}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, password: event.target.value }))
-                }
-                placeholder={editingCustomer ? "Optional new password" : "Minimum 6 characters"}
-              />
+              <div className="relative">
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  value={form.password}
+                  onChange={(event) =>
+                    setForm((prev) => ({ ...prev, password: event.target.value }))
+                  }
+                  placeholder={editingStaff ? "Optional new password" : "Minimum 6 characters"}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute inset-y-0 right-2 inline-flex items-center text-[#7C5D58] hover:text-[#4B2E2B]"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
 
             <div className="space-y-1.5">
@@ -363,11 +515,20 @@ export default function CustomerManagementPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDialogOpen(false);
+                if (profilePreviewUrl?.startsWith("blob:")) {
+                  URL.revokeObjectURL(profilePreviewUrl);
+                }
+                setProfilePreviewUrl(null);
+              }}
+            >
               Cancel
             </Button>
             <Button onClick={handleSave} disabled={saving}>
-              {saving ? "Saving..." : editingCustomer ? "Save Changes" : "Create Staff"}
+              {saving ? "Saving..." : editingStaff ? "Save Changes" : "Create Staff"}
             </Button>
           </DialogFooter>
         </DialogContent>

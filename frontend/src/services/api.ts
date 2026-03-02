@@ -272,26 +272,27 @@ export async function updateCurrentUser(payload: {
   return response.json();
 }
 
-// Customers
-export interface CustomerApiItem {
+// Staff
+export interface StaffApiItem {
   id: number;
   name: string;
   email: string;
   salary: number;
   is_active: boolean;
+  profile_image_url?: string | null;
   created_at: string;
   updated_at: string;
 }
 
-export interface FetchCustomersParams {
+export interface FetchStaffsParams {
   search?: string;
   is_active?: boolean;
   page?: number;
 }
 
-export async function fetchCustomers(
-  params: FetchCustomersParams = {},
-): Promise<PaginatedResponse<CustomerApiItem>> {
+export async function fetchStaffs(
+  params: FetchStaffsParams = {},
+): Promise<PaginatedResponse<StaffApiItem>> {
   const queryParams = new URLSearchParams();
   if (params.search) queryParams.append("search", params.search);
   if (params.is_active !== undefined) queryParams.append("is_active", String(params.is_active));
@@ -301,78 +302,113 @@ export async function fetchCustomers(
   const response = await safeFetch(`/staffs${query ? `?${query}` : ""}`);
 
   if (!response.ok) {
-    throw new Error("Failed to fetch customers");
+    throw new Error("Failed to fetch staff");
   }
 
   const payload = await response.json();
   if (Array.isArray(payload)) {
     return {
-      data: payload as CustomerApiItem[],
+      data: payload as StaffApiItem[],
       current_page: 1,
       last_page: 1,
       per_page: payload.length,
       total: payload.length,
     };
   }
-  return payload as PaginatedResponse<CustomerApiItem>;
+  return payload as PaginatedResponse<StaffApiItem>;
 }
 
-export async function createCustomer(payload: {
+export async function createStaff(payload: {
   name: string;
   email: string;
   password: string;
   salary: number;
   is_active?: boolean;
-}): Promise<CustomerApiItem> {
+  profile_image?: File | null;
+}): Promise<StaffApiItem> {
+  const body = new FormData();
+  body.append("name", payload.name);
+  body.append("email", payload.email);
+  body.append("password", payload.password);
+  body.append("salary", String(payload.salary));
+  if (payload.is_active !== undefined) {
+    body.append("is_active", payload.is_active ? "1" : "0");
+  }
+  if (payload.profile_image) {
+    body.append("profile_image", payload.profile_image);
+  }
+
   const response = await safeFetch("/staffs", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
+    body,
   });
 
   if (!response.ok) {
-    throw await readApiError(response, "Failed to create customer");
+    throw await readApiError(response, "Failed to create staff");
   }
 
   return response.json();
 }
 
-export async function updateCustomer(
-  customerId: number,
+export async function updateStaff(
+  staffId: number,
   payload: {
     name?: string;
     email?: string;
     password?: string;
     salary?: number;
     is_active?: boolean;
+    profile_image?: File | null;
   },
-): Promise<CustomerApiItem> {
-  const response = await safeFetch(`/staffs/${customerId}`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
+): Promise<StaffApiItem> {
+  const hasProfileImage = payload.profile_image instanceof File;
+  const response = hasProfileImage
+    ? await safeFetch(`/staffs/${staffId}`, {
+        method: "POST",
+        body: (() => {
+          const body = new FormData();
+          body.append("_method", "PUT");
+          if (payload.name !== undefined) body.append("name", payload.name);
+          if (payload.email !== undefined) body.append("email", payload.email);
+          if (payload.password !== undefined) body.append("password", payload.password);
+          if (payload.salary !== undefined) body.append("salary", String(payload.salary));
+          if (payload.is_active !== undefined) body.append("is_active", payload.is_active ? "1" : "0");
+          body.append("profile_image", payload.profile_image);
+          return body;
+        })(),
+      })
+    : await safeFetch(`/staffs/${staffId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
 
   if (!response.ok) {
-    throw await readApiError(response, "Failed to update customer");
+    throw await readApiError(response, "Failed to update staff");
   }
 
   return response.json();
 }
 
-export async function deleteCustomer(customerId: number): Promise<void> {
-  const response = await safeFetch(`/staffs/${customerId}`, {
+export async function deleteStaff(staffId: number): Promise<void> {
+  const response = await safeFetch(`/staffs/${staffId}`, {
     method: "DELETE",
   });
 
   if (!response.ok) {
-    throw await readApiError(response, "Failed to delete customer");
+    throw await readApiError(response, "Failed to delete staff");
   }
 }
+
+// Backward-compatible aliases
+export type CustomerApiItem = StaffApiItem;
+export type FetchCustomersParams = FetchStaffsParams;
+export const fetchCustomers = fetchStaffs;
+export const createCustomer = createStaff;
+export const updateCustomer = updateStaff;
+export const deleteCustomer = deleteStaff;
 
 // Order types
 export interface OrderItem {

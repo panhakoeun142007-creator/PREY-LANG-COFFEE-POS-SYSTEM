@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Staff;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class StaffController extends Controller
@@ -30,7 +31,12 @@ class StaffController extends Controller
             $query->where('is_active', $request->boolean('is_active'));
         }
 
-        return response()->json($query->paginate(20));
+        $paginator = $query->paginate(20);
+        $paginator->setCollection(
+            $paginator->getCollection()->map(fn (Staff $staff) => $this->serializeStaff($staff))
+        );
+
+        return response()->json($paginator);
     }
 
     /**
@@ -44,11 +50,16 @@ class StaffController extends Controller
             'password' => ['required', 'string', 'min:6', 'max:255'],
             'salary' => ['required', 'numeric', 'min:0'],
             'is_active' => ['sometimes', 'boolean'],
+            'profile_image' => ['nullable', 'image', 'max:5120'],
         ]);
+
+        if ($request->hasFile('profile_image')) {
+            $validated['profile_image'] = $request->file('profile_image')->store('profile-images', 'public');
+        }
 
         $staff = Staff::create($validated);
 
-        return response()->json($staff, 201);
+        return response()->json($this->serializeStaff($staff), 201);
     }
 
     /**
@@ -56,7 +67,7 @@ class StaffController extends Controller
      */
     public function show(Staff $staff): JsonResponse
     {
-        return response()->json($staff);
+        return response()->json($this->serializeStaff($staff));
     }
 
     /**
@@ -70,15 +81,23 @@ class StaffController extends Controller
             'password' => ['nullable', 'string', 'min:6', 'max:255'],
             'salary' => ['sometimes', 'required', 'numeric', 'min:0'],
             'is_active' => ['sometimes', 'boolean'],
+            'profile_image' => ['nullable', 'image', 'max:5120'],
         ]);
 
         if (array_key_exists('password', $validated) && !$validated['password']) {
             unset($validated['password']);
         }
 
+        if ($request->hasFile('profile_image')) {
+            if ($staff->profile_image) {
+                Storage::disk('public')->delete($staff->profile_image);
+            }
+            $validated['profile_image'] = $request->file('profile_image')->store('profile-images', 'public');
+        }
+
         $staff->update($validated);
 
-        return response()->json($staff->fresh());
+        return response()->json($this->serializeStaff($staff->fresh()));
     }
 
     /**
@@ -86,8 +105,25 @@ class StaffController extends Controller
      */
     public function destroy(Staff $staff): JsonResponse
     {
+        if ($staff->profile_image) {
+            Storage::disk('public')->delete($staff->profile_image);
+        }
+
         $staff->delete();
 
         return response()->json(['message' => 'Staff deleted']);
+    }
+
+    private function serializeStaff(Staff $staff): array
+    {
+        $payload = $staff->toArray();
+        $payload['profile_image_url'] = null;
+
+        if ($staff->profile_image) {
+            $base = request()->getSchemeAndHttpHost();
+            $payload['profile_image_url'] = $base . '/storage/' . ltrim($staff->profile_image, '/');
+        }
+
+        return $payload;
     }
 }

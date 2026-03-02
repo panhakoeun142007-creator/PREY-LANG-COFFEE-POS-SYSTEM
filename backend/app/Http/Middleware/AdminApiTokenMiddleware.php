@@ -21,8 +21,25 @@ class AdminApiTokenMiddleware
             return response()->json(['message' => 'Unauthorized'], 401);
         }
 
-        $userId = Cache::get("api_auth_token:{$token}");
-        if (!$userId) {
+        $session = Cache::get("api_auth_token:{$token}");
+        if (!$session) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+
+        // Backward compatibility for old token format: token => admin user id
+        if (is_int($session) || ctype_digit((string) $session)) {
+            $session = [
+                'subject_type' => 'admin',
+                'subject_id' => (int) $session,
+            ];
+        }
+
+        if (!is_array($session) || ($session['subject_type'] ?? null) !== 'admin') {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        $userId = (int) ($session['subject_id'] ?? 0);
+        if ($userId <= 0) {
             return response()->json(['message' => 'Unauthorized'], 401);
         }
 
