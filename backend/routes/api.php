@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\PurchaseController;
 use App\Http\Controllers\Api\RecipeController;
 use App\Http\Controllers\Api\ReceiptController;
+use App\Http\Controllers\Api\SalesAnalyticsController;
 use App\Http\Controllers\Api\StaffController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
@@ -25,6 +26,7 @@ Route::post('/login', [AuthController::class, 'login']);
 // Dashboard statistics
 Route::get('/dashboard', [DashboardController::class, 'index']);
 Route::get('/dashboard/notifications', [DashboardController::class, 'notifications']);
+Route::get('/sales-analytics', [SalesAnalyticsController::class, 'index']);
 
 // User info
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('admin.api');

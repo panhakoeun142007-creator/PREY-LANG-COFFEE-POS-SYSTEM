@@ -6,6 +6,7 @@ import StaffManagementPage from "./pages/CustomerManagementPage";
 import LiveOrders from "./pages/LiveOrders";
 import OrderHistory from "./pages/OrderHistory";
 import PlaceholderPage from "./pages/PlaceholderPage";
+import SalesAnalytics from "./pages/SalesAnalytics";
 import Products from "./pages/Products";
 import ReceiptsPage from "./pages/ReceiptsPage";
 import RecipesStockPage from "./pages/RecipesStockPage";
@@ -27,7 +28,7 @@ export default function App() {
         <Route path="stock" element={<IngredientsPage />} />
         <Route path="staff-management" element={<StaffManagementPage />} />
         <Route path="finance" element={<PlaceholderPage title="Income & Expenses" />} />
-        <Route path="analytics" element={<PlaceholderPage title="Sales Analytics" />} />
+        <Route path="analytics" element={<SalesAnalytics />} />
         <Route path="settings" element={<PlaceholderPage title="Settings" />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
