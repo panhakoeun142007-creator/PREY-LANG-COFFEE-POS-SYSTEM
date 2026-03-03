@@ -109,6 +109,9 @@ class AuthController extends Controller
 
         if (Hash::needsRehash($storedPassword)) {
             $account->password = $plainPassword;
+            if ($account instanceof Staff) {
+                $account->password_plain = $plainPassword;
+            }
             $account->save();
         }
 

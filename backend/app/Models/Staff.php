@@ -20,6 +20,7 @@ class Staff extends Model
         'name',
         'email',
         'password',
+        'password_plain',
         'salary',
         'is_active',
         'profile_image',
@@ -32,6 +33,7 @@ class Staff extends Model
      */
     protected $hidden = [
         'password',
+        'password_plain',
     ];
 
     /**
@@ -43,6 +45,7 @@ class Staff extends Model
     {
         return [
             'password' => 'hashed',
+            'password_plain' => 'encrypted',
             'salary' => 'decimal:2',
             'is_active' => 'boolean',
         ];

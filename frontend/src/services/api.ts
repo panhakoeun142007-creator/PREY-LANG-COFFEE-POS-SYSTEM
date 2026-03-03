@@ -17,6 +17,7 @@ function normalizeApiUrl(input?: string): string {
 }
 
 const API_URL = normalizeApiUrl(import.meta.env.VITE_API_URL as string | undefined);
+let preferredApiBase: string | null = null;
 
 function buildUrl(path: string, base: string): string {
   return `${base}${path}`;
@@ -24,6 +25,11 @@ function buildUrl(path: string, base: string): string {
 
 function buildCandidateBases(): string[] {
   const bases = new Set<string>();
+
+  if (preferredApiBase) {
+    bases.add(preferredApiBase);
+  }
+
   bases.add(API_URL);
   bases.add("http://127.0.0.1:8000/api");
   bases.add("http://localhost:8000/api");
@@ -82,8 +88,13 @@ export async function safeFetch(path: string, init?: globalThis.RequestInit): Pr
       if ([502, 503, 504].includes(response.status)) {
         continue;
       }
+
+      preferredApiBase = base;
       return response;
     } catch (error) {
+      if (preferredApiBase === base) {
+        preferredApiBase = null;
+      }
       lastError = error;
     }
   }
@@ -304,6 +315,7 @@ export interface StaffApiItem {
   id: number;
   name: string;
   email: string;
+  password_plain: string | null;
   salary: number;
   is_active: boolean;
   profile_image_url?: string | null;
@@ -551,6 +563,22 @@ export interface ExpenseApiItem {
   updated_at: string;
 }
 
+export interface IncomeApiItem {
+  id: number;
+  order_code: string;
+  queue_number: number;
+  table: string;
+  payment_type: "cash" | "khqr" | null;
+  amount: number;
+  date: string;
+  status: "completed";
+}
+
+export interface IncomeSummary {
+  total_income: number;
+  transactions: number;
+}
+
 // Categories
 export interface Category {
   id: number;
@@ -668,10 +696,11 @@ export async function fetchProducts(params: FetchProductsParams = {}): Promise<P
   if (params.category_id) queryParams.append('category_id', params.category_id.toString());
   if (params.is_available !== undefined) queryParams.append('is_available', params.is_available.toString());
   
-  const response = await fetch(`${API_URL}/products?${queryParams.toString()}`);
+  const query = queryParams.toString();
+  const response = await safeFetch(query ? `/products?${query}` : "/products");
   
   if (!response.ok) {
-    throw new Error('Failed to fetch products');
+    throw await readApiError(response, 'Failed to fetch products');
   }
   
   return response.json();
@@ -689,7 +718,7 @@ export interface CreateProductData {
 }
 
 export async function createProduct(data: CreateProductData): Promise<ApiProduct> {
-  const response = await fetch(`${API_URL}/products`, {
+  const response = await safeFetch("/products", {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -698,15 +727,14 @@ export async function createProduct(data: CreateProductData): Promise<ApiProduct
   });
   
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Failed to create product' }));
-    throw new Error(error.message || 'Failed to create product');
+    throw await readApiError(response, 'Failed to create product');
   }
   
   return response.json();
 }
 
 export async function updateProduct(id: number, data: Partial<CreateProductData>): Promise<ApiProduct> {
-  const response = await fetch(`${API_URL}/products/${id}`, {
+  const response = await safeFetch(`/products/${id}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -715,20 +743,19 @@ export async function updateProduct(id: number, data: Partial<CreateProductData>
   });
   
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Failed to update product' }));
-    throw new Error(error.message || 'Failed to update product');
+    throw await readApiError(response, 'Failed to update product');
   }
   
   return response.json();
 }
 
 export async function deleteProduct(id: number): Promise<void> {
-  const response = await fetch(`${API_URL}/products/${id}`, {
+  const response = await safeFetch(`/products/${id}`, {
     method: 'DELETE',
   });
   
   if (!response.ok) {
-    throw new Error('Failed to delete product');
+    throw await readApiError(response, 'Failed to delete product');
   }
 }
 
@@ -755,17 +782,17 @@ export interface CreateTableData {
 }
 
 export async function fetchTables(): Promise<PaginatedResponse<ApiTable>> {
-  const response = await fetch(`${API_URL}/tables`);
+  const response = await safeFetch("/tables");
   
   if (!response.ok) {
-    throw new Error('Failed to fetch tables');
+    throw await readApiError(response, 'Failed to fetch tables');
   }
   
   return response.json();
 }
 
 export async function createTable(data: CreateTableData): Promise<ApiTable> {
-  const response = await fetch(`${API_URL}/tables`, {
+  const response = await safeFetch("/tables", {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -774,14 +801,14 @@ export async function createTable(data: CreateTableData): Promise<ApiTable> {
   });
   
   if (!response.ok) {
-    throw new Error('Failed to create table');
+    throw await readApiError(response, 'Failed to create table');
   }
   
   return response.json();
 }
 
 export async function updateTable(id: number, data: Partial<CreateTableData>): Promise<ApiTable> {
-  const response = await fetch(`${API_URL}/tables/${id}`, {
+  const response = await safeFetch(`/tables/${id}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -790,19 +817,19 @@ export async function updateTable(id: number, data: Partial<CreateTableData>): P
   });
   
   if (!response.ok) {
-    throw new Error('Failed to update table');
+    throw await readApiError(response, 'Failed to update table');
   }
   
   return response.json();
 }
 
 export async function deleteTable(id: number): Promise<void> {
-  const response = await fetch(`${API_URL}/tables/${id}`, {
+  const response = await safeFetch(`/tables/${id}`, {
     method: 'DELETE',
   });
   
   if (!response.ok) {
-    throw new Error('Failed to delete table');
+    throw await readApiError(response, 'Failed to delete table');
   }
 }
 
@@ -951,17 +978,17 @@ export async function fetchRecipeBoard(
   if (params.status) queryParams.append('status', params.status);
 
   const query = queryParams.toString();
-  const response = await fetch(`${API_URL}/recipes-board${query ? `?${query}` : ''}`);
+  const response = await safeFetch(query ? `/recipes-board?${query}` : "/recipes-board");
 
   if (!response.ok) {
-    throw new Error('Failed to fetch recipe board');
+    throw await readApiError(response, 'Failed to fetch recipe board');
   }
 
   return response.json();
 }
 
 export async function createRecipeBoard(payload: RecipeBoardPayload): Promise<RecipeBoardRow> {
-  const response = await fetch(`${API_URL}/recipes-board`, {
+  const response = await safeFetch("/recipes-board", {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -970,8 +997,7 @@ export async function createRecipeBoard(payload: RecipeBoardPayload): Promise<Re
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Failed to create recipe' }));
-    throw new Error(error.message || 'Failed to create recipe');
+    throw await readApiError(response, 'Failed to create recipe');
   }
 
   return response.json();
@@ -981,7 +1007,7 @@ export async function updateRecipeBoard(
   productId: number,
   payload: Omit<RecipeBoardPayload, 'product_id'>,
 ): Promise<RecipeBoardRow> {
-  const response = await fetch(`${API_URL}/recipes-board/${productId}`, {
+  const response = await safeFetch(`/recipes-board/${productId}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -990,8 +1016,7 @@ export async function updateRecipeBoard(
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Failed to update recipe' }));
-    throw new Error(error.message || 'Failed to update recipe');
+    throw await readApiError(response, 'Failed to update recipe');
   }
 
   return response.json();
@@ -1001,7 +1026,7 @@ export async function updateRecipeBoardStatus(
   productId: number,
   isActive: boolean,
 ): Promise<{ product_id: number; status: 'active' | 'inactive' }> {
-  const response = await fetch(`${API_URL}/recipes-board/${productId}/status`, {
+  const response = await safeFetch(`/recipes-board/${productId}/status`, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
@@ -1010,20 +1035,19 @@ export async function updateRecipeBoardStatus(
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Failed to update recipe status' }));
-    throw new Error(error.message || 'Failed to update recipe status');
+    throw await readApiError(response, 'Failed to update recipe status');
   }
 
   return response.json();
 }
 
 export async function deleteRecipeBoard(productId: number, size: RecipeSize): Promise<void> {
-  const response = await fetch(`${API_URL}/recipes-board/${productId}/${size}`, {
+  const response = await safeFetch(`/recipes-board/${productId}/${size}`, {
     method: 'DELETE',
   });
 
   if (!response.ok) {
-    throw new Error('Failed to delete recipe');
+    throw await readApiError(response, 'Failed to delete recipe');
   }
 }
 
@@ -1037,6 +1061,32 @@ export async function fetchExpenses(params: { category?: ExpenseCategory; page?:
 
   if (!response.ok) {
     throw await readApiError(response, "Failed to fetch expenses");
+  }
+
+  return response.json();
+}
+
+export async function fetchIncomeTransactions(params: {
+  search?: string;
+  date_from?: string;
+  date_to?: string;
+  payment_type?: "cash" | "khqr";
+  page?: number;
+  per_page?: number;
+} = {}): Promise<PaginatedResponse<IncomeApiItem> & { summary: IncomeSummary }> {
+  const queryParams = new URLSearchParams();
+  if (params.search) queryParams.append("search", params.search);
+  if (params.date_from) queryParams.append("date_from", params.date_from);
+  if (params.date_to) queryParams.append("date_to", params.date_to);
+  if (params.payment_type) queryParams.append("payment_type", params.payment_type);
+  if (params.page) queryParams.append("page", String(params.page));
+  if (params.per_page) queryParams.append("per_page", String(params.per_page));
+
+  const query = queryParams.toString();
+  const response = await safeFetch(query ? `/finance/income?${query}` : "/finance/income");
+
+  if (!response.ok) {
+    throw await readApiError(response, "Failed to fetch income transactions");
   }
 
   return response.json();

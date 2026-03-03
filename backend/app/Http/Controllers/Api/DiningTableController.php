@@ -19,7 +19,7 @@ class DiningTableController extends Controller
     private function transform(DiningTable $table): array
     {
         return [
-            'id' => (string) $table->id,
+            'id' => (int) $table->id,
             'name' => $table->name,
             'capacity' => (int) $table->seats,
             'status' => $table->is_active ? 'active' : 'inactive',
@@ -67,10 +67,21 @@ class DiningTableController extends Controller
             'name' => ['required', 'string', 'max:100', Rule::unique('dining_tables', 'name')],
             'capacity' => ['sometimes', 'integer', 'min:1'],
             'seats' => ['sometimes', 'integer', 'min:1'],
-            'status' => ['sometimes', Rule::in(['available', 'occupied', 'reserved'])],
+            'status' => ['sometimes', Rule::in(['available', 'occupied', 'reserved', 'active', 'inactive'])],
             'is_active' => ['sometimes', 'boolean'],
+            'qrCode' => ['sometimes', 'string', 'max:191', Rule::unique('dining_tables', 'qr_code')],
             'qr_code' => ['sometimes', 'string', 'max:191', Rule::unique('dining_tables', 'qr_code')],
         ]);
+
+        if (array_key_exists('qrCode', $validated) && !array_key_exists('qr_code', $validated)) {
+            $validated['qr_code'] = $validated['qrCode'];
+            unset($validated['qrCode']);
+        }
+
+        if (array_key_exists('status', $validated) && in_array($validated['status'], ['active', 'inactive'], true)) {
+            $validated['is_active'] = $validated['status'] === 'active';
+            unset($validated['status']);
+        }
 
         $seats = $validated['capacity'] ?? $validated['seats'] ?? 2;
         $table = DiningTable::create([
@@ -101,14 +112,25 @@ class DiningTableController extends Controller
             'name' => ['sometimes', 'required', 'string', 'max:100', Rule::unique('dining_tables', 'name')->ignore($table->id)],
             'capacity' => ['sometimes', 'required', 'integer', 'min:1'],
             'seats' => ['sometimes', 'required', 'integer', 'min:1'],
-            'status' => ['sometimes', Rule::in(['available', 'occupied', 'reserved'])],
+            'status' => ['sometimes', Rule::in(['available', 'occupied', 'reserved', 'active', 'inactive'])],
             'is_active' => ['sometimes', 'boolean'],
+            'qrCode' => ['sometimes', 'required', 'string', 'max:191', Rule::unique('dining_tables', 'qr_code')->ignore($table->id)],
             'qr_code' => ['sometimes', 'required', 'string', 'max:191', Rule::unique('dining_tables', 'qr_code')->ignore($table->id)],
         ]);
 
         if (array_key_exists('capacity', $validated)) {
             $validated['seats'] = $validated['capacity'];
             unset($validated['capacity']);
+        }
+
+        if (array_key_exists('qrCode', $validated) && !array_key_exists('qr_code', $validated)) {
+            $validated['qr_code'] = $validated['qrCode'];
+            unset($validated['qrCode']);
+        }
+
+        if (array_key_exists('status', $validated) && in_array($validated['status'], ['active', 'inactive'], true)) {
+            $validated['is_active'] = $validated['status'] === 'active';
+            unset($validated['status']);
         }
 
         $table->update($validated);

@@ -1,36 +1,50 @@
+import { lazy, Suspense, type ReactElement } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import AppLayout from "./components/AppLayout";
-import DashboardPage from "./pages/DashboardPage";
-import CategoriesPage from "./pages/CategoriesPage";
-import StaffManagementPage from "./pages/CustomerManagementPage";
-import LiveOrders from "./pages/LiveOrders";
-import OrderHistory from "./pages/OrderHistory";
-import PlaceholderPage from "./pages/PlaceholderPage";
-import SalesAnalytics from "./pages/SalesAnalytics";
-import Products from "./pages/Products";
-import ReceiptsPage from "./pages/ReceiptsPage";
-import RecipesStockPage from "./pages/RecipesStockPage";
-import Tables from "./pages/Tables";
-import IngredientsPage from "./pages/IngredientsPage";
-import IncomePage from "./components/ui/income";
+
+const DashboardPage = lazy(() => import("./pages/DashboardPage"));
+const CategoriesPage = lazy(() => import("./pages/CategoriesPage"));
+const StaffManagementPage = lazy(() => import("./pages/CustomerManagementPage"));
+const LiveOrders = lazy(() => import("./pages/LiveOrders"));
+const OrderHistory = lazy(() => import("./pages/OrderHistory"));
+const PlaceholderPage = lazy(() => import("./pages/PlaceholderPage"));
+const SalesAnalytics = lazy(() => import("./pages/SalesAnalytics"));
+const Products = lazy(() => import("./pages/Products"));
+const ReceiptsPage = lazy(() => import("./pages/ReceiptsPage"));
+const RecipesStockPage = lazy(() => import("./pages/RecipesStockPage"));
+const Tables = lazy(() => import("./pages/Tables"));
+const IngredientsPage = lazy(() => import("./pages/IngredientsPage"));
+const IncomePage = lazy(() => import("./components/ui/income"));
+
+function RouteFallback() {
+  return (
+    <div className="rounded-lg border border-[#EAD6C0] bg-white p-4 text-sm text-[#7C5D58]">
+      Loading...
+    </div>
+  );
+}
+
+function withSuspense(element: ReactElement) {
+  return <Suspense fallback={<RouteFallback />}>{element}</Suspense>;
+}
 
 export default function App() {
   return (
     <Routes>
       <Route path="/" element={<AppLayout />}>
-        <Route index element={<DashboardPage />} />
-        <Route path="live-orders" element={<LiveOrders />} />
-        <Route path="order-history" element={<OrderHistory />} />
-        <Route path="receipts" element={<ReceiptsPage />} />
-        <Route path="products" element={<Products />} />
-        <Route path="categories" element={<CategoriesPage />} />
-        <Route path="tables" element={<Tables />} />
-        <Route path="recipes" element={<RecipesStockPage />} />
-        <Route path="stock" element={<IngredientsPage />} />
-        <Route path="staff-management" element={<StaffManagementPage />} />
-        <Route path="analytics" element={<SalesAnalytics />} />
-        <Route path="finance" element={<IncomePage />} />
-        <Route path="settings" element={<PlaceholderPage title="Settings" />} />
+        <Route index element={withSuspense(<DashboardPage />)} />
+        <Route path="live-orders" element={withSuspense(<LiveOrders />)} />
+        <Route path="order-history" element={withSuspense(<OrderHistory />)} />
+        <Route path="receipts" element={withSuspense(<ReceiptsPage />)} />
+        <Route path="products" element={withSuspense(<Products />)} />
+        <Route path="categories" element={withSuspense(<CategoriesPage />)} />
+        <Route path="tables" element={withSuspense(<Tables />)} />
+        <Route path="recipes" element={withSuspense(<RecipesStockPage />)} />
+        <Route path="stock" element={withSuspense(<IngredientsPage />)} />
+        <Route path="staff-management" element={withSuspense(<StaffManagementPage />)} />
+        <Route path="analytics" element={withSuspense(<SalesAnalytics />)} />
+        <Route path="finance" element={withSuspense(<IncomePage />)} />
+        <Route path="settings" element={withSuspense(<PlaceholderPage title="Settings" />)} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

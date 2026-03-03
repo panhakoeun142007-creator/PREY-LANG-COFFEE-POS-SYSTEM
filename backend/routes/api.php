@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DiningTableController;
 use App\Http\Controllers\Api\ExpenseController;
+use App\Http\Controllers\Api\FinanceController;
 use App\Http\Controllers\Api\IngredientController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\OrderItemController;
@@ -54,6 +55,7 @@ Route::patch('/recipes-board/{product}/status', [RecipeController::class, 'board
 Route::delete('/recipes-board/{product}/{size}', [RecipeController::class, 'boardDestroy']);
 Route::apiResource('recipes', RecipeController::class);
 Route::apiResource('expenses', ExpenseController::class);
+Route::get('/finance/income', [FinanceController::class, 'income']);
 Route::apiResource('purchases', PurchaseController::class);
 
 // Receipts (paid orders)

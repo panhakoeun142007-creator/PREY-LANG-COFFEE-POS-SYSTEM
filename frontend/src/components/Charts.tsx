@@ -32,10 +32,10 @@ export function Charts() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* Bar Chart */}
-      <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+      <div className="lg:col-span-2 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900">
         <div className="flex justify-between items-center mb-8">
-          <h3 className="font-bold text-slate-800">Monthly Revenue vs Expenses</h3>
-          <select className="text-xs font-semibold bg-background-light border-none rounded-lg px-3 py-2 focus:ring-0 outline-none cursor-pointer">
+          <h3 className="font-bold text-slate-800 dark:text-slate-100">Monthly Revenue vs Expenses</h3>
+          <select className="cursor-pointer rounded-lg border-none bg-background-light px-3 py-2 text-xs font-semibold outline-none focus:ring-0 dark:bg-slate-800 dark:text-slate-100">
             <option>Last 6 Months</option>
             <option>Year to Date</option>
           </select>
@@ -65,21 +65,21 @@ export function Charts() {
             </BarChart>
           </ResponsiveContainer>
         </div>
-        <div className="flex justify-center gap-6 pt-6 border-t border-slate-50 mt-4">
+        <div className="mt-4 flex justify-center gap-6 border-t border-slate-50 pt-6 dark:border-slate-700">
           <div className="flex items-center gap-2">
             <span className="size-2.5 rounded-full bg-primary/40"></span>
-            <span className="text-xs text-slate-500 font-medium">Expenses</span>
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-300">Expenses</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="size-2.5 rounded-full bg-primary"></span>
-            <span className="text-xs text-slate-500 font-medium">Revenue</span>
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-300">Revenue</span>
           </div>
         </div>
       </div>
 
       {/* Donut Chart */}
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col">
-        <h3 className="font-bold text-slate-800 mb-8">Expense Categories</h3>
+      <div className="flex flex-col rounded-2xl border border-slate-100 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <h3 className="mb-8 font-bold text-slate-800 dark:text-slate-100">Expense Categories</h3>
         <div className="relative h-[200px] w-full flex items-center justify-center mb-8">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
@@ -99,8 +99,8 @@ export function Charts() {
             </PieChart>
           </ResponsiveContainer>
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-            <span className="text-2xl font-bold text-slate-800">$8,120</span>
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Total</span>
+            <span className="text-2xl font-bold text-slate-800 dark:text-slate-100">$8,120</span>
+            <span className="text-[10px] font-bold uppercase tracking-tight text-slate-400 dark:text-slate-500">Total</span>
           </div>
         </div>
         <div className="space-y-3 mt-auto">
@@ -108,9 +108,9 @@ export function Charts() {
             <div key={item.name} className="flex justify-between items-center">
               <div className="flex items-center gap-2">
                 <span className="size-2 rounded-full" style={{ backgroundColor: item.color }}></span>
-                <span className="text-xs text-slate-500">{item.name}</span>
+                <span className="text-xs text-slate-500 dark:text-slate-300">{item.name}</span>
               </div>
-              <span className="text-xs font-bold">{item.value}%</span>
+              <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{item.value}%</span>
             </div>
           ))}
         </div>

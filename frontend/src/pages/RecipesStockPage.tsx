@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
@@ -78,27 +78,7 @@ export default function RecipesStockPage() {
     void loadLookups();
   }, []);
 
-  useEffect(() => {
-    void loadBoard();
-  }, [search, categoryFilter, statusFilter]);
-
-  async function loadLookups() {
-    try {
-      const [categoriesResponse, productsResponse, ingredientsResponse] = await Promise.all([
-        fetchCategories(),
-        fetchProducts({}),
-        fetchIngredients(),
-      ]);
-
-      setCategories(categoriesResponse);
-      setProducts(productsResponse.data);
-      setIngredients(ingredientsResponse);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load page data");
-    }
-  }
-
-  async function loadBoard() {
+  const loadBoard = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -113,6 +93,26 @@ export default function RecipesStockPage() {
       setRows([]);
     } finally {
       setLoading(false);
+    }
+  }, [search, categoryFilter, statusFilter]);
+
+  useEffect(() => {
+    void loadBoard();
+  }, [loadBoard]);
+
+  async function loadLookups() {
+    try {
+      const [categoriesResponse, productsResponse, ingredientsResponse] = await Promise.all([
+        fetchCategories(),
+        fetchProducts({}),
+        fetchIngredients(),
+      ]);
+
+      setCategories(categoriesResponse);
+      setProducts(productsResponse.data);
+      setIngredients(ingredientsResponse);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load page data");
     }
   }
 

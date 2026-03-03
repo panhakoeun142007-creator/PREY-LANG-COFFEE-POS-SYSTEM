@@ -162,10 +162,18 @@ class OrderController extends Controller
 
         // Search by order ID or queue number
         if ($request->filled('search')) {
-            $search = $request->string('search');
+            $search = trim((string) $request->string('search'));
             $query->where(function ($q) use ($search) {
-                $q->where('id', 'like', "%{$search}%")
-                  ->orWhere('queue_number', 'like', "%{$search}%");
+                if (ctype_digit($search)) {
+                    $q->orWhere('id', (int) $search)
+                        ->orWhere('queue_number', (int) $search);
+                } else {
+                    $q->orWhere('queue_number', 'like', "%{$search}%");
+                }
+
+                $q->orWhereHas('table', function ($tableQuery) use ($search) {
+                    $tableQuery->where('name', 'like', "%{$search}%");
+                });
             });
         }
 

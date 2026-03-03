@@ -25,6 +25,10 @@ function createQrCode(id: number): string {
   return `QR-${id}-${Date.now()}`;
 }
 
+function getQrValue(table: ApiTable): string {
+  return table.qrCode ?? table.qr_code ?? "No QR";
+}
+
 export default function Tables() {
   const [tables, setTables] = useState<ApiTable[]>([]);
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -65,7 +69,7 @@ export default function Tables() {
 
   const counts = useMemo(() => {
     const total = tables.length;
-    const active = tables.filter((t) => t.status === "active").length;
+    const active = tables.filter((t) => t.is_active).length;
     const inactive = total - active;
     return { total, active, inactive };
   }, [tables]);
@@ -78,7 +82,7 @@ export default function Tables() {
       setUpdatingIds((prev) => new Set(prev).add(id));
       setError(null);
       const updated = await updateTable(id, {
-        status: table.status === "active" ? "inactive" : "active",
+        is_active: !(table.status === "active"),
       });
       setTables((prev) => prev.map((t) => (t.id === id ? updated : t)));
       setPreviewTable((prev) => (prev && prev.id === id ? updated : prev));
@@ -97,7 +101,7 @@ export default function Tables() {
     try {
       setUpdatingIds((prev) => new Set(prev).add(id));
       setError(null);
-      const updated = await updateTable(id, { qrCode: createQrCode(id) });
+      const updated = await updateTable(id, { qr_code: createQrCode(id) });
       setTables((prev) => prev.map((t) => (t.id === id ? updated : t)));
       setPreviewTable((prev) => (prev && prev.id === id ? updated : prev));
     } catch (err) {
@@ -119,7 +123,7 @@ export default function Tables() {
     try {
       setIsCreating(true);
       setError(null);
-      const created = await createTable({ name, capacity, status: "active" });
+      const created = await createTable({ name, capacity, is_active: true });
       setTables((prev) => [created, ...prev]);
       setNewTableName("");
       setNewTableCapacity("4");
@@ -129,6 +133,50 @@ export default function Tables() {
     } finally {
       setIsCreating(false);
     }
+  };
+
+  const handleDownloadPreview = () => {
+    if (!previewTable) return;
+
+    const qrValue = getQrValue(previewTable);
+    const content = `Table: ${previewTable.name}\nQR: ${qrValue}\nCapacity: ${previewTable.capacity}`;
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${previewTable.name.replace(/\s+/g, "-").toLowerCase()}-qr.txt`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const handlePrintPreview = () => {
+    if (!previewTable) return;
+
+    const qrValue = getQrValue(previewTable);
+    const win = window.open("", "_blank", "width=420,height=620");
+    if (!win) {
+      setError("Popup was blocked. Please allow popups to print.");
+      return;
+    }
+
+    win.document.write(`
+      <html>
+        <head><title>${previewTable.name} QR</title></head>
+        <body style="font-family:Arial,sans-serif;padding:24px;text-align:center;">
+          <h2 style="margin-bottom:8px;">${previewTable.name}</h2>
+          <p style="margin-top:0;color:#666;">Capacity: ${previewTable.capacity}</p>
+          <div style="border:1px solid #ddd;border-radius:12px;padding:20px;margin:20px auto;max-width:300px;">
+            <div style="font-size:13px;color:#666;margin-bottom:8px;">QR Code Value</div>
+            <div style="font-family:monospace;word-break:break-all;">${qrValue}</div>
+          </div>
+        </body>
+      </html>
+    `);
+    win.document.close();
+    win.focus();
+    win.print();
   };
 
   return (
@@ -190,7 +238,7 @@ export default function Tables() {
                   <div>
                     <p className="text-xs text-[#7C5D58]">QR Preview</p>
                     <p className="text-xs font-mono text-[#4B2E2B] break-all">
-                      {table.qrCode ?? table.qr_code ?? "No QR"}
+                      {getQrValue(table)}
                     </p>
                   </div>
                 </div>
@@ -283,15 +331,22 @@ export default function Tables() {
                 <QrCode className="mx-auto h-28 w-28 text-[#4B2E2B]" />
                 <p className="mt-3 text-sm text-[#7C5D58]">{previewTable.name}</p>
                 <p className="mt-1 text-xs font-mono text-[#4B2E2B] break-all">
-                  {previewTable.qrCode ?? previewTable.qr_code ?? "No QR"}
+                  {getQrValue(previewTable)}
                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <Button variant="outline" className="border-[#EAD6C0] text-[#4B2E2B]">
+                <Button
+                  variant="outline"
+                  className="border-[#EAD6C0] text-[#4B2E2B]"
+                  onClick={handleDownloadPreview}
+                >
                   Download
                 </Button>
-                <Button className="bg-[#4B2E2B] hover:bg-[#5B3E3B] text-white">
+                <Button
+                  className="bg-[#4B2E2B] hover:bg-[#5B3E3B] text-white"
+                  onClick={handlePrintPreview}
+                >
                   Print
                 </Button>
               </div>

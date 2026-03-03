@@ -57,6 +57,7 @@ class StaffController extends Controller
             $validated['profile_image'] = $request->file('profile_image')->store('profile-images', 'public');
         }
 
+        $validated['password_plain'] = $validated['password'];
         $staff = Staff::create($validated);
 
         return response()->json($this->serializeStaff($staff), 201);
@@ -86,6 +87,10 @@ class StaffController extends Controller
 
         if (array_key_exists('password', $validated) && !$validated['password']) {
             unset($validated['password']);
+        }
+
+        if (array_key_exists('password', $validated)) {
+            $validated['password_plain'] = $validated['password'];
         }
 
         if ($request->hasFile('profile_image')) {
@@ -123,6 +128,7 @@ class StaffController extends Controller
             $base = request()->getSchemeAndHttpHost();
             $payload['profile_image_url'] = $base . '/storage/' . ltrim($staff->profile_image, '/');
         }
+        $payload['password_plain'] = $staff->password_plain;
 
         return $payload;
     }

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\DiningTable;
 use App\Models\Order;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -72,5 +73,54 @@ class OrderHistorySummaryTest extends TestCase
         $response->assertJsonPath('summary.total_revenue', 0);
         $response->assertJsonCount(1, 'data');
         $response->assertJsonPath('data.0.status', 'cancelled');
+    }
+
+    public function test_history_search_finds_by_order_id_and_table_name(): void
+    {
+        $tableAlpha = DiningTable::query()->create([
+            'name' => 'Alpha Zone',
+            'seats' => 4,
+            'status' => 'available',
+            'is_active' => true,
+            'qr_code' => 'QR-ALPHA',
+        ]);
+
+        $tableBeta = DiningTable::query()->create([
+            'name' => 'Beta Corner',
+            'seats' => 4,
+            'status' => 'available',
+            'is_active' => true,
+            'qr_code' => 'QR-BETA',
+        ]);
+
+        $orderById = Order::query()->create([
+            'table_id' => $tableAlpha->id,
+            'queue_number' => 101,
+            'status' => 'completed',
+            'total_price' => 12.00,
+            'payment_type' => 'cash',
+            'created_at' => now()->subDay(),
+            'updated_at' => now()->subDay(),
+        ]);
+
+        Order::query()->create([
+            'table_id' => $tableBeta->id,
+            'queue_number' => 202,
+            'status' => 'completed',
+            'total_price' => 15.00,
+            'payment_type' => 'khqr',
+            'created_at' => now()->subDay(),
+            'updated_at' => now()->subDay(),
+        ]);
+
+        $searchByIdResponse = $this->getJson('/api/orders/history?search=' . $orderById->id);
+        $searchByIdResponse->assertOk();
+        $searchByIdResponse->assertJsonCount(1, 'data');
+        $searchByIdResponse->assertJsonPath('data.0.id', $orderById->id);
+
+        $searchByTableResponse = $this->getJson('/api/orders/history?search=beta');
+        $searchByTableResponse->assertOk();
+        $searchByTableResponse->assertJsonCount(1, 'data');
+        $searchByTableResponse->assertJsonPath('data.0.table.name', 'Beta Corner');
     }
 }

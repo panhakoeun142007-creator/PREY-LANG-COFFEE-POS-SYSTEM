@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Eye, EyeOff, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
@@ -66,21 +66,8 @@ export default function StaffManagementPage() {
   const [profilePreviewUrl, setProfilePreviewUrl] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [staffPasswordVisibility, setStaffPasswordVisibility] = useState<Record<number, boolean>>({});
-  const [staffPasswordCache, setStaffPasswordCache] = useState<Record<number, string>>({});
 
-  useEffect(() => {
-    void loadStaffs();
-  }, [statusFilter]);
-
-  useEffect(() => {
-    return () => {
-      if (profilePreviewUrl?.startsWith("blob:")) {
-        URL.revokeObjectURL(profilePreviewUrl);
-      }
-    };
-  }, [profilePreviewUrl]);
-
-  async function loadStaffs() {
+  const loadStaffs = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -94,7 +81,19 @@ export default function StaffManagementPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [statusFilter]);
+
+  useEffect(() => {
+    void loadStaffs();
+  }, [loadStaffs]);
+
+  useEffect(() => {
+    return () => {
+      if (profilePreviewUrl?.startsWith("blob:")) {
+        URL.revokeObjectURL(profilePreviewUrl);
+      }
+    };
+  }, [profilePreviewUrl]);
 
   const filteredStaffs = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -123,7 +122,7 @@ export default function StaffManagementPage() {
     setForm({
       name: staff.name,
       email: staff.email,
-      password: "",
+      password: staff.password_plain ?? "",
       salary: String(staff.salary),
       is_active: staff.is_active,
       profile_image: null,
@@ -171,7 +170,7 @@ export default function StaffManagementPage() {
       setError(null);
 
       if (editingStaff) {
-        const updated = await updateStaff(editingStaff.id, {
+        await updateStaff(editingStaff.id, {
           name,
           email,
           salary,
@@ -179,12 +178,8 @@ export default function StaffManagementPage() {
           password: password ? password : undefined,
           profile_image: form.profile_image,
         });
-        if (password) {
-          setStaffPasswordCache((prev) => ({ ...prev, [updated.id]: password }));
-          setStaffPasswordVisibility((prev) => ({ ...prev, [updated.id]: false }));
-        }
       } else {
-        const created = await createStaff({
+        await createStaff({
           name,
           email,
           salary,
@@ -192,10 +187,6 @@ export default function StaffManagementPage() {
           password,
           profile_image: form.profile_image,
         });
-        if (password) {
-          setStaffPasswordCache((prev) => ({ ...prev, [created.id]: password }));
-          setStaffPasswordVisibility((prev) => ({ ...prev, [created.id]: false }));
-        }
       }
 
       await loadStaffs();
@@ -221,11 +212,6 @@ export default function StaffManagementPage() {
       setError(null);
       await deleteStaff(staff.id);
       await loadStaffs();
-      setStaffPasswordCache((prev) => {
-        const next = { ...prev };
-        delete next[staff.id];
-        return next;
-      });
       setStaffPasswordVisibility((prev) => {
         const next = { ...prev };
         delete next[staff.id];
@@ -238,13 +224,7 @@ export default function StaffManagementPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold text-[#4B2E2B]">Staff Management</h2>
-          <p className="text-sm text-[#7C5D58]">
-            Manage staff email/password, salary, and account status.
-          </p>
-        </div>
+      <div className="flex justify-end">
         <Button onClick={openAddDialog}>
           <Plus className="h-4 w-4" />
           Add Staff
@@ -342,10 +322,10 @@ export default function StaffManagementPage() {
                     </TableCell>
                     <TableCell>{staff.email}</TableCell>
                     <TableCell>
-                      {staffPasswordCache[staff.id] ? (
+                      {staff.password_plain ? (
                         <div className="inline-flex items-center gap-2">
                           <span className="font-mono text-xs">
-                            {staffPasswordVisibility[staff.id] ? staffPasswordCache[staff.id] : "••••••••"}
+                            {staffPasswordVisibility[staff.id] ? staff.password_plain : "********"}
                           </span>
                           <button
                             type="button"
@@ -469,7 +449,7 @@ export default function StaffManagementPage() {
 
             <div className="space-y-1.5">
               <label className="text-sm font-medium">
-                Password {editingStaff ? "(leave blank to keep current)" : ""}
+                Password {editingStaff ? "(edit anytime)" : ""}
               </label>
               <div className="relative">
                 <Input
@@ -478,7 +458,7 @@ export default function StaffManagementPage() {
                   onChange={(event) =>
                     setForm((prev) => ({ ...prev, password: event.target.value }))
                   }
-                  placeholder={editingStaff ? "Optional new password" : "Minimum 6 characters"}
+                  placeholder="Minimum 6 characters"
                   className="pr-10"
                 />
                 <button

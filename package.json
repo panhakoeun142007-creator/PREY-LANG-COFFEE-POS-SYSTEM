@@ -1,0 +1,11 @@
+{
+  "name": "prey-lang-coffee-pos-system",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "powershell -ExecutionPolicy Bypass -File .\\scripts\\dev.ps1",
+    "build": "npm --prefix frontend run build",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "test:backend": "powershell -Command \"Set-Location backend; php artisan test\""
+  }
+}

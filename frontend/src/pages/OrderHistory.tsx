@@ -53,6 +53,19 @@ export default function OrderHistory() {
   const [paymentFilter, setPaymentFilter] = useState<string>("all")
   const [dateFrom, setDateFrom] = useState<string>("")
   const [dateTo, setDateTo] = useState<string>("")
+  const [appliedFilters, setAppliedFilters] = useState<{
+    search: string
+    status: string
+    payment: string
+    dateFrom: string
+    dateTo: string
+  }>({
+    search: "",
+    status: "all",
+    payment: "all",
+    dateFrom: "",
+    dateTo: "",
+  })
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1)
@@ -98,11 +111,11 @@ export default function OrderHistory() {
         page: currentPage,
       }
       
-      if (searchQuery) params.search = searchQuery
-      if (statusFilter !== "all") params.status = statusFilter
-      if (paymentFilter !== "all") params.payment_type = paymentFilter
-      if (dateFrom) params.date_from = dateFrom
-      if (dateTo) params.date_to = dateTo
+      if (appliedFilters.search) params.search = appliedFilters.search
+      if (appliedFilters.status !== "all") params.status = appliedFilters.status
+      if (appliedFilters.payment !== "all") params.payment_type = appliedFilters.payment
+      if (appliedFilters.dateFrom) params.date_from = appliedFilters.dateFrom
+      if (appliedFilters.dateTo) params.date_to = appliedFilters.dateTo
       
       const response: PaginatedOrderHistoryResponse = await fetchOrderHistory(params)
       setOrders(response.data)
@@ -118,15 +131,21 @@ export default function OrderHistory() {
     } finally {
       setLoading(false)
     }
-  }, [currentPage, searchQuery, statusFilter, paymentFilter, dateFrom, dateTo])
+  }, [currentPage, appliedFilters])
 
   useEffect(() => {
     loadOrders()
   }, [loadOrders])
 
   const handleSearch = () => {
+    setAppliedFilters({
+      search: searchQuery.trim(),
+      status: statusFilter,
+      payment: paymentFilter,
+      dateFrom,
+      dateTo,
+    })
     setCurrentPage(1)
-    loadOrders()
   }
 
   const formatDate = (dateString: string) => {
@@ -225,7 +244,7 @@ export default function OrderHistory() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
-                  placeholder="Search by order ID or queue number..."
+                  placeholder="Search by Order ID, queue number, or table name..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSearch()}
