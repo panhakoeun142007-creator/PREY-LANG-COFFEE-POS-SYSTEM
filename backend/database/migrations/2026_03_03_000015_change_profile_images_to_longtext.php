@@ -11,6 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
+        $driver = DB::getDriverName();
+        if ($driver === 'sqlite') {
+            return;
+        }
+
         if (Schema::hasTable('users') && Schema::hasColumn('users', 'profile_image')) {
             DB::statement('ALTER TABLE `users` MODIFY `profile_image` LONGTEXT NULL');
         }
@@ -25,6 +30,11 @@ return new class extends Migration
      */
     public function down(): void
     {
+        $driver = DB::getDriverName();
+        if ($driver === 'sqlite') {
+            return;
+        }
+
         if (Schema::hasTable('users') && Schema::hasColumn('users', 'profile_image')) {
             DB::statement('ALTER TABLE `users` MODIFY `profile_image` VARCHAR(255) NULL');
         }
@@ -34,4 +44,3 @@ return new class extends Migration
         }
     }
 };
-
