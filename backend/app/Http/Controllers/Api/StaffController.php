@@ -128,7 +128,14 @@ class StaffController extends Controller
                 $payload['profile_image_url'] = $base . '/storage/' . ltrim($staff->profile_image, '/');
             }
         }
-        $payload['password_plain'] = $staff->password_plain;
+        
+        // Handle encrypted password_plain that may fail to decrypt
+        try {
+            $payload['password_plain'] = $staff->password_plain;
+        } catch (\Illuminate\Contracts\Encryption\DecryptException $e) {
+            // If decryption fails, try to get the raw value
+            $payload['password_plain'] = $staff->getRawOriginal('password_plain') ?? '';
+        }
 
         return $payload;
     }
