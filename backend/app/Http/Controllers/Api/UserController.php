@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class UserController extends Controller
@@ -50,11 +49,9 @@ class UserController extends Controller
         $user->email = $validated['email'];
 
         if ($request->hasFile('profile_image')) {
-            if ($user->profile_image) {
-                Storage::disk('public')->delete($user->profile_image);
-            }
-            $path = $request->file('profile_image')->store('profile-images', 'public');
-            $user->profile_image = $path;
+            $file = $request->file('profile_image');
+            $mime = $file->getMimeType() ?: 'application/octet-stream';
+            $user->profile_image = 'data:' . $mime . ';base64,' . base64_encode((string) file_get_contents($file->getRealPath()));
         }
 
         $user->save();
@@ -93,8 +90,12 @@ class UserController extends Controller
     {
         $imageUrl = null;
         if ($user->profile_image) {
-            $base = request()->getSchemeAndHttpHost();
-            $imageUrl = $base . '/storage/' . ltrim($user->profile_image, '/');
+            if (str_starts_with($user->profile_image, 'data:image')) {
+                $imageUrl = $user->profile_image;
+            } else {
+                $base = request()->getSchemeAndHttpHost();
+                $imageUrl = $base . '/storage/' . ltrim($user->profile_image, '/');
+            }
         }
 
         return [

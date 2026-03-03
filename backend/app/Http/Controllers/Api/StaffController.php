@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\Staff;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class StaffController extends Controller
@@ -54,7 +53,9 @@ class StaffController extends Controller
         ]);
 
         if ($request->hasFile('profile_image')) {
-            $validated['profile_image'] = $request->file('profile_image')->store('profile-images', 'public');
+            $file = $request->file('profile_image');
+            $mime = $file->getMimeType() ?: 'application/octet-stream';
+            $validated['profile_image'] = 'data:' . $mime . ';base64,' . base64_encode((string) file_get_contents($file->getRealPath()));
         }
 
         $validated['password_plain'] = $validated['password'];
@@ -94,10 +95,9 @@ class StaffController extends Controller
         }
 
         if ($request->hasFile('profile_image')) {
-            if ($staff->profile_image) {
-                Storage::disk('public')->delete($staff->profile_image);
-            }
-            $validated['profile_image'] = $request->file('profile_image')->store('profile-images', 'public');
+            $file = $request->file('profile_image');
+            $mime = $file->getMimeType() ?: 'application/octet-stream';
+            $validated['profile_image'] = 'data:' . $mime . ';base64,' . base64_encode((string) file_get_contents($file->getRealPath()));
         }
 
         $staff->update($validated);
@@ -110,10 +110,6 @@ class StaffController extends Controller
      */
     public function destroy(Staff $staff): JsonResponse
     {
-        if ($staff->profile_image) {
-            Storage::disk('public')->delete($staff->profile_image);
-        }
-
         $staff->delete();
 
         return response()->json(['message' => 'Staff deleted']);
@@ -125,8 +121,12 @@ class StaffController extends Controller
         $payload['profile_image_url'] = null;
 
         if ($staff->profile_image) {
-            $base = request()->getSchemeAndHttpHost();
-            $payload['profile_image_url'] = $base . '/storage/' . ltrim($staff->profile_image, '/');
+            if (str_starts_with($staff->profile_image, 'data:image')) {
+                $payload['profile_image_url'] = $staff->profile_image;
+            } else {
+                $base = request()->getSchemeAndHttpHost();
+                $payload['profile_image_url'] = $base . '/storage/' . ltrim($staff->profile_image, '/');
+            }
         }
         $payload['password_plain'] = $staff->password_plain;
 
