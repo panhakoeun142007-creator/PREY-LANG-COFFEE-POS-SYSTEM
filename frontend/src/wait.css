@@ -1,0 +1,347 @@
+.wait-page {
+  min-height: calc(100vh - 32px);
+  background: #f5f5f5;
+  padding: 10px 6px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid #e7e7e7;
+}
+
+.wait-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.wait-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wait-back-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid #d9e0e8;
+  background: #f5f7f9;
+  color: #6a7380;
+  cursor: pointer;
+}
+
+.wait-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wait-brand-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 1px solid #f0b37f;
+  color: #f08a17;
+  font-size: 10px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+
+.wait-brand h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.wait-brand p {
+  margin: 0;
+  font-size: 10px;
+  color: #606773;
+}
+
+
+
+
+.wait-title {
+  justify-content: center;
+  margin: 0;
+  font-size:30px;
+  color: #111e32;
+}
+
+.wait-subtitle {
+  margin: 0;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #96a0ae;
+}
+
+.wait-queue-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.wait-queue-card {
+  border: 1px solid #e8ebef;
+  border-radius: 14px;
+  padding: 10px;
+  background: #f1f2f4;
+}
+
+.wait-queue-card small {
+  display: block;
+  font-size: 8px;
+  color: #9aa1ad;
+  font-weight: 700;
+}
+
+.wait-queue-card strong {
+  font-size: 44px;
+  line-height: 1;
+  color: #111f32;
+}
+
+.wait-queue-card.ready {
+  border-color: #f0cfb2;
+}
+
+.wait-queue-card.ready small,
+.wait-queue-card.ready strong {
+  color: #f28416;
+}
+
+.wait-order-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.wait-order-row h4 {
+  margin: 0;
+  font-size: 21px;
+  color: #1d2230;
+}
+
+.wait-order-row span {
+  font-size: 10px;
+  color: #ef8618;
+  border: 1px solid #f2d7bb;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #fff;
+}
+
+.wait-ready-card {
+  background: #f38712;
+  border-radius: 14px;
+  padding: 10px;
+  box-shadow: 0 4px 14px rgba(243, 135, 18, 0.35);
+}
+
+.wait-ready-item {
+  display: grid;
+  grid-template-columns: 20px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: #fff;
+}
+
+.wait-ready-icon {
+  width: 18px;
+  height: 18px;
+  border: 1px solid #ffd2a0;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.wait-ready-item p {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.wait-ready-item small {
+  font-size: 10px;
+}
+
+.wait-ready-item span {
+  background: #fff;
+  color: #eb7b0f;
+  border-radius: 999px;
+  font-size: 8px;
+  font-weight: 700;
+  padding: 2px 6px;
+}
+
+.wait-pickup-btn {
+  width: 100%;
+  border: none;
+  border-radius: 999px;
+  background: #f4f5f7;
+  color: #ea7f12;
+  font-weight: 700;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
+.wait-preparing-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wait-preparing-list article {
+  background: #f8f9fb;
+  border: 1px solid #e4e8ee;
+  border-radius: 10px;
+  padding: 9px 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.wait-preparing-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wait-preparing-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #edf2f8;
+  border: 1px solid #cfd8e4;
+  color: #6d7a8c;
+  font-size: 10px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+
+.wait-preparing-left p {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e2331;
+}
+
+.wait-preparing-left small {
+  font-size: 10px;
+  color: #8792a1;
+}
+
+.wait-preparing-right {
+  text-align: right;
+}
+
+.wait-preparing-right span {
+  font-size: 9px;
+  color: #eb7f14;
+  border-radius: 999px;
+  background: #fce8d4;
+  padding: 2px 6px;
+}
+
+.wait-preparing-right small {
+  display: block;
+  margin-top: 4px;
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  color: #9ca5b1;
+  font-weight: 700;
+}
+
+.wait-ticker {
+  margin-top: auto;
+  background: #111f35;
+  border-radius: 4px;
+  padding: 4px 8px;
+}
+
+.wait-ticker p {
+  margin: 0;
+  color: #eff4fb;
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 540px) {
+  .wait-title {
+    font-size: 20px;
+    justify-content: center;
+  }
+
+  .wait-queue-card strong {
+    font-size: 34px;
+  }
+}
+
+:root[data-theme="dark"] .wait-page {
+  background: var(--bg-color);
+  border-color: var(--border-color);
+}
+
+:root[data-theme="dark"] .wait-back-btn {
+  background: var(--card-bg);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .wait-brand p,
+:root[data-theme="dark"] .wait-subtitle,
+:root[data-theme="dark"] .wait-queue-card small,
+:root[data-theme="dark"] .wait-preparing-left small,
+:root[data-theme="dark"] .wait-preparing-right small {
+  color: var(--text-secondary);
+}
+
+:root[data-theme="dark"] .wait-brand h3,
+:root[data-theme="dark"] .wait-title,
+:root[data-theme="dark"] .wait-queue-card strong,
+:root[data-theme="dark"] .wait-order-row h4,
+:root[data-theme="dark"] .wait-preparing-left p {
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .wait-queue-card {
+  background: var(--card-bg);
+  border-color: var(--border-color);
+}
+
+:root[data-theme="dark"] .wait-order-row span {
+  background: #2a231b;
+  border-color: #3c3326;
+  color: var(--accent-color);
+}
+
+:root[data-theme="dark"] .wait-pickup-btn {
+  background: #242d37;
+  color: #ffd8b2;
+}
+
+:root[data-theme="dark"] .wait-preparing-list article {
+  background: var(--card-bg);
+  border-color: var(--border-color);
+}
+
+:root[data-theme="dark"] .wait-preparing-icon {
+  background: #232b35;
+  border-color: #354150;
+  color: #c3cfdc;
+}
+
+:root[data-theme="dark"] .wait-preparing-right span {
+  background: #2a231b;
+  color: var(--accent-color);
+}
