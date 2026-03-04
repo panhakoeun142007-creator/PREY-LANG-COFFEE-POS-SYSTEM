@@ -8,6 +8,7 @@ import PlaceholderPage from "./pages/PlaceholderPage";
 import ReceiptsPage from "./pages/ReceiptsPage";
 import IngredientsPage from "./pages/IngredientsPage";
 import IncomePage from "./components/ui/income";
+import SettingsPage from "./components/ui/setting";
 
 export default function App() {
   return (
@@ -24,7 +25,7 @@ export default function App() {
         <Route path="stock" element={<IngredientsPage />} />
         <Route path="finance" element={<IncomePage />} />
         <Route path="analytics" element={<PlaceholderPage title="Sales Analytics" />} />
-        <Route path="settings" element={<PlaceholderPage title="Settings" />} />
+        <Route path="settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\OrderItemController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\PurchaseController;
 use App\Http\Controllers\Api\RecipeController;
+use App\Http\Controllers\Api\SettingController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -24,6 +25,8 @@ Route::get('/dashboard/notifications', [DashboardController::class, 'notificatio
 
 // User info
 Route::get('/user/me', [UserController::class, 'me']);
+Route::get('/settings', [SettingController::class, 'show']);
+Route::put('/settings', [SettingController::class, 'update']);
 
 Route::apiResource('categories', CategoryController::class);
 Route::apiResource('products', ProductController::class);
