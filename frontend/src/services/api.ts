@@ -1,22 +1,24 @@
 function normalizeApiUrl(input?: string): string {
   if (!input) {
-    return '/api';
+    return "/api";
   }
 
-  const trimmed = input.trim().replace(/\/+$/, '');
+  const trimmed = input.trim().replace(/\/+$/, "");
 
-  if (trimmed === '/api') {
+  if (trimmed === "/api") {
     return trimmed;
   }
 
-  if (trimmed.endsWith('/api')) {
+  if (trimmed.endsWith("/api")) {
     return trimmed;
   }
 
   return `${trimmed}/api`;
 }
 
-const API_URL = normalizeApiUrl(import.meta.env.VITE_API_URL as string | undefined);
+const API_URL = normalizeApiUrl(
+  import.meta.env.VITE_API_URL as string | undefined,
+);
 let preferredApiBase: string | null = null;
 
 function buildUrl(path: string, base: string): string {
@@ -50,12 +52,16 @@ function buildCandidateBases(): string[] {
   return Array.from(bases);
 }
 
-export async function safeFetch(path: string, init?: globalThis.RequestInit): Promise<Response> {
+export async function safeFetch(
+  path: string,
+  init?: globalThis.RequestInit,
+): Promise<Response> {
   const bases = buildCandidateBases();
   let lastError: unknown = null;
   const attempted: string[] = [];
   const htmlResponses: string[] = [];
-  const authToken = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+  const authToken =
+    typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
 
   for (const base of bases) {
     const url = buildUrl(path, base);
@@ -76,7 +82,8 @@ export async function safeFetch(path: string, init?: globalThis.RequestInit): Pr
         ...init,
         headers,
       });
-      const contentType = response.headers.get("content-type")?.toLowerCase() || "";
+      const contentType =
+        response.headers.get("content-type")?.toLowerCase() || "";
 
       // If this base points to a frontend/dev server route, we may get HTML.
       // Skip it and continue trying API bases that return JSON.
@@ -116,7 +123,10 @@ export async function safeFetch(path: string, init?: globalThis.RequestInit): Pr
   );
 }
 
-async function readApiError(response: Response, fallback: string): Promise<Error> {
+async function readApiError(
+  response: Response,
+  fallback: string,
+): Promise<Error> {
   try {
     const data = await response.json();
     if (data?.message) {
@@ -124,7 +134,9 @@ async function readApiError(response: Response, fallback: string): Promise<Error
     }
     const firstField = data?.errors ? Object.keys(data.errors)[0] : null;
     const firstError =
-      firstField && Array.isArray(data.errors[firstField]) ? data.errors[firstField][0] : null;
+      firstField && Array.isArray(data.errors[firstField])
+        ? data.errors[firstField][0]
+        : null;
     return new Error(firstError || fallback);
   } catch {
     return new Error(fallback);
@@ -163,7 +175,7 @@ export interface LowStockItem {
 
 export interface Notification {
   id: string;
-  type: 'order' | 'ready' | 'stock' | 'near_stock';
+  type: "order" | "ready" | "stock" | "near_stock";
   title: string;
   message: string;
   time: string;
@@ -215,7 +227,10 @@ export interface LoginResponse {
   };
 }
 
-export async function loginAdmin(email: string, password: string): Promise<LoginResponse> {
+export async function loginAdmin(
+  email: string,
+  password: string,
+): Promise<LoginResponse> {
   const response = await safeFetch("/login", {
     method: "POST",
     headers: {
@@ -248,31 +263,33 @@ export async function logoutAdmin(): Promise<void> {
 // Dashboard
 export async function fetchDashboardData(): Promise<DashboardData> {
   const response = await safeFetch("/dashboard");
-  
+
   if (!response.ok) {
-    throw new Error('Failed to fetch dashboard data');
+    throw new Error("Failed to fetch dashboard data");
   }
-  
+
   return response.json();
 }
 
-export async function fetchNotifications(): Promise<{ notifications: Notification[] }> {
+export async function fetchNotifications(): Promise<{
+  notifications: Notification[];
+}> {
   const response = await safeFetch("/dashboard/notifications");
-  
+
   if (!response.ok) {
     return { notifications: [] };
   }
-  
+
   return response.json();
 }
 
 export async function fetchCurrentUser(): Promise<CurrentUser> {
   const response = await safeFetch("/user/me");
-  
+
   if (!response.ok) {
-    throw new Error('Failed to fetch current user');
+    throw await readApiError(response, "Failed to fetch current user");
   }
-  
+
   return response.json();
 }
 
@@ -334,7 +351,8 @@ export async function fetchStaffs(
 ): Promise<PaginatedResponse<StaffApiItem>> {
   const queryParams = new URLSearchParams();
   if (params.search) queryParams.append("search", params.search);
-  if (params.is_active !== undefined) queryParams.append("is_active", String(params.is_active));
+  if (params.is_active !== undefined)
+    queryParams.append("is_active", String(params.is_active));
   if (params.page) queryParams.append("page", String(params.page));
 
   const query = queryParams.toString();
@@ -409,10 +427,16 @@ export async function updateStaff(
           body.append("_method", "PUT");
           if (payload.name !== undefined) body.append("name", payload.name);
           if (payload.email !== undefined) body.append("email", payload.email);
-          if (payload.password !== undefined) body.append("password", payload.password);
-          if (payload.salary !== undefined) body.append("salary", String(payload.salary));
-          if (payload.is_active !== undefined) body.append("is_active", payload.is_active ? "1" : "0");
-          body.append("profile_image", payload.profile_image);
+          if (payload.password !== undefined)
+            body.append("password", payload.password);
+          if (payload.salary !== undefined)
+            body.append("salary", String(payload.salary));
+          if (payload.is_active !== undefined)
+            body.append("is_active", payload.is_active ? "1" : "0");
+          const profileImage = payload.profile_image;
+          if (profileImage instanceof File) {
+            body.append("profile_image", profileImage);
+          }
           return body;
         })(),
       })
@@ -465,7 +489,7 @@ export interface OrderItem {
 export interface LiveOrder {
   id: number;
   queue_number: number;
-  status: 'pending' | 'preparing' | 'ready' | 'completed' | 'cancelled';
+  status: "pending" | "preparing" | "ready" | "completed" | "cancelled";
   total_price: number | string;
   payment_type: string;
   created_at: string;
@@ -507,50 +531,61 @@ export interface PaginatedOrderHistoryResponse extends PaginatedResponse<LiveOrd
 // Orders
 export async function fetchLiveOrders(): Promise<LiveOrder[]> {
   const response = await safeFetch("/orders/live");
-  
+
   if (!response.ok) {
-    throw new Error('Failed to fetch live orders');
+    throw new Error("Failed to fetch live orders");
   }
-  
+
   return response.json();
 }
 
-export async function updateOrderStatus(orderId: number, status: string): Promise<LiveOrder> {
+export async function updateOrderStatus(
+  orderId: number,
+  status: string,
+): Promise<LiveOrder> {
   const response = await safeFetch(`/orders/${orderId}/status`, {
-    method: 'PATCH',
+    method: "PATCH",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({ status }),
   });
-  
+
   if (!response.ok) {
-    throw new Error('Failed to update order status');
+    throw new Error("Failed to update order status");
   }
-  
+
   return response.json();
 }
 
-export async function fetchOrderHistory(params: OrderHistoryParams = {}): Promise<PaginatedOrderHistoryResponse> {
+export async function fetchOrderHistory(
+  params: OrderHistoryParams = {},
+): Promise<PaginatedOrderHistoryResponse> {
   const queryParams = new URLSearchParams();
-  
-  if (params.status) queryParams.append('status', params.status);
-  if (params.date_from) queryParams.append('date_from', params.date_from);
-  if (params.date_to) queryParams.append('date_to', params.date_to);
-  if (params.payment_type) queryParams.append('payment_type', params.payment_type);
-  if (params.search) queryParams.append('search', params.search);
-  if (params.page) queryParams.append('page', params.page.toString());
-  
+
+  if (params.status) queryParams.append("status", params.status);
+  if (params.date_from) queryParams.append("date_from", params.date_from);
+  if (params.date_to) queryParams.append("date_to", params.date_to);
+  if (params.payment_type)
+    queryParams.append("payment_type", params.payment_type);
+  if (params.search) queryParams.append("search", params.search);
+  if (params.page) queryParams.append("page", params.page.toString());
+
   const response = await safeFetch(`/orders/history?${queryParams.toString()}`);
-  
+
   if (!response.ok) {
-    throw new Error('Failed to fetch order history');
+    throw new Error("Failed to fetch order history");
   }
-  
+
   return response.json() as Promise<PaginatedOrderHistoryResponse>;
 }
 
-export type ExpenseCategory = "ingredients" | "utilities" | "salary" | "rent" | "other";
+export type ExpenseCategory =
+  | "ingredients"
+  | "utilities"
+  | "salary"
+  | "rent"
+  | "other";
 
 export interface ExpenseApiItem {
   id: number;
@@ -606,7 +641,7 @@ export async function fetchCategories(): Promise<CategoryApiItem[]> {
   const response = await safeFetch("/categories");
 
   if (!response.ok) {
-    throw new Error('Failed to fetch categories');
+    throw new Error("Failed to fetch categories");
   }
 
   const payload = await response.json();
@@ -626,17 +661,19 @@ export interface CreateCategoryData {
   is_active?: boolean;
 }
 
-export async function createCategory(payload: CreateCategoryData): Promise<CategoryApiItem> {
+export async function createCategory(
+  payload: CreateCategoryData,
+): Promise<CategoryApiItem> {
   const response = await safeFetch("/categories", {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
-    throw await readApiError(response, 'Failed to create category');
+    throw await readApiError(response, "Failed to create category");
   }
 
   return response.json();
@@ -644,18 +681,23 @@ export async function createCategory(payload: CreateCategoryData): Promise<Categ
 
 export async function updateCategory(
   categoryId: number,
-  payload: { name?: string; description?: string; quantity?: number; is_active?: boolean },
+  payload: {
+    name?: string;
+    description?: string;
+    quantity?: number;
+    is_active?: boolean;
+  },
 ): Promise<CategoryApiItem> {
   const response = await safeFetch(`/categories/${categoryId}`, {
-    method: 'PUT',
+    method: "PUT",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
-    throw await readApiError(response, 'Failed to update category');
+    throw await readApiError(response, "Failed to update category");
   }
 
   return response.json();
@@ -663,11 +705,11 @@ export async function updateCategory(
 
 export async function deleteCategory(categoryId: number): Promise<void> {
   const response = await safeFetch(`/categories/${categoryId}`, {
-    method: 'DELETE',
+    method: "DELETE",
   });
 
   if (!response.ok) {
-    throw await readApiError(response, 'Failed to delete category');
+    throw await readApiError(response, "Failed to delete category");
   }
 }
 
@@ -690,19 +732,23 @@ export interface ApiProduct {
   category?: Category;
 }
 
-export async function fetchProducts(params: FetchProductsParams = {}): Promise<PaginatedResponse<ApiProduct>> {
+export async function fetchProducts(
+  params: FetchProductsParams = {},
+): Promise<PaginatedResponse<ApiProduct>> {
   const queryParams = new URLSearchParams();
-  
-  if (params.category_id) queryParams.append('category_id', params.category_id.toString());
-  if (params.is_available !== undefined) queryParams.append('is_available', params.is_available.toString());
-  
+
+  if (params.category_id)
+    queryParams.append("category_id", params.category_id.toString());
+  if (params.is_available !== undefined)
+    queryParams.append("is_available", params.is_available.toString());
+
   const query = queryParams.toString();
   const response = await safeFetch(query ? `/products?${query}` : "/products");
-  
+
   if (!response.ok) {
-    throw await readApiError(response, 'Failed to fetch products');
+    throw await readApiError(response, "Failed to fetch products");
   }
-  
+
   return response.json();
 }
 
@@ -717,45 +763,50 @@ export interface CreateProductData {
   is_available?: boolean;
 }
 
-export async function createProduct(data: CreateProductData): Promise<ApiProduct> {
+export async function createProduct(
+  data: CreateProductData,
+): Promise<ApiProduct> {
   const response = await safeFetch("/products", {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify(data),
   });
-  
+
   if (!response.ok) {
-    throw await readApiError(response, 'Failed to create product');
+    throw await readApiError(response, "Failed to create product");
   }
-  
+
   return response.json();
 }
 
-export async function updateProduct(id: number, data: Partial<CreateProductData>): Promise<ApiProduct> {
+export async function updateProduct(
+  id: number,
+  data: Partial<CreateProductData>,
+): Promise<ApiProduct> {
   const response = await safeFetch(`/products/${id}`, {
-    method: 'PUT',
+    method: "PUT",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify(data),
   });
-  
+
   if (!response.ok) {
-    throw await readApiError(response, 'Failed to update product');
+    throw await readApiError(response, "Failed to update product");
   }
-  
+
   return response.json();
 }
 
 export async function deleteProduct(id: number): Promise<void> {
   const response = await safeFetch(`/products/${id}`, {
-    method: 'DELETE',
+    method: "DELETE",
   });
-  
+
   if (!response.ok) {
-    throw await readApiError(response, 'Failed to delete product');
+    throw await readApiError(response, "Failed to delete product");
   }
 }
 
@@ -783,53 +834,56 @@ export interface CreateTableData {
 
 export async function fetchTables(): Promise<PaginatedResponse<ApiTable>> {
   const response = await safeFetch("/tables");
-  
+
   if (!response.ok) {
-    throw await readApiError(response, 'Failed to fetch tables');
+    throw await readApiError(response, "Failed to fetch tables");
   }
-  
+
   return response.json();
 }
 
 export async function createTable(data: CreateTableData): Promise<ApiTable> {
   const response = await safeFetch("/tables", {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify(data),
   });
-  
+
   if (!response.ok) {
-    throw await readApiError(response, 'Failed to create table');
+    throw await readApiError(response, "Failed to create table");
   }
-  
+
   return response.json();
 }
 
-export async function updateTable(id: number, data: Partial<CreateTableData>): Promise<ApiTable> {
+export async function updateTable(
+  id: number,
+  data: Partial<CreateTableData>,
+): Promise<ApiTable> {
   const response = await safeFetch(`/tables/${id}`, {
-    method: 'PUT',
+    method: "PUT",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify(data),
   });
-  
+
   if (!response.ok) {
-    throw await readApiError(response, 'Failed to update table');
+    throw await readApiError(response, "Failed to update table");
   }
-  
+
   return response.json();
 }
 
 export async function deleteTable(id: number): Promise<void> {
   const response = await safeFetch(`/tables/${id}`, {
-    method: 'DELETE',
+    method: "DELETE",
   });
-  
+
   if (!response.ok) {
-    throw await readApiError(response, 'Failed to delete table');
+    throw await readApiError(response, "Failed to delete table");
   }
 }
 
@@ -933,7 +987,7 @@ export async function deleteIngredient(ingredientId: number): Promise<void> {
 }
 
 // Recipes board
-export type RecipeSize = 'small' | 'medium' | 'large';
+export type RecipeSize = "small" | "medium" | "large";
 
 export interface RecipeBoardIngredient {
   ingredient_id: number;
@@ -950,14 +1004,14 @@ export interface RecipeBoardRow {
   size: string;
   ingredients_count: number;
   est_cost: number;
-  status: 'active' | 'inactive';
+  status: "active" | "inactive";
   ingredients: RecipeBoardIngredient[];
 }
 
 export interface FetchRecipeBoardParams {
   search?: string;
   category_id?: number;
-  status?: 'all' | 'active' | 'inactive';
+  status?: "all" | "active" | "inactive";
 }
 
 export interface RecipeBoardPayload {
@@ -973,31 +1027,36 @@ export async function fetchRecipeBoard(
   params: FetchRecipeBoardParams = {},
 ): Promise<{ data: RecipeBoardRow[] }> {
   const queryParams = new URLSearchParams();
-  if (params.search) queryParams.append('search', params.search);
-  if (params.category_id) queryParams.append('category_id', String(params.category_id));
-  if (params.status) queryParams.append('status', params.status);
+  if (params.search) queryParams.append("search", params.search);
+  if (params.category_id)
+    queryParams.append("category_id", String(params.category_id));
+  if (params.status) queryParams.append("status", params.status);
 
   const query = queryParams.toString();
-  const response = await safeFetch(query ? `/recipes-board?${query}` : "/recipes-board");
+  const response = await safeFetch(
+    query ? `/recipes-board?${query}` : "/recipes-board",
+  );
 
   if (!response.ok) {
-    throw await readApiError(response, 'Failed to fetch recipe board');
+    throw await readApiError(response, "Failed to fetch recipe board");
   }
 
   return response.json();
 }
 
-export async function createRecipeBoard(payload: RecipeBoardPayload): Promise<RecipeBoardRow> {
+export async function createRecipeBoard(
+  payload: RecipeBoardPayload,
+): Promise<RecipeBoardRow> {
   const response = await safeFetch("/recipes-board", {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
-    throw await readApiError(response, 'Failed to create recipe');
+    throw await readApiError(response, "Failed to create recipe");
   }
 
   return response.json();
@@ -1005,18 +1064,18 @@ export async function createRecipeBoard(payload: RecipeBoardPayload): Promise<Re
 
 export async function updateRecipeBoard(
   productId: number,
-  payload: Omit<RecipeBoardPayload, 'product_id'>,
+  payload: Omit<RecipeBoardPayload, "product_id">,
 ): Promise<RecipeBoardRow> {
   const response = await safeFetch(`/recipes-board/${productId}`, {
-    method: 'PUT',
+    method: "PUT",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
-    throw await readApiError(response, 'Failed to update recipe');
+    throw await readApiError(response, "Failed to update recipe");
   }
 
   return response.json();
@@ -1025,33 +1084,38 @@ export async function updateRecipeBoard(
 export async function updateRecipeBoardStatus(
   productId: number,
   isActive: boolean,
-): Promise<{ product_id: number; status: 'active' | 'inactive' }> {
+): Promise<{ product_id: number; status: "active" | "inactive" }> {
   const response = await safeFetch(`/recipes-board/${productId}/status`, {
-    method: 'PATCH',
+    method: "PATCH",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({ is_active: isActive }),
   });
 
   if (!response.ok) {
-    throw await readApiError(response, 'Failed to update recipe status');
+    throw await readApiError(response, "Failed to update recipe status");
   }
 
   return response.json();
 }
 
-export async function deleteRecipeBoard(productId: number, size: RecipeSize): Promise<void> {
+export async function deleteRecipeBoard(
+  productId: number,
+  size: RecipeSize,
+): Promise<void> {
   const response = await safeFetch(`/recipes-board/${productId}/${size}`, {
-    method: 'DELETE',
+    method: "DELETE",
   });
 
   if (!response.ok) {
-    throw await readApiError(response, 'Failed to delete recipe');
+    throw await readApiError(response, "Failed to delete recipe");
   }
 }
 
-export async function fetchExpenses(params: { category?: ExpenseCategory; page?: number } = {}): Promise<PaginatedResponse<ExpenseApiItem>> {
+export async function fetchExpenses(
+  params: { category?: ExpenseCategory; page?: number } = {},
+): Promise<PaginatedResponse<ExpenseApiItem>> {
   const queryParams = new URLSearchParams();
   if (params.category) queryParams.append("category", params.category);
   if (params.page) queryParams.append("page", String(params.page));
@@ -1066,24 +1130,29 @@ export async function fetchExpenses(params: { category?: ExpenseCategory; page?:
   return response.json();
 }
 
-export async function fetchIncomeTransactions(params: {
-  search?: string;
-  date_from?: string;
-  date_to?: string;
-  payment_type?: "cash" | "khqr";
-  page?: number;
-  per_page?: number;
-} = {}): Promise<PaginatedResponse<IncomeApiItem> & { summary: IncomeSummary }> {
+export async function fetchIncomeTransactions(
+  params: {
+    search?: string;
+    date_from?: string;
+    date_to?: string;
+    payment_type?: "cash" | "khqr";
+    page?: number;
+    per_page?: number;
+  } = {},
+): Promise<PaginatedResponse<IncomeApiItem> & { summary: IncomeSummary }> {
   const queryParams = new URLSearchParams();
   if (params.search) queryParams.append("search", params.search);
   if (params.date_from) queryParams.append("date_from", params.date_from);
   if (params.date_to) queryParams.append("date_to", params.date_to);
-  if (params.payment_type) queryParams.append("payment_type", params.payment_type);
+  if (params.payment_type)
+    queryParams.append("payment_type", params.payment_type);
   if (params.page) queryParams.append("page", String(params.page));
   if (params.per_page) queryParams.append("per_page", String(params.per_page));
 
   const query = queryParams.toString();
-  const response = await safeFetch(query ? `/finance/income?${query}` : "/finance/income");
+  const response = await safeFetch(
+    query ? `/finance/income?${query}` : "/finance/income",
+  );
 
   if (!response.ok) {
     throw await readApiError(response, "Failed to fetch income transactions");

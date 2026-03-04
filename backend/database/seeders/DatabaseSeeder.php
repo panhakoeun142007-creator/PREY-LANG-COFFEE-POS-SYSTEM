@@ -7,7 +7,6 @@ use App\Models\DiningTable;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
-use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -20,13 +19,7 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Create admin user
-        User::factory()->create([
-            'name' => 'Admin User',
-            'email' => 'admin@pos.com',
-            'role' => 'admin',
-            'is_active' => true,
-        ]);
+        $this->call(UserSeeder::class);
 
         // Create categories
         $coffeeCategory = Category::create([

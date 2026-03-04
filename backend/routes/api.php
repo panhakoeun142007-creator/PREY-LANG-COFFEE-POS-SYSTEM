@@ -25,38 +25,40 @@ Route::get('/health', function () {
 
 Route::post('/login', [AuthController::class, 'login']);
 
-// Dashboard statistics
-Route::get('/dashboard', [DashboardController::class, 'index']);
-Route::get('/dashboard/notifications', [DashboardController::class, 'notifications']);
-Route::get('/sales-analytics', [SalesAnalyticsController::class, 'index']);
+Route::middleware('admin.api')->group(function () {
+    // Dashboard statistics
+    Route::get('/dashboard', [DashboardController::class, 'index']);
+    Route::get('/dashboard/notifications', [DashboardController::class, 'notifications']);
+    Route::get('/sales-analytics', [SalesAnalyticsController::class, 'index']);
 
-// User info
-Route::post('/logout', [AuthController::class, 'logout'])->middleware('admin.api');
-Route::get('/user/me', [UserController::class, 'me']);
-Route::post('/user/me', [UserController::class, 'updateMe']);
+    // User info
+    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/user/me', [UserController::class, 'me']);
+    Route::post('/user/me', [UserController::class, 'updateMe']);
 
-Route::apiResource('categories', CategoryController::class);
-Route::apiResource('staffs', StaffController::class);
-Route::apiResource('products', ProductController::class);
-Route::apiResource('tables', DiningTableController::class);
+    Route::apiResource('categories', CategoryController::class);
+    Route::apiResource('staffs', StaffController::class);
+    Route::apiResource('products', ProductController::class);
+    Route::apiResource('tables', DiningTableController::class);
 
-// Custom order routes (must be before apiResource)
-Route::get('/orders/history', [OrderController::class, 'history']);
-Route::get('/orders/live', [OrderController::class, 'live']);
-Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus']);
+    // Custom order routes (must be before apiResource)
+    Route::get('/orders/history', [OrderController::class, 'history']);
+    Route::get('/orders/live', [OrderController::class, 'live']);
+    Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus']);
 
-Route::apiResource('orders', OrderController::class);
-Route::apiResource('order-items', OrderItemController::class);
-Route::apiResource('ingredients', IngredientController::class);
-Route::get('/recipes-board', [RecipeController::class, 'boardIndex']);
-Route::post('/recipes-board', [RecipeController::class, 'boardStore']);
-Route::put('/recipes-board/{product}', [RecipeController::class, 'boardUpdate']);
-Route::patch('/recipes-board/{product}/status', [RecipeController::class, 'boardUpdateStatus']);
-Route::delete('/recipes-board/{product}/{size}', [RecipeController::class, 'boardDestroy']);
-Route::apiResource('recipes', RecipeController::class);
-Route::apiResource('expenses', ExpenseController::class);
-Route::get('/finance/income', [FinanceController::class, 'income']);
-Route::apiResource('purchases', PurchaseController::class);
+    Route::apiResource('orders', OrderController::class);
+    Route::apiResource('order-items', OrderItemController::class);
+    Route::apiResource('ingredients', IngredientController::class);
+    Route::get('/recipes-board', [RecipeController::class, 'boardIndex']);
+    Route::post('/recipes-board', [RecipeController::class, 'boardStore']);
+    Route::put('/recipes-board/{product}', [RecipeController::class, 'boardUpdate']);
+    Route::patch('/recipes-board/{product}/status', [RecipeController::class, 'boardUpdateStatus']);
+    Route::delete('/recipes-board/{product}/{size}', [RecipeController::class, 'boardDestroy']);
+    Route::apiResource('recipes', RecipeController::class);
+    Route::apiResource('expenses', ExpenseController::class);
+    Route::get('/finance/income', [FinanceController::class, 'income']);
+    Route::apiResource('purchases', PurchaseController::class);
 
-// Receipts (paid orders)
-Route::get('/receipts', [ReceiptController::class, 'index']);
+    // Receipts (paid orders)
+    Route::get('/receipts', [ReceiptController::class, 'index']);
+});

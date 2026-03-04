@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Eye, Plus, QrCode, RefreshCw, Users } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { QRCodeCanvas } from "qrcode.react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Switch } from "../components/ui/switch";
 import {
@@ -22,11 +28,31 @@ import {
 } from "../services/api";
 
 function createQrCode(id: number): string {
-  return `QR-${id}-${Date.now()}`;
+  return `TBL-${id}-${Math.random().toString(36).slice(2, 10).toUpperCase()}`;
 }
 
-function getQrValue(table: ApiTable): string {
+function getQrToken(table: ApiTable): string {
   return table.qrCode ?? table.qr_code ?? "No QR";
+}
+
+function getCustomerMenuBaseUrl(): string {
+  const configured = import.meta.env.VITE_CUSTOMER_MENU_URL as
+    | string
+    | undefined;
+  if (configured && configured.trim()) {
+    return configured.trim().replace(/\/+$/, "");
+  }
+
+  if (typeof window !== "undefined") {
+    return `${window.location.origin}/menu`;
+  }
+
+  return "http://127.0.0.1:5173/menu";
+}
+
+function getCustomerMenuUrl(table: ApiTable): string {
+  const token = getQrToken(table);
+  return `${getCustomerMenuBaseUrl()}?token=${encodeURIComponent(token)}`;
 }
 
 export default function Tables() {
@@ -87,7 +113,9 @@ export default function Tables() {
       setTables((prev) => prev.map((t) => (t.id === id ? updated : t)));
       setPreviewTable((prev) => (prev && prev.id === id ? updated : prev));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update table status");
+      setError(
+        err instanceof Error ? err.message : "Failed to update table status",
+      );
     } finally {
       setUpdatingIds((prev) => {
         const next = new Set(prev);
@@ -138,23 +166,31 @@ export default function Tables() {
   const handleDownloadPreview = () => {
     if (!previewTable) return;
 
-    const qrValue = getQrValue(previewTable);
-    const content = `Table: ${previewTable.name}\nQR: ${qrValue}\nCapacity: ${previewTable.capacity}`;
-    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
+    const canvas = document.getElementById(
+      `table-qr-canvas-${previewTable.id}`,
+    ) as HTMLCanvasElement | null;
+    if (!canvas) {
+      setError("QR canvas not ready. Please try again.");
+      return;
+    }
+
+    const url = canvas.toDataURL("image/png");
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${previewTable.name.replace(/\s+/g, "-").toLowerCase()}-qr.txt`;
+    link.download = `${previewTable.name.replace(/\s+/g, "-").toLowerCase()}-qr.png`;
     document.body.appendChild(link);
     link.click();
     link.remove();
-    URL.revokeObjectURL(url);
   };
 
   const handlePrintPreview = () => {
     if (!previewTable) return;
 
-    const qrValue = getQrValue(previewTable);
+    const qrValue = getCustomerMenuUrl(previewTable);
+    const canvas = document.getElementById(
+      `table-qr-canvas-${previewTable.id}`,
+    ) as HTMLCanvasElement | null;
+    const qrImage = canvas?.toDataURL("image/png") ?? "";
     const win = window.open("", "_blank", "width=420,height=620");
     if (!win) {
       setError("Popup was blocked. Please allow popups to print.");
@@ -168,7 +204,8 @@ export default function Tables() {
           <h2 style="margin-bottom:8px;">${previewTable.name}</h2>
           <p style="margin-top:0;color:#666;">Capacity: ${previewTable.capacity}</p>
           <div style="border:1px solid #ddd;border-radius:12px;padding:20px;margin:20px auto;max-width:300px;">
-            <div style="font-size:13px;color:#666;margin-bottom:8px;">QR Code Value</div>
+            ${qrImage ? `<img src="${qrImage}" alt="${previewTable.name} QR" style="width:220px;height:220px;display:block;margin:0 auto 12px auto;" />` : ""}
+            <div style="font-size:13px;color:#666;margin-bottom:8px;">Scan to open menu</div>
             <div style="font-family:monospace;word-break:break-all;">${qrValue}</div>
           </div>
         </body>
@@ -177,6 +214,10 @@ export default function Tables() {
     win.document.close();
     win.focus();
     win.print();
+  };
+
+  const handleSavePdf = () => {
+    handlePrintPreview();
   };
 
   return (
@@ -188,17 +229,28 @@ export default function Tables() {
       )}
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-[#4B2E2B]">Tables</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-[#4B2E2B]">
+            Tables
+          </h1>
           <p className="mt-1 text-[#7C5D58]">
             Total Tables: <span className="font-semibold">{counts.total}</span>
           </p>
           <p className="text-sm text-[#7C5D58]">
-            Active: <span className="font-semibold text-emerald-700">{counts.active}</span> | Inactive:{" "}
-            <span className="font-semibold text-neutral-600">{counts.inactive}</span>
+            Active:{" "}
+            <span className="font-semibold text-emerald-700">
+              {counts.active}
+            </span>{" "}
+            | Inactive:{" "}
+            <span className="font-semibold text-neutral-600">
+              {counts.inactive}
+            </span>
           </p>
         </div>
 
-        <Button className="bg-[#4B2E2B] hover:bg-[#5B3E3B] text-white" onClick={() => setIsAddOpen(true)}>
+        <Button
+          className="bg-[#4B2E2B] hover:bg-[#5B3E3B] text-white"
+          onClick={() => setIsAddOpen(true)}
+        >
           <Plus className="h-4 w-4 mr-2" />
           Add Table
         </Button>
@@ -209,82 +261,86 @@ export default function Tables() {
           Loading tables...
         </div>
       ) : (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {tables.map((table) => (
-          <Card
-            key={table.id}
-            className={
-              table.status === "active"
-                ? "border-emerald-200 bg-white"
-                : "border-neutral-200 bg-white"
-            }
-          >
-            <CardHeader className="pb-2">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <CardTitle className="text-base text-[#4B2E2B]">{table.name}</CardTitle>
-                  <div className="mt-2 inline-flex items-center gap-1 text-sm text-[#7C5D58]">
-                    <Users className="h-4 w-4" />
-                    Capacity: {table.capacity}
-                  </div>
-                </div>
-                <StatusBadge status={table.status} />
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="rounded-lg border border-[#EAD6C0] bg-[#F5E6D3] p-3">
-                <div className="flex items-center gap-3">
-                  <QrCode className="h-9 w-9 text-[#4B2E2B]" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {tables.map((table) => (
+            <Card
+              key={table.id}
+              className={
+                table.status === "active"
+                  ? "border-emerald-200 bg-white"
+                  : "border-neutral-200 bg-white"
+              }
+            >
+              <CardHeader className="pb-2">
+                <div className="flex items-start justify-between gap-2">
                   <div>
-                    <p className="text-xs text-[#7C5D58]">QR Preview</p>
-                    <p className="text-xs font-mono text-[#4B2E2B] break-all">
-                      {getQrValue(table)}
-                    </p>
+                    <CardTitle className="text-base text-[#4B2E2B]">
+                      {table.name}
+                    </CardTitle>
+                    <div className="mt-2 inline-flex items-center gap-1 text-sm text-[#7C5D58]">
+                      <Users className="h-4 w-4" />
+                      Capacity: {table.capacity}
+                    </div>
+                  </div>
+                  <StatusBadge status={table.status} />
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="rounded-lg border border-[#EAD6C0] bg-[#F5E6D3] p-3">
+                  <div className="flex items-center gap-3">
+                    <QrCode className="h-9 w-9 text-[#4B2E2B]" />
+                    <div>
+                      <p className="text-xs text-[#7C5D58]">QR Preview</p>
+                      <p className="text-xs font-mono text-[#4B2E2B] break-all">
+                        {getQrToken(table)}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-[#7C5D58]">
-                  {table.status === "active" ? "Enabled" : "Disabled"}
-                </span>
-                <Switch
-                  checked={table.status === "active"}
-                  onCheckedChange={() => toggleTableStatus(table.id)}
-                  disabled={updatingIds.has(table.id)}
-                />
-              </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-[#7C5D58]">
+                    {table.status === "active" ? "Enabled" : "Disabled"}
+                  </span>
+                  <Switch
+                    checked={table.status === "active"}
+                    onCheckedChange={() => toggleTableStatus(table.id)}
+                    disabled={updatingIds.has(table.id)}
+                  />
+                </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  variant="outline"
-                  className="border-[#EAD6C0] text-[#4B2E2B]"
-                  onClick={() => setPreviewTable(table)}
-                >
-                  <Eye className="h-4 w-4 mr-1" />
-                  Preview
-                </Button>
-                <Button
-                  variant="outline"
-                  className="border-[#EAD6C0] text-[#4B2E2B]"
-                  onClick={() => regenerateQR(table.id)}
-                  disabled={updatingIds.has(table.id)}
-                >
-                  <RefreshCw className="h-4 w-4 mr-1" />
-                  Regenerate
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant="outline"
+                    className="border-[#EAD6C0] text-[#4B2E2B]"
+                    onClick={() => setPreviewTable(table)}
+                  >
+                    <Eye className="h-4 w-4 mr-1" />
+                    Preview
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="border-[#EAD6C0] text-[#4B2E2B]"
+                    onClick={() => regenerateQR(table.id)}
+                    disabled={updatingIds.has(table.id)}
+                  >
+                    <RefreshCw className="h-4 w-4 mr-1" />
+                    Regenerate
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       )}
 
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
         <DialogContent className="sm:max-w-[460px]">
           <DialogHeader>
             <DialogTitle>Add Table</DialogTitle>
-            <DialogDescription>Create a new table for dine-in ordering.</DialogDescription>
+            <DialogDescription>
+              Create a new table for dine-in ordering.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
@@ -308,40 +364,71 @@ export default function Tables() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" className="border-[#EAD6C0] text-[#4B2E2B]" onClick={() => setIsAddOpen(false)}>
+            <Button
+              variant="outline"
+              className="border-[#EAD6C0] text-[#4B2E2B]"
+              onClick={() => setIsAddOpen(false)}
+            >
               Cancel
             </Button>
-            <Button className="bg-[#4B2E2B] hover:bg-[#5B3E3B] text-white" onClick={handleCreateTable} disabled={isCreating}>
+            <Button
+              className="bg-[#4B2E2B] hover:bg-[#5B3E3B] text-white"
+              onClick={handleCreateTable}
+              disabled={isCreating}
+            >
               Create Table
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={Boolean(previewTable)} onOpenChange={(open) => !open && setPreviewTable(null)}>
+      <Dialog
+        open={Boolean(previewTable)}
+        onOpenChange={(open) => !open && setPreviewTable(null)}
+      >
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>{previewTable?.name} QR Preview</DialogTitle>
-            <DialogDescription>Use this QR code for customer table ordering.</DialogDescription>
+            <DialogDescription>
+              Use this QR code for customer table ordering.
+            </DialogDescription>
           </DialogHeader>
 
           {previewTable && (
             <div className="space-y-4">
               <div className="rounded-xl border border-[#EAD6C0] bg-[#F5E6D3] p-6 text-center">
-                <QrCode className="mx-auto h-28 w-28 text-[#4B2E2B]" />
-                <p className="mt-3 text-sm text-[#7C5D58]">{previewTable.name}</p>
+                <QRCodeCanvas
+                  id={`table-qr-canvas-${previewTable.id}`}
+                  value={getCustomerMenuUrl(previewTable)}
+                  size={220}
+                  level="M"
+                  includeMargin
+                  bgColor="#F5E6D3"
+                  fgColor="#4B2E2B"
+                  className="mx-auto rounded-md"
+                />
+                <p className="mt-3 text-sm text-[#7C5D58]">
+                  {previewTable.name}
+                </p>
                 <p className="mt-1 text-xs font-mono text-[#4B2E2B] break-all">
-                  {getQrValue(previewTable)}
+                  {getCustomerMenuUrl(previewTable)}
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <Button
                   variant="outline"
                   className="border-[#EAD6C0] text-[#4B2E2B]"
                   onClick={handleDownloadPreview}
                 >
                   Download
+                </Button>
+                <Button
+                  variant="outline"
+                  className="border-[#EAD6C0] text-[#4B2E2B]"
+                  onClick={handleSavePdf}
+                >
+                  Save PDF
                 </Button>
                 <Button
                   className="bg-[#4B2E2B] hover:bg-[#5B3E3B] text-white"

@@ -27,7 +27,7 @@ class AdminApiTokenMiddleware
         }
 
         // Backward compatibility for old token format: token => admin user id
-        if (is_int($session) || ctype_digit((string) $session)) {
+        if (is_int($session) || (is_string($session) && ctype_digit($session))) {
             $session = [
                 'subject_type' => 'admin',
                 'subject_id' => (int) $session,

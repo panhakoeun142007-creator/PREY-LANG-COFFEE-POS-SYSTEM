@@ -8,6 +8,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class ProductController extends Controller
 {
@@ -34,6 +36,17 @@ class ProductController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
+        if ($request->has('is_available')) {
+            $request->merge([
+                'is_available' => filter_var($request->input('is_available'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE)
+                    ?? $request->input('is_available'),
+            ]);
+        }
+
+        $imageRules = $request->hasFile('image')
+            ? ['nullable', 'file', 'image', 'max:5120']
+            : ['nullable', 'string'];
+
         $validated = $request->validate([
             'category_id' => ['required', 'exists:categories,id'],
             'name' => ['required', 'string', 'max:100'],
@@ -41,9 +54,13 @@ class ProductController extends Controller
             'price_small' => ['required', 'numeric', 'min:0'],
             'price_medium' => ['required', 'numeric', 'min:0'],
             'price_large' => ['required', 'numeric', 'min:0'],
-            'image' => ['nullable', 'string'],
+            'image' => $imageRules,
             'is_available' => ['sometimes', 'boolean'],
         ]);
+
+        if ($request->hasFile('image')) {
+            $validated['image'] = $request->file('image')->store('products', 'public');
+        }
 
         // Auto-generate SKU if not provided
         if (empty($validated['sku'])) {
@@ -78,6 +95,17 @@ class ProductController extends Controller
      */
     public function update(Request $request, Product $product): JsonResponse
     {
+        if ($request->has('is_available')) {
+            $request->merge([
+                'is_available' => filter_var($request->input('is_available'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE)
+                    ?? $request->input('is_available'),
+            ]);
+        }
+
+        $imageRules = $request->hasFile('image')
+            ? ['nullable', 'file', 'image', 'max:5120']
+            : ['nullable', 'string'];
+
         $validated = $request->validate([
             'category_id' => ['sometimes', 'required', 'exists:categories,id'],
             'name' => ['sometimes', 'required', 'string', 'max:100'],
@@ -85,9 +113,19 @@ class ProductController extends Controller
             'price_small' => ['sometimes', 'required', 'numeric', 'min:0'],
             'price_medium' => ['sometimes', 'required', 'numeric', 'min:0'],
             'price_large' => ['sometimes', 'required', 'numeric', 'min:0'],
-            'image' => ['nullable', 'string'],
+            'image' => $imageRules,
             'is_available' => ['sometimes', 'boolean'],
         ]);
+
+        if ($request->hasFile('image')) {
+            $storedImage = $product->getRawOriginal('image');
+
+            if ($storedImage && Str::startsWith($storedImage, 'products/')) {
+                Storage::disk('public')->delete($storedImage);
+            }
+
+            $validated['image'] = $request->file('image')->store('products', 'public');
+        }
 
         try {
             $product->update($validated);

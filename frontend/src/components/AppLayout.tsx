@@ -1,4 +1,14 @@
-import { Bell, ChevronLeft, ChevronRight, LogOut, Menu, Moon, Settings, Sun, User } from "lucide-react";
+import {
+  Bell,
+  ChevronLeft,
+  ChevronRight,
+  LogOut,
+  Menu,
+  Moon,
+  Settings,
+  Sun,
+  User,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { navGroups, pageTitleByPath } from "../data/mockData";
@@ -17,21 +27,23 @@ function statusClass(isActive: boolean, isDarkMode: boolean): string {
       ? "bg-slate-700 text-slate-100 font-semibold shadow"
       : "bg-[#F5E6D3] text-[#4B2E2B] font-semibold shadow";
   }
-  return isDarkMode ? "text-slate-200 hover:bg-slate-700/70" : "text-white/80 hover:bg-white/10";
+  return isDarkMode
+    ? "text-slate-200 hover:bg-slate-700/70"
+    : "text-white/80 hover:bg-white/10";
 }
 
 function getNotificationIcon(type: string) {
   switch (type) {
-    case 'order':
-      return '🛒';
-    case 'ready':
-      return '✅';
-    case 'stock':
-      return '⚠️';
-    case 'near_stock':
-      return '📦';
+    case "order":
+      return "🛒";
+    case "ready":
+      return "✅";
+    case "stock":
+      return "⚠️";
+    case "near_stock":
+      return "📦";
     default:
-      return '🔔';
+      return "🔔";
   }
 }
 
@@ -40,14 +52,17 @@ export default function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [notificationsPollingEnabled, setNotificationsPollingEnabled] = useState(true);
+  const [notificationsPollingEnabled, setNotificationsPollingEnabled] =
+    useState(true);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [accountName, setAccountName] = useState("");
   const [accountEmail, setAccountEmail] = useState("");
   const [accountImageFile, setAccountImageFile] = useState<File | null>(null);
-  const [accountImagePreview, setAccountImagePreview] = useState<string | null>(null);
+  const [accountImagePreview, setAccountImagePreview] = useState<string | null>(
+    null,
+  );
   const [accountSaving, setAccountSaving] = useState(false);
   const [accountError, setAccountError] = useState<string | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -68,7 +83,9 @@ export default function AppLayout() {
       return;
     }
 
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const prefersDark = window.matchMedia(
+      "(prefers-color-scheme: dark)",
+    ).matches;
     setIsDarkMode(prefersDark);
     document.documentElement.classList.toggle("dark", prefersDark);
   }, []);
@@ -88,6 +105,11 @@ export default function AppLayout() {
         setAccountImagePreview(user.profile_image_url ?? null);
       } catch (err) {
         console.error("Failed to load user:", err);
+        const message = err instanceof Error ? err.message.toLowerCase() : "";
+        if (message.includes("unauthorized") || message.includes("forbidden")) {
+          localStorage.removeItem("auth_token");
+          navigate("/login", { replace: true });
+        }
         setCurrentUser(null);
         setAccountName("");
         setAccountEmail("");
@@ -96,7 +118,7 @@ export default function AppLayout() {
     }
 
     loadUser();
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
     if (!notificationsPollingEnabled) {
@@ -134,7 +156,7 @@ export default function AppLayout() {
     return () => clearInterval(interval);
   }, [notificationsPollingEnabled]);
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
   const pageTitle = pageTitleByPath[location.pathname] ?? "Dashboard";
   const dateText = useMemo(
@@ -193,7 +215,9 @@ export default function AppLayout() {
       setAccountImagePreview(updated.profile_image_url ?? null);
       setShowAccountModal(false);
     } catch (err) {
-      setAccountError(err instanceof Error ? err.message : "Failed to update account");
+      setAccountError(
+        err instanceof Error ? err.message : "Failed to update account",
+      );
     } finally {
       setAccountSaving(false);
     }
@@ -232,7 +256,9 @@ export default function AppLayout() {
         ].join(" ")}
       >
         {/* Logo and User Info */}
-        <div className={`flex items-center gap-3 px-4 py-5 ${isDarkMode ? "border-b border-slate-800" : "border-b border-white/10"}`}>
+        <div
+          className={`flex items-center gap-3 px-4 py-5 ${isDarkMode ? "border-b border-slate-800" : "border-b border-white/10"}`}
+        >
           <img
             src="/img/logo-coffee.png"
             alt="PREY LANG Logo"
@@ -246,7 +272,9 @@ export default function AppLayout() {
           )}
         </div>
 
-        <div className={`px-4 py-4 ${isDarkMode ? "border-b border-slate-800" : "border-b border-white/10"}`}>
+        <div
+          className={`px-4 py-4 ${isDarkMode ? "border-b border-slate-800" : "border-b border-white/10"}`}
+        >
           <div className="flex items-center gap-3">
             {currentUser?.profile_image_url ? (
               <img
@@ -255,13 +283,17 @@ export default function AppLayout() {
                 className="h-10 w-10 rounded-full object-cover"
               />
             ) : (
-              <div className={`flex h-10 w-10 items-center justify-center rounded-full font-semibold ${isDarkMode ? "bg-slate-700 text-slate-100" : "bg-[#F5E6D3] text-[#4B2E2B]"}`}>
-                {currentUser?.initials ?? 'AD'}
+              <div
+                className={`flex h-10 w-10 items-center justify-center rounded-full font-semibold ${isDarkMode ? "bg-slate-700 text-slate-100" : "bg-[#F5E6D3] text-[#4B2E2B]"}`}
+              >
+                {currentUser?.initials ?? "AD"}
               </div>
             )}
             {!collapsed && (
               <div>
-                <p className="text-sm font-semibold">{currentUser?.name ?? 'Admin User'}</p>
+                <p className="text-sm font-semibold">
+                  {currentUser?.name ?? "Admin User"}
+                </p>
                 <p className="text-xs text-white/70">Admin</p>
               </div>
             )}
@@ -273,7 +305,9 @@ export default function AppLayout() {
             {navGroups.map((group) => (
               <div key={group.group} className="space-y-2">
                 {!collapsed && (
-                  <p className={`px-2 text-[11px] font-semibold uppercase tracking-widest ${isDarkMode ? "text-slate-500" : "text-white/50"}`}>
+                  <p
+                    className={`px-2 text-[11px] font-semibold uppercase tracking-widest ${isDarkMode ? "text-slate-500" : "text-white/50"}`}
+                  >
                     {group.group}
                   </p>
                 )}
@@ -300,11 +334,15 @@ export default function AppLayout() {
           </div>
         </nav>
 
-        <div className={`p-3 ${isDarkMode ? "border-t border-slate-800" : "border-t border-white/10"}`}>
+        <div
+          className={`p-3 ${isDarkMode ? "border-t border-slate-800" : "border-t border-white/10"}`}
+        >
           <button
             type="button"
             className={`flex w-full items-center rounded-xl px-3 py-2.5 text-sm transition ${
-              isDarkMode ? "text-slate-300 hover:bg-slate-800/70" : "text-white/80 hover:bg-white/10"
+              isDarkMode
+                ? "text-slate-300 hover:bg-slate-800/70"
+                : "text-white/80 hover:bg-white/10"
             }`}
           >
             <LogOut size={18} />
@@ -326,10 +364,14 @@ export default function AppLayout() {
         </button>
       </aside>
 
-      <div className={`flex h-screen flex-col transition-all duration-300 ${mainMargin}`}>
+      <div
+        className={`flex h-screen flex-col transition-all duration-300 ${mainMargin}`}
+      >
         <header
           className={`sticky top-0 z-20 px-4 py-4 backdrop-blur md:px-8 ${
-            isDarkMode ? "border-b border-slate-700/80 bg-slate-950/70" : "border-b border-[#EAD6C0] bg-[#FFF8F0]/95"
+            isDarkMode
+              ? "border-b border-slate-700/80 bg-slate-950/70"
+              : "border-b border-[#EAD6C0] bg-[#FFF8F0]/95"
           }`}
         >
           <div className="flex items-center justify-between gap-4">
@@ -347,8 +389,14 @@ export default function AppLayout() {
                 <Menu size={18} />
               </button>
               <div>
-                <h1 className="text-lg font-semibold md:text-2xl">{pageTitle}</h1>
-                <p className={`text-xs md:text-sm ${isDarkMode ? "text-slate-400" : "text-[#7C5D58]"}`}>{dateText}</p>
+                <h1 className="text-lg font-semibold md:text-2xl">
+                  {pageTitle}
+                </h1>
+                <p
+                  className={`text-xs md:text-sm ${isDarkMode ? "text-slate-400" : "text-[#7C5D58]"}`}
+                >
+                  {dateText}
+                </p>
               </div>
             </div>
 
@@ -361,7 +409,9 @@ export default function AppLayout() {
                     ? "border border-slate-600 bg-slate-800 text-amber-300"
                     : "border border-[#E5D2BB] bg-white text-[#4B2E2B]"
                 }`}
-                aria-label={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
+                aria-label={
+                  isDarkMode ? "Switch to light mode" : "Switch to dark mode"
+                }
                 title={isDarkMode ? "Light mode" : "Dark mode"}
               >
                 {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
@@ -387,9 +437,17 @@ export default function AppLayout() {
                 </button>
 
                 {notificationsOpen && (
-                  <div className={`absolute right-0 top-12 w-80 rounded-xl p-2 shadow-lg ${isDarkMode ? "border border-slate-700 bg-slate-900" : "border border-[#EAD6C0] bg-white"}`}>
-                    <div className={`px-3 py-2 ${isDarkMode ? "border-b border-slate-700" : "border-b border-[#F1E3D3]"}`}>
-                      <h3 className={`font-semibold ${isDarkMode ? "text-slate-100" : "text-[#4B2E2B]"}`}>Notifications</h3>
+                  <div
+                    className={`absolute right-0 top-12 w-80 rounded-xl p-2 shadow-lg ${isDarkMode ? "border border-slate-700 bg-slate-900" : "border border-[#EAD6C0] bg-white"}`}
+                  >
+                    <div
+                      className={`px-3 py-2 ${isDarkMode ? "border-b border-slate-700" : "border-b border-[#F1E3D3]"}`}
+                    >
+                      <h3
+                        className={`font-semibold ${isDarkMode ? "text-slate-100" : "text-[#4B2E2B]"}`}
+                      >
+                        Notifications
+                      </h3>
                     </div>
                     <div className="max-h-80 overflow-y-auto">
                       {notifications.length > 0 ? (
@@ -397,21 +455,43 @@ export default function AppLayout() {
                           <div
                             key={notification.id}
                             className={`flex items-start gap-3 rounded-lg p-3 ${
-                              isDarkMode ? "hover:bg-slate-800" : "hover:bg-[#F8EFE4]"
+                              isDarkMode
+                                ? "hover:bg-slate-800"
+                                : "hover:bg-[#F8EFE4]"
                             } ${
-                              !notification.read ? (isDarkMode ? "bg-slate-800/70" : "bg-amber-50") : ""
+                              !notification.read
+                                ? isDarkMode
+                                  ? "bg-slate-800/70"
+                                  : "bg-amber-50"
+                                : ""
                             }`}
                           >
-                            <span className="text-xl">{getNotificationIcon(notification.type)}</span>
+                            <span className="text-xl">
+                              {getNotificationIcon(notification.type)}
+                            </span>
                             <div className="flex-1 min-w-0">
-                              <p className={`text-sm font-medium ${isDarkMode ? "text-slate-100" : "text-[#4B2E2B]"}`}>{notification.title}</p>
-                              <p className={`truncate text-xs ${isDarkMode ? "text-slate-300" : "text-[#7C5D58]"}`}>{notification.message}</p>
-                              <p className={`text-xs ${isDarkMode ? "text-slate-400" : "text-[#8E706B]"}`}>{notification.time}</p>
+                              <p
+                                className={`text-sm font-medium ${isDarkMode ? "text-slate-100" : "text-[#4B2E2B]"}`}
+                              >
+                                {notification.title}
+                              </p>
+                              <p
+                                className={`truncate text-xs ${isDarkMode ? "text-slate-300" : "text-[#7C5D58]"}`}
+                              >
+                                {notification.message}
+                              </p>
+                              <p
+                                className={`text-xs ${isDarkMode ? "text-slate-400" : "text-[#8E706B]"}`}
+                              >
+                                {notification.time}
+                              </p>
                             </div>
                           </div>
                         ))
                       ) : (
-                        <div className={`p-4 text-center text-sm ${isDarkMode ? "text-slate-400" : "text-[#7C5D58]"}`}>
+                        <div
+                          className={`p-4 text-center text-sm ${isDarkMode ? "text-slate-400" : "text-[#7C5D58]"}`}
+                        >
                           No notifications
                         </div>
                       )}
@@ -437,18 +517,28 @@ export default function AppLayout() {
                       className="h-8 w-8 rounded-full object-cover"
                     />
                   ) : (
-                    <div className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold text-white ${isDarkMode ? "bg-slate-700" : "bg-[#4B2E2B]"}`}>
+                    <div
+                      className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold text-white ${isDarkMode ? "bg-slate-700" : "bg-[#4B2E2B]"}`}
+                    >
                       {currentUser?.initials ?? "AD"}
                     </div>
                   )}
                   <div className="hidden text-left md:block">
-                    <p className="text-sm font-semibold leading-tight">{currentUser?.name ?? 'Admin User'}</p>
-                    <p className={`text-xs ${isDarkMode ? "text-slate-400" : "text-[#7C5D58]"}`}>{currentUser?.email ?? 'admin@preylang.com'}</p>
+                    <p className="text-sm font-semibold leading-tight">
+                      {currentUser?.name ?? "Admin User"}
+                    </p>
+                    <p
+                      className={`text-xs ${isDarkMode ? "text-slate-400" : "text-[#7C5D58]"}`}
+                    >
+                      {currentUser?.email ?? "admin@preylang.com"}
+                    </p>
                   </div>
                 </button>
 
                 {profileOpen && (
-                  <div className={`absolute right-0 top-12 z-50 w-48 rounded-xl p-2 shadow-lg ${isDarkMode ? "border border-slate-700 bg-slate-900" : "border border-[#EAD6C0] bg-white"}`}>
+                  <div
+                    className={`absolute right-0 top-12 z-50 w-48 rounded-xl p-2 shadow-lg ${isDarkMode ? "border border-slate-700 bg-slate-900" : "border border-[#EAD6C0] bg-white"}`}
+                  >
                     <button
                       type="button"
                       onClick={() => {
@@ -456,7 +546,9 @@ export default function AppLayout() {
                         openAccountModal();
                       }}
                       className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm ${
-                        isDarkMode ? "text-slate-100 hover:bg-slate-800" : "text-[#4B2E2B] hover:bg-[#F8EFE4]"
+                        isDarkMode
+                          ? "text-slate-100 hover:bg-slate-800"
+                          : "text-[#4B2E2B] hover:bg-[#F8EFE4]"
                       }`}
                     >
                       <User size={16} />
@@ -466,10 +558,12 @@ export default function AppLayout() {
                       type="button"
                       onClick={() => {
                         setProfileOpen(false);
-                        navigate('/settings');
+                        navigate("/settings");
                       }}
                       className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm ${
-                        isDarkMode ? "text-slate-100 hover:bg-slate-800" : "text-[#4B2E2B] hover:bg-[#F8EFE4]"
+                        isDarkMode
+                          ? "text-slate-100 hover:bg-slate-800"
+                          : "text-[#4B2E2B] hover:bg-[#F8EFE4]"
                       }`}
                     >
                       <Settings size={16} />
@@ -483,9 +577,9 @@ export default function AppLayout() {
                         } catch (err) {
                           console.error("Failed to logout:", err);
                         } finally {
-                          localStorage.removeItem('auth_token');
-                          localStorage.removeItem('user');
-                          window.location.href = '/';
+                          localStorage.removeItem("auth_token");
+                          localStorage.removeItem("user");
+                          window.location.href = "/";
                         }
                       }}
                       className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
@@ -503,13 +597,23 @@ export default function AppLayout() {
         {/* Account Modal */}
         {showAccountModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className={`w-full max-w-md rounded-2xl p-6 shadow-xl ${isDarkMode ? "border border-slate-700 bg-slate-900" : "bg-white"}`}>
+            <div
+              className={`w-full max-w-md rounded-2xl p-6 shadow-xl ${isDarkMode ? "border border-slate-700 bg-slate-900" : "bg-white"}`}
+            >
               <div className="flex items-center justify-between mb-6">
-                <h2 className={`text-xl font-semibold ${isDarkMode ? "text-slate-100" : "text-[#4B2E2B]"}`}>Account</h2>
+                <h2
+                  className={`text-xl font-semibold ${isDarkMode ? "text-slate-100" : "text-[#4B2E2B]"}`}
+                >
+                  Account
+                </h2>
                 <button
                   type="button"
                   onClick={closeAccountModal}
-                  className={isDarkMode ? "text-slate-400 hover:text-slate-100" : "text-[#7C5D58] hover:text-[#4B2E2B]"}
+                  className={
+                    isDarkMode
+                      ? "text-slate-400 hover:text-slate-100"
+                      : "text-[#7C5D58] hover:text-[#4B2E2B]"
+                  }
                 >
                   ✕
                 </button>
@@ -521,7 +625,9 @@ export default function AppLayout() {
               ) : null}
               <div className="space-y-5">
                 <div className="flex items-center gap-4">
-                  <div className={`h-16 w-16 overflow-hidden rounded-full ${isDarkMode ? "bg-slate-700" : "bg-[#4B2E2B]"}`}>
+                  <div
+                    className={`h-16 w-16 overflow-hidden rounded-full ${isDarkMode ? "bg-slate-700" : "bg-[#4B2E2B]"}`}
+                  >
                     {accountImagePreview ? (
                       <img
                         src={accountImagePreview}
@@ -535,10 +641,16 @@ export default function AppLayout() {
                     )}
                   </div>
                   <div className="flex-1">
-                    <p className={`text-lg font-semibold ${isDarkMode ? "text-slate-100" : "text-[#4B2E2B]"}`}>
+                    <p
+                      className={`text-lg font-semibold ${isDarkMode ? "text-slate-100" : "text-[#4B2E2B]"}`}
+                    >
                       {currentUser?.name ?? "Admin User"}
                     </p>
-                    <p className={`text-sm ${isDarkMode ? "text-slate-400" : "text-[#7C5D58]"}`}>{roleLabel(currentUser?.role)}</p>
+                    <p
+                      className={`text-sm ${isDarkMode ? "text-slate-400" : "text-[#7C5D58]"}`}
+                    >
+                      {roleLabel(currentUser?.role)}
+                    </p>
                     <input
                       type="file"
                       accept="image/*"
@@ -548,7 +660,9 @@ export default function AppLayout() {
                         if (file) {
                           setAccountImagePreview(URL.createObjectURL(file));
                         } else {
-                          setAccountImagePreview(currentUser?.profile_image_url ?? null);
+                          setAccountImagePreview(
+                            currentUser?.profile_image_url ?? null,
+                          );
                         }
                       }}
                       className={`mt-2 block w-full text-xs file:mr-3 file:rounded-md file:border-0 file:px-2 file:py-1 file:text-xs file:font-medium ${
@@ -559,9 +673,15 @@ export default function AppLayout() {
                     />
                   </div>
                 </div>
-                <div className={`pt-4 space-y-3 ${isDarkMode ? "border-t border-slate-700" : "border-t border-[#EAD6C0]"}`}>
+                <div
+                  className={`pt-4 space-y-3 ${isDarkMode ? "border-t border-slate-700" : "border-t border-[#EAD6C0]"}`}
+                >
                   <div>
-                    <label className={`text-xs ${isDarkMode ? "text-slate-400" : "text-[#7C5D58]"}`}>Name</label>
+                    <label
+                      className={`text-xs ${isDarkMode ? "text-slate-400" : "text-[#7C5D58]"}`}
+                    >
+                      Name
+                    </label>
                     <input
                       type="text"
                       value={accountName}
@@ -574,7 +694,11 @@ export default function AppLayout() {
                     />
                   </div>
                   <div>
-                    <label className={`text-xs ${isDarkMode ? "text-slate-400" : "text-[#7C5D58]"}`}>Email</label>
+                    <label
+                      className={`text-xs ${isDarkMode ? "text-slate-400" : "text-[#7C5D58]"}`}
+                    >
+                      Email
+                    </label>
                     <input
                       type="email"
                       value={accountEmail}
@@ -587,8 +711,16 @@ export default function AppLayout() {
                     />
                   </div>
                   <div>
-                    <label className={`text-xs ${isDarkMode ? "text-slate-400" : "text-[#7C5D58]"}`}>Role</label>
-                    <p className={`text-sm ${isDarkMode ? "text-slate-100" : "text-[#4B2E2B]"}`}>{roleLabel(currentUser?.role)}</p>
+                    <label
+                      className={`text-xs ${isDarkMode ? "text-slate-400" : "text-[#7C5D58]"}`}
+                    >
+                      Role
+                    </label>
+                    <p
+                      className={`text-sm ${isDarkMode ? "text-slate-100" : "text-[#4B2E2B]"}`}
+                    >
+                      {roleLabel(currentUser?.role)}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -609,7 +741,9 @@ export default function AppLayout() {
                   onClick={saveAccount}
                   disabled={accountSaving}
                   className={`rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-70 ${
-                    isDarkMode ? "bg-indigo-500 hover:bg-indigo-400" : "bg-[#4B2E2B] hover:bg-[#6B4E4B]"
+                    isDarkMode
+                      ? "bg-indigo-500 hover:bg-indigo-400"
+                      : "bg-[#4B2E2B] hover:bg-[#6B4E4B]"
                   }`}
                 >
                   {accountSaving ? "Saving..." : "Save"}
