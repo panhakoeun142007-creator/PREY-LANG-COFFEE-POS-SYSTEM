@@ -10,7 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { fetchDashboardData, DashboardData } from "../services/api";
+import { fetchDashboardData, DashboardData } from "../../../services/api";
 
 const statusStyles: Record<string, string> = {
   pending: "bg-amber-100 text-amber-700",

@@ -227,6 +227,62 @@ export interface LoginResponse {
   };
 }
 
+export interface CustomerTableInfo {
+  id: number;
+  name: string;
+  seats: number;
+  token: string;
+}
+
+export interface CustomerMenuProduct {
+  id: number;
+  name: string;
+  image: string | null;
+  price_small: number;
+  price_medium: number;
+  price_large: number;
+}
+
+export interface CustomerMenuCategory {
+  id: number;
+  name: string;
+  products: CustomerMenuProduct[];
+}
+
+export interface PlaceCustomerOrderPayload {
+  table_token: string;
+  payment_type: "cash" | "khqr";
+  items: Array<{
+    product_id: number;
+    size: "small" | "medium" | "large";
+    qty: number;
+  }>;
+}
+
+export interface PlaceCustomerOrderResponse {
+  order_id: number;
+  queue_number: number;
+  status: string;
+  table_name: string | null;
+  total_price: number;
+  payment_type: "cash" | "khqr" | null;
+}
+
+export interface CustomerOrderStatus {
+  id: number;
+  queue_number: number;
+  status: "pending" | "preparing" | "ready" | "completed" | "cancelled";
+  table_name: string | null;
+  total_price: number;
+  payment_type: "cash" | "khqr" | null;
+  items: Array<{
+    product_name: string | null;
+    size: "small" | "medium" | "large";
+    qty: number;
+    price: number;
+  }>;
+}
+
 export async function loginAdmin(
   email: string,
   password: string,
@@ -245,6 +301,7 @@ export async function loginAdmin(
 
   const payload = (await response.json()) as LoginResponse;
   localStorage.setItem("auth_token", payload.token);
+  localStorage.setItem("auth_role", payload.user.role);
   return payload;
 }
 
@@ -254,6 +311,7 @@ export async function logoutAdmin(): Promise<void> {
   });
 
   localStorage.removeItem("auth_token");
+  localStorage.removeItem("auth_role");
 
   if (!response.ok) {
     throw await readApiError(response, "Logout failed");
@@ -288,6 +346,64 @@ export async function fetchCurrentUser(): Promise<CurrentUser> {
 
   if (!response.ok) {
     throw await readApiError(response, "Failed to fetch current user");
+  }
+
+  return response.json();
+}
+
+export async function fetchCustomerTableByToken(
+  token: string,
+): Promise<CustomerTableInfo> {
+  const response = await safeFetch(`/menu/table/${encodeURIComponent(token)}`);
+
+  if (!response.ok) {
+    throw await readApiError(response, "Invalid table QR");
+  }
+
+  return response.json();
+}
+
+export async function fetchCustomerMenuProducts(): Promise<
+  CustomerMenuCategory[]
+> {
+  const response = await safeFetch("/menu/products");
+
+  if (!response.ok) {
+    throw await readApiError(response, "Failed to load menu products");
+  }
+
+  const payload = (await response.json()) as {
+    data?: CustomerMenuCategory[];
+  };
+
+  return Array.isArray(payload.data) ? payload.data : [];
+}
+
+export async function placeCustomerOrder(
+  payload: PlaceCustomerOrderPayload,
+): Promise<PlaceCustomerOrderResponse> {
+  const response = await safeFetch("/menu/orders", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw await readApiError(response, "Failed to place order");
+  }
+
+  return response.json();
+}
+
+export async function fetchCustomerOrderStatus(
+  orderId: number,
+): Promise<CustomerOrderStatus> {
+  const response = await safeFetch(`/orders/${orderId}/status`);
+
+  if (!response.ok) {
+    throw await readApiError(response, "Failed to load order status");
   }
 
   return response.json();

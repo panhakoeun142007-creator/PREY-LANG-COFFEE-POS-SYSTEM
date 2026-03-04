@@ -14,10 +14,10 @@ import {
   Check,
   AlertCircle,
 } from "lucide-react"
-import { fetchLiveOrders, updateOrderStatus, LiveOrder } from "../services/api"
-import { StatusBadge } from "../components/StatusBadge"
-import { Button } from "../components/ui/button"
-import { Card, CardContent } from "../components/ui/card"
+import { fetchLiveOrders, updateOrderStatus, LiveOrder } from "../../../services/api"
+import { StatusBadge } from "../../../components/StatusBadge"
+import { Button } from "../../../components/ui/button"
+import { Card, CardContent } from "../../../components/ui/card"
 import {
   Table,
   TableBody,
@@ -25,15 +25,15 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../components/ui/table"
-import { Input } from "../components/ui/input"
+} from "../../../components/ui/table"
+import { Input } from "../../../components/ui/input"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../components/ui/select"
+} from "../../../components/ui/select"
 import {
   Dialog,
   DialogContent,
@@ -41,7 +41,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from "../components/ui/dialog"
+} from "../../../components/ui/dialog"
 
 // Mock data for demo when API is not available
 const mockLiveOrders: LiveOrder[] = [

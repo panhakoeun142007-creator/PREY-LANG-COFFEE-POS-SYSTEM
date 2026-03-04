@@ -11,12 +11,12 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import {
   fetchSalesAnalyticsData,
   PeakHourDataPoint,
   SalesTrendDataPoint,
-} from "../services/api";
+} from "../../../services/api";
 
 const monthlyTrendMockData: SalesTrendDataPoint[] = [
   { month: "Jan", sales: 9800, orders: 248 },

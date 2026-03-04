@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Eye, EyeOff, Pencil, Plus, Search, Trash2 } from "lucide-react";
-import { Button } from "../components/ui/button";
-import { Card, CardContent } from "../components/ui/card";
+import { Button } from "../../../components/ui/button";
+import { Card, CardContent } from "../../../components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -9,9 +9,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "../components/ui/dialog";
-import { Input } from "../components/ui/input";
-import { Switch } from "../components/ui/switch";
+} from "../../../components/ui/dialog";
+import { Input } from "../../../components/ui/input";
+import { Switch } from "../../../components/ui/switch";
 import {
   Table,
   TableBody,
@@ -19,14 +19,14 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../components/ui/table";
+} from "../../../components/ui/table";
 import {
   createStaff,
   deleteStaff,
   fetchStaffs,
   StaffApiItem,
   updateStaff,
-} from "../services/api";
+} from "../../../services/api";
 
 type StatusFilter = "all" | "active" | "inactive";
 

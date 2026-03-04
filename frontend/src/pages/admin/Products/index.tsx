@@ -5,16 +5,16 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-} from "../components/ui/card";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
+} from "../../../components/ui/card";
+import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../components/ui/select";
+} from "../../../components/ui/select";
 import {
   Table,
   TableBody,
@@ -22,7 +22,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../components/ui/table";
+} from "../../../components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -31,15 +31,15 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "../components/ui/dialog";
+} from "../../../components/ui/dialog";
 import {
   Drawer,
   DrawerContent,
   DrawerFooter,
   DrawerHeader,
   DrawerTitle,
-} from "../components/ui/drawer";
-import { Switch } from "../components/ui/switch";
+} from "../../../components/ui/drawer";
+import { Switch } from "../../../components/ui/switch";
 import {
   ApiProduct,
   Category,
@@ -49,7 +49,7 @@ import {
   updateProduct,
   deleteProduct,
   PaginatedResponse,
-} from "../services/api";
+} from "../../../services/api";
 
 // Helper functions
 function isValidImageSource(src: string): boolean {

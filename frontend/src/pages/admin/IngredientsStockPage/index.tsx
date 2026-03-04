@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
-import { Card, CardContent } from "../components/ui/card";
-import { Input } from "../components/ui/input";
+import { Card, CardContent } from "../../../components/ui/card";
+import { Input } from "../../../components/ui/input";
 import {
   Table,
   TableBody,
@@ -9,8 +9,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../components/ui/table";
-import { ApiIngredient, fetchIngredients } from "../services/api";
+} from "../../../components/ui/table";
+import { ApiIngredient, fetchIngredients } from "../../../services/api";
 
 export default function IngredientsStockPage() {
   const [ingredients, setIngredients] = useState<ApiIngredient[]>([]);

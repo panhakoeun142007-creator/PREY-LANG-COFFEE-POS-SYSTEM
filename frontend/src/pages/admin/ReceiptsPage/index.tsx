@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Banknote, FileText, QrCode, Search } from "lucide-react";
-import { Card, CardContent } from "../components/ui/card";
-import { Input } from "../components/ui/input";
+import { Card, CardContent } from "../../../components/ui/card";
+import { Input } from "../../../components/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../components/ui/select";
+} from "../../../components/ui/select";
 import {
   Table,
   TableBody,
@@ -16,8 +16,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../components/ui/table";
-import { fetchOrderHistory, LiveOrder } from "../services/api";
+} from "../../../components/ui/table";
+import { fetchOrderHistory, LiveOrder } from "../../../services/api";
 
 type PaymentMethod = "cash" | "khqr";
 

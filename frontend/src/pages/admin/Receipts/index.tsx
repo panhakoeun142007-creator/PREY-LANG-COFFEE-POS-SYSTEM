@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { getReceipts, type ReceiptRecord } from '../lib/receipts';
+import { getReceipts, type ReceiptRecord } from '../../../lib/receipts';
 
 const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 const dateTime = new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });

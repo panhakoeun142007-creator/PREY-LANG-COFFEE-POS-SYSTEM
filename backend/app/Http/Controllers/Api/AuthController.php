@@ -31,9 +31,46 @@ class AuthController extends Controller
 
         if ($adminUser && $this->verifyAndUpgradePassword($adminUser, $validated['password'])) {
             $token = Str::random(64);
+
+            if ($adminUser->role === 'admin') {
+                Cache::put("api_auth_token:{$token}", [
+                    'subject_type' => 'admin',
+                    'subject_id' => $adminUser->id,
+                ], now()->addHours(24));
+
+                return response()->json([
+                    'token' => $token,
+                    'user' => [
+                        'id' => $adminUser->id,
+                        'name' => $adminUser->name,
+                        'email' => $adminUser->email,
+                        'role' => 'admin',
+                    ],
+                ]);
+            }
+
+            if ($adminUser->role === 'staff') {
+                Cache::put("api_auth_token:{$token}", [
+                    'subject_type' => 'staff',
+                    'subject_id' => $adminUser->id,
+                    'subject_model' => 'user',
+                ], now()->addHours(24));
+
+                return response()->json([
+                    'token' => $token,
+                    'user' => [
+                        'id' => $adminUser->id,
+                        'name' => $adminUser->name,
+                        'email' => $adminUser->email,
+                        'role' => 'staff',
+                    ],
+                ]);
+            }
+
             Cache::put("api_auth_token:{$token}", [
-                'subject_type' => 'admin',
+                'subject_type' => 'staff',
                 'subject_id' => $adminUser->id,
+                'subject_model' => 'user',
             ], now()->addHours(24));
 
             return response()->json([
@@ -42,7 +79,7 @@ class AuthController extends Controller
                     'id' => $adminUser->id,
                     'name' => $adminUser->name,
                     'email' => $adminUser->email,
-                    'role' => $adminUser->role,
+                    'role' => 'staff',
                 ],
             ]);
         }
@@ -60,6 +97,7 @@ class AuthController extends Controller
         Cache::put("api_auth_token:{$token}", [
             'subject_type' => 'staff',
             'subject_id' => $staff->id,
+            'subject_model' => 'staff',
         ], now()->addHours(24));
 
         return response()->json([

@@ -6,9 +6,9 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-} from "../components/ui/card";
-import { Button } from "../components/ui/button";
-import { Switch } from "../components/ui/switch";
+} from "../../../components/ui/card";
+import { Button } from "../../../components/ui/button";
+import { Switch } from "../../../components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -16,16 +16,16 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "../components/ui/dialog";
-import { Input } from "../components/ui/input";
-import { Label } from "../components/ui/label";
-import { StatusBadge } from "../components/StatusBadge";
+} from "../../../components/ui/dialog";
+import { Input } from "../../../components/ui/input";
+import { Label } from "../../../components/ui/label";
+import { StatusBadge } from "../../../components/StatusBadge";
 import {
   ApiTable,
   createTable,
   fetchTables,
   updateTable,
-} from "../services/api";
+} from "../../../services/api";
 
 function createQrCode(id: number): string {
   return `TBL-${id}-${Math.random().toString(36).slice(2, 10).toUpperCase()}`;

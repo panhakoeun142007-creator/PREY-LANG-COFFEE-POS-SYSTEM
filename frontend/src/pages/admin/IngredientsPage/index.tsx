@@ -1,4 +1,4 @@
-import IngredientsUI from "../components/ui/ingredients";
+import IngredientsUI from "../../../components/ui/ingredients";
 
 export default function IngredientsPage() {
   return <IngredientsUI />;

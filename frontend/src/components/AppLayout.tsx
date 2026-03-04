@@ -21,6 +21,8 @@ import {
   updateCurrentUser,
 } from "../services/api";
 
+type AuthRole = "admin" | "staff";
+
 function statusClass(isActive: boolean, isDarkMode: boolean): string {
   if (isActive) {
     return isDarkMode
@@ -45,6 +47,10 @@ function getNotificationIcon(type: string) {
     default:
       return "🔔";
   }
+}
+
+function normalizeRole(role: string | null | undefined): AuthRole {
+  return role === "staff" ? "staff" : "admin";
 }
 
 export default function AppLayout() {
@@ -100,6 +106,10 @@ export default function AppLayout() {
       try {
         const user = await fetchCurrentUser();
         setCurrentUser(user);
+        localStorage.setItem(
+          "auth_role",
+          user.role === "staff" ? "staff" : "admin",
+        );
         setAccountName(user.name);
         setAccountEmail(user.email);
         setAccountImagePreview(user.profile_image_url ?? null);
@@ -108,6 +118,7 @@ export default function AppLayout() {
         const message = err instanceof Error ? err.message.toLowerCase() : "";
         if (message.includes("unauthorized") || message.includes("forbidden")) {
           localStorage.removeItem("auth_token");
+          localStorage.removeItem("auth_role");
           navigate("/login", { replace: true });
         }
         setCurrentUser(null);
@@ -158,6 +169,27 @@ export default function AppLayout() {
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
+  const currentRole = normalizeRole(
+    currentUser?.role ??
+      (typeof window !== "undefined"
+        ? localStorage.getItem("auth_role")
+        : null),
+  );
+
+  const visibleNavGroups = useMemo(() => {
+    const staffAllowedPaths = new Set(["/live-orders", "/order-history"]);
+    if (currentRole === "admin") {
+      return navGroups;
+    }
+
+    return navGroups
+      .map((group) => ({
+        ...group,
+        items: group.items.filter((item) => staffAllowedPaths.has(item.path)),
+      }))
+      .filter((group) => group.items.length > 0);
+  }, [currentRole]);
+
   const pageTitle = pageTitleByPath[location.pathname] ?? "Dashboard";
   const dateText = useMemo(
     () =>
@@ -174,8 +206,19 @@ export default function AppLayout() {
   const mainMargin = collapsed ? "md:ml-20" : "md:ml-64";
 
   function roleLabel(role: string | undefined): string {
-    void role;
-    return "Admin";
+    return normalizeRole(role) === "staff" ? "Staff" : "Admin";
+  }
+
+  async function handleLogout(): Promise<void> {
+    try {
+      await logoutAdmin();
+    } catch (err) {
+      console.error("Logout failed:", err);
+      localStorage.removeItem("auth_token");
+      localStorage.removeItem("auth_role");
+    } finally {
+      navigate("/login", { replace: true });
+    }
   }
 
   function openAccountModal() {
@@ -294,7 +337,9 @@ export default function AppLayout() {
                 <p className="text-sm font-semibold">
                   {currentUser?.name ?? "Admin User"}
                 </p>
-                <p className="text-xs text-white/70">Admin</p>
+                <p className="text-xs text-white/70">
+                  {roleLabel(currentUser?.role)}
+                </p>
               </div>
             )}
           </div>
@@ -302,7 +347,7 @@ export default function AppLayout() {
 
         <nav className="flex-1 overflow-y-auto px-3 py-4">
           <div className="space-y-5">
-            {navGroups.map((group) => (
+            {visibleNavGroups.map((group) => (
               <div key={group.group} className="space-y-2">
                 {!collapsed && (
                   <p
@@ -339,6 +384,7 @@ export default function AppLayout() {
         >
           <button
             type="button"
+            onClick={handleLogout}
             className={`flex w-full items-center rounded-xl px-3 py-2.5 text-sm transition ${
               isDarkMode
                 ? "text-slate-300 hover:bg-slate-800/70"

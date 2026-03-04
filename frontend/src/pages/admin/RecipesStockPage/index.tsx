@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, Pencil, Plus, Search, Trash2 } from "lucide-react";
-import { Button } from "../components/ui/button";
-import { Card, CardContent } from "../components/ui/card";
+import { Button } from "../../../components/ui/button";
+import { Card, CardContent } from "../../../components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -9,16 +9,16 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "../components/ui/dialog";
-import { Input } from "../components/ui/input";
+} from "../../../components/ui/dialog";
+import { Input } from "../../../components/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../components/ui/select";
-import { Switch } from "../components/ui/switch";
+} from "../../../components/ui/select";
+import { Switch } from "../../../components/ui/switch";
 import {
   Table,
   TableBody,
@@ -26,7 +26,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../components/ui/table";
+} from "../../../components/ui/table";
 import {
   ApiIngredient,
   ApiProduct,
@@ -41,7 +41,7 @@ import {
   RecipeSize,
   updateRecipeBoard,
   updateRecipeBoardStatus,
-} from "../services/api";
+} from "../../../services/api";
 
 type RecipeStatus = "all" | "active" | "inactive";
 

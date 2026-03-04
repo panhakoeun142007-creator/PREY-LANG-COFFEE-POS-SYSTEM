@@ -10,10 +10,10 @@ import {
   ChevronRight,
   Receipt,
 } from "lucide-react"
-import { fetchOrderHistory, LiveOrder, OrderHistoryParams, PaginatedOrderHistoryResponse, OrderHistorySummary } from "../services/api"
-import { StatusBadge } from "../components/StatusBadge"
-import { Button } from "../components/ui/button"
-import { Card, CardContent } from "../components/ui/card"
+import { fetchOrderHistory, LiveOrder, OrderHistoryParams, PaginatedOrderHistoryResponse, OrderHistorySummary } from "../../../services/api"
+import { StatusBadge } from "../../../components/StatusBadge"
+import { Button } from "../../../components/ui/button"
+import { Card, CardContent } from "../../../components/ui/card"
 import {
   Table,
   TableBody,
@@ -21,22 +21,22 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../components/ui/table"
-import { Input } from "../components/ui/input"
+} from "../../../components/ui/table"
+import { Input } from "../../../components/ui/input"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../components/ui/select"
+} from "../../../components/ui/select"
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from "../components/ui/dialog"
+} from "../../../components/ui/dialog"
 
 const KHR_PER_USD = 4100
 

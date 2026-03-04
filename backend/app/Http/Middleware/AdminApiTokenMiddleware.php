@@ -35,7 +35,7 @@ class AdminApiTokenMiddleware
         }
 
         if (!is_array($session) || ($session['subject_type'] ?? null) !== 'admin') {
-            return response()->json(['message' => 'Forbidden'], 403);
+            return response()->json(['message' => 'Unauthorized'], 401);
         }
 
         $userId = (int) ($session['subject_id'] ?? 0);
@@ -51,6 +51,9 @@ class AdminApiTokenMiddleware
         }
 
         Auth::setUser($user);
+
+        $request->attributes->set('api_subject_type', 'admin');
+        $request->attributes->set('api_subject_id', $userId);
 
         return $next($request);
     }
