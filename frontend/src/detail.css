@@ -278,27 +278,63 @@
 @media (max-width: 540px) {
   .detail-page {
     max-width: 100%;
-    padding: 6px 0 16px;
+    padding: 6px 0 14px;
   }
 
   .detail-card {
-    border-radius: 14px;
-    padding: 10px;
+    border-radius: 16px;
+    padding: 10px 10px 12px;
+  }
+
+  .detail-top {
+    margin-bottom: 8px;
+  }
+
+  .detail-title {
+    font-size: 1rem;
+  }
+
+  .detail-count-chip {
+    height: 30px;
+    min-width: 42px;
+    font-size: 0.72rem;
+  }
+
+  .detail-image-nav {
+    display: block;
+    position: relative;
+    padding: 0 6px;
+  }
+
+  .detail-image-wrap {
+    min-height: 190px;
+    border-radius: 12px;
+    aspect-ratio: 4 / 3;
   }
 
   .detail-product-image {
     height: 100%;
-  }
-
-  .detail-image-nav {
-    gap: 8px;
+    object-fit: contain;
   }
 
   .detail-side-nav {
-    width: 36px;
-    height: 36px;
-    border-width: 2px;
-    font-size: 1.25rem;
+    width: 34px;
+    height: 34px;
+    border-width: 1.5px;
+    font-size: 1.05rem;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+    background: color-mix(in srgb, var(--card-bg) 86%, #ffffff);
+  }
+
+  .detail-side-nav:first-child {
+    left: 0;
+  }
+
+  .detail-side-nav:last-child {
+    right: 0;
   }
 
   .detail-back {
@@ -307,27 +343,84 @@
     font-size: 0.72rem;
   }
 
+  .detail-headline {
+    margin-top: 10px;
+  }
+
   .detail-headline h3 {
-    font-size: 1.12rem;
+    font-size: 1.08rem;
   }
 
   .detail-headline p {
-    font-size: 0.96rem;
+    font-size: 1rem;
   }
 
   .detail-description-text {
     font-size: 0.82rem;
   }
 
+  .detail-tags {
+    margin-top: 8px;
+  }
+
+  .detail-tags span {
+    font-size: 0.68rem;
+    padding: 4px 9px;
+  }
+
+  .detail-section-block {
+    margin-top: 12px;
+  }
+
+  .size-option {
+    padding: 10px 11px;
+    border-radius: 11px;
+  }
+
+  .size-left strong {
+    font-size: 0.95rem;
+  }
+
+  .size-left small {
+    font-size: 0.78rem;
+  }
+
+  .size-price {
+    font-size: 0.86rem;
+  }
+
+  .detail-section-block select {
+    border-radius: 10px;
+    padding: 9px 10px;
+    font-size: 0.92rem;
+  }
+
   .milk-pill {
     flex-basis: calc(50% - 6px);
     min-width: 0;
+    min-height: 40px;
+    padding: 8px 8px;
+  }
+
+  .extra-row {
+    font-size: 0.84rem;
+  }
+
+  .detail-save-btn {
+    margin-top: 14px;
+    border-radius: 12px;
+    padding: 12px 14px;
   }
 }
 
 @media (max-width: 380px) {
-  .detail-product-image {
-    height: 100%;
+  .detail-card {
+    border-radius: 14px;
+    padding: 9px;
+  }
+
+  .detail-image-wrap {
+    min-height: 168px;
   }
 
   .detail-headline {
@@ -348,9 +441,9 @@
   }
 
   .detail-side-nav {
-    width: 32px;
-    height: 32px;
-    font-size: 1rem;
+    width: 30px;
+    height: 30px;
+    font-size: 0.92rem;
     border-width: 1.5px;
   }
 
