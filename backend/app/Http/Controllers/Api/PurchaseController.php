@@ -3,26 +3,27 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Ingredient;
+use App\Http\Resources\PurchaseResource;
 use App\Models\Purchase;
+use App\Services\PurchaseService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class PurchaseController extends Controller
 {
+    public function __construct(private readonly PurchaseService $purchaseService)
+    {
+    }
+
     /**
      * Display a listing of purchases.
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Purchase::query()->with('ingredient')->latest('date');
+        $paginator = $this->purchaseService->list($request);
+        $paginator->setCollection(PurchaseResource::collection($paginator->getCollection())->collection);
 
-        if ($request->filled('ingredient_id')) {
-            $query->where('ingredient_id', $request->integer('ingredient_id'));
-        }
-
-        return response()->json($query->paginate(20));
+        return response()->json($paginator);
     }
 
     /**
@@ -30,25 +31,10 @@ class PurchaseController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'ingredient_id' => ['required', 'exists:ingredients,id'],
-            'qty' => ['required', 'numeric', 'min:0.01'],
-            'cost' => ['required', 'numeric', 'min:0'],
-            'date' => ['required', 'date'],
-            'note' => ['nullable', 'string'],
-        ]);
+        $validated = $this->purchaseService->validateStore($request);
+        $purchase = $this->purchaseService->create($validated);
 
-        $purchase = DB::transaction(function () use ($validated) {
-            $purchase = Purchase::create($validated);
-
-            Ingredient::query()
-                ->where('id', $validated['ingredient_id'])
-                ->increment('stock_qty', (float) $validated['qty']);
-
-            return $purchase->load('ingredient');
-        });
-
-        return response()->json($purchase, 201);
+        return response()->json(new PurchaseResource($purchase), 201);
     }
 
     /**
@@ -56,7 +42,7 @@ class PurchaseController extends Controller
      */
     public function show(Purchase $purchase): JsonResponse
     {
-        return response()->json($purchase->load('ingredient'));
+        return response()->json(new PurchaseResource($purchase->load('ingredient')));
     }
 
     /**
@@ -64,17 +50,10 @@ class PurchaseController extends Controller
      */
     public function update(Request $request, Purchase $purchase): JsonResponse
     {
-        $validated = $request->validate([
-            'ingredient_id' => ['sometimes', 'required', 'exists:ingredients,id'],
-            'qty' => ['sometimes', 'required', 'numeric', 'min:0.01'],
-            'cost' => ['sometimes', 'required', 'numeric', 'min:0'],
-            'date' => ['sometimes', 'required', 'date'],
-            'note' => ['nullable', 'string'],
-        ]);
+        $validated = $this->purchaseService->validateUpdate($request);
+        $updated = $this->purchaseService->update($purchase, $validated);
 
-        $purchase->update($validated);
-
-        return response()->json($purchase->fresh()->load('ingredient'));
+        return response()->json(new PurchaseResource($updated));
     }
 
     /**
@@ -82,7 +61,7 @@ class PurchaseController extends Controller
      */
     public function destroy(Purchase $purchase): JsonResponse
     {
-        $purchase->delete();
+        $this->purchaseService->delete($purchase);
 
         return response()->json(['message' => 'Purchase deleted']);
     }

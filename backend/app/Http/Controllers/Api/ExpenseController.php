@@ -3,13 +3,18 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\ExpenseResource;
 use App\Models\Expense;
+use App\Services\ExpenseService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class ExpenseController extends Controller
 {
+    public function __construct(private readonly ExpenseService $expenseService)
+    {
+    }
+
     /**
      * Display a listing of expenses.
      */
@@ -21,7 +26,7 @@ class ExpenseController extends Controller
             $query->where('category', $request->string('category'));
         }
 
-        return response()->json($query->paginate(20));
+        return response()->json(ExpenseResource::collection($query->paginate(20)));
     }
 
     /**
@@ -29,17 +34,10 @@ class ExpenseController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'title' => ['required', 'string', 'max:100'],
-            'amount' => ['required', 'numeric', 'min:0'],
-            'category' => ['required', Rule::in(['ingredients', 'utilities', 'salary', 'rent', 'other'])],
-            'date' => ['required', 'date'],
-            'note' => ['nullable', 'string'],
-        ]);
+        $validated = $this->expenseService->validateStore($request);
+        $expense = $this->expenseService->create($validated);
 
-        $expense = Expense::create($validated);
-
-        return response()->json($expense, 201);
+        return response()->json(new ExpenseResource($expense), 201);
     }
 
     /**
@@ -47,7 +45,7 @@ class ExpenseController extends Controller
      */
     public function show(Expense $expense): JsonResponse
     {
-        return response()->json($expense);
+        return response()->json(new ExpenseResource($expense));
     }
 
     /**
@@ -55,17 +53,9 @@ class ExpenseController extends Controller
      */
     public function update(Request $request, Expense $expense): JsonResponse
     {
-        $validated = $request->validate([
-            'title' => ['sometimes', 'required', 'string', 'max:100'],
-            'amount' => ['sometimes', 'required', 'numeric', 'min:0'],
-            'category' => ['sometimes', 'required', Rule::in(['ingredients', 'utilities', 'salary', 'rent', 'other'])],
-            'date' => ['sometimes', 'required', 'date'],
-            'note' => ['nullable', 'string'],
-        ]);
+        $validated = $this->expenseService->validateUpdate($request);
 
-        $expense->update($validated);
-
-        return response()->json($expense->fresh());
+        return response()->json(new ExpenseResource($this->expenseService->update($expense, $validated)));
     }
 
     /**

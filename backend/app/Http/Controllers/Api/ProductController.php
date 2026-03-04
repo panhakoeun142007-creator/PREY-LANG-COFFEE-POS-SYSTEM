@@ -3,22 +3,27 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\ProductResource;
 use App\Models\Product;
+use App\Services\ProductService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 
 class ProductController extends Controller
 {
+    public function __construct(private readonly ProductService $productService)
+    {
+    }
+
     /**
      * Display a listing of products.
      */
     public function index(Request $request): JsonResponse
     {
         $query = Product::query()->with('category')->latest();
+        $perPage = max(1, min(100, $request->integer('per_page', 10)));
 
         if ($request->filled('category_id')) {
             $query->where('category_id', $request->integer('category_id'));
@@ -28,7 +33,10 @@ class ProductController extends Controller
             $query->where('is_available', $request->boolean('is_available'));
         }
 
-        return response()->json($query->paginate(15));
+        $paginator = $query->paginate($perPage);
+        $paginator->setCollection(ProductResource::collection($paginator->getCollection())->collection);
+
+        return response()->json($paginator);
     }
 
     /**
@@ -36,40 +44,12 @@ class ProductController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-        if ($request->has('is_available')) {
-            $request->merge([
-                'is_available' => filter_var($request->input('is_available'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE)
-                    ?? $request->input('is_available'),
-            ]);
-        }
-
-        $imageRules = $request->hasFile('image')
-            ? ['nullable', 'file', 'image', 'max:5120']
-            : ['nullable', 'string'];
-
-        $validated = $request->validate([
-            'category_id' => ['required', 'exists:categories,id'],
-            'name' => ['required', 'string', 'max:100'],
-            'sku' => ['nullable', 'string', 'max:80', 'unique:products,sku'],
-            'price_small' => ['required', 'numeric', 'min:0'],
-            'price_medium' => ['required', 'numeric', 'min:0'],
-            'price_large' => ['required', 'numeric', 'min:0'],
-            'image' => $imageRules,
-            'is_available' => ['sometimes', 'boolean'],
-        ]);
-
-        if ($request->hasFile('image')) {
-            $validated['image'] = $request->file('image')->store('products', 'public');
-        }
-
-        // Auto-generate SKU if not provided
-        if (empty($validated['sku'])) {
-            $validated['sku'] = 'SKU-' . strtoupper(uniqid());
-        }
+        $validated = $this->productService->prepareStorePayload($request);
 
         try {
-            $product = Product::create($validated)->load('category');
-            return response()->json($product, 201);
+            $product = $this->productService->create($validated);
+
+            return response()->json(new ProductResource($product), 201);
         } catch (QueryException $e) {
             Log::error('Product create failed', [
                 'error' => $e->getMessage(),
@@ -87,7 +67,7 @@ class ProductController extends Controller
      */
     public function show(Product $product): JsonResponse
     {
-        return response()->json($product->load('category'));
+        return response()->json(new ProductResource($product->load('category')));
     }
 
     /**
@@ -95,41 +75,10 @@ class ProductController extends Controller
      */
     public function update(Request $request, Product $product): JsonResponse
     {
-        if ($request->has('is_available')) {
-            $request->merge([
-                'is_available' => filter_var($request->input('is_available'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE)
-                    ?? $request->input('is_available'),
-            ]);
-        }
-
-        $imageRules = $request->hasFile('image')
-            ? ['nullable', 'file', 'image', 'max:5120']
-            : ['nullable', 'string'];
-
-        $validated = $request->validate([
-            'category_id' => ['sometimes', 'required', 'exists:categories,id'],
-            'name' => ['sometimes', 'required', 'string', 'max:100'],
-            'sku' => ['nullable', 'string', 'max:80', 'unique:products,sku,' . $product->id],
-            'price_small' => ['sometimes', 'required', 'numeric', 'min:0'],
-            'price_medium' => ['sometimes', 'required', 'numeric', 'min:0'],
-            'price_large' => ['sometimes', 'required', 'numeric', 'min:0'],
-            'image' => $imageRules,
-            'is_available' => ['sometimes', 'boolean'],
-        ]);
-
-        if ($request->hasFile('image')) {
-            $storedImage = $product->getRawOriginal('image');
-
-            if ($storedImage && Str::startsWith($storedImage, 'products/')) {
-                Storage::disk('public')->delete($storedImage);
-            }
-
-            $validated['image'] = $request->file('image')->store('products', 'public');
-        }
+        $validated = $this->productService->prepareUpdatePayload($request, $product);
 
         try {
-            $product->update($validated);
-            return response()->json($product->fresh()->load('category'));
+            return response()->json(new ProductResource($this->productService->update($product, $validated)));
         } catch (QueryException $e) {
             Log::error('Product update failed', [
                 'product_id' => $product->id,

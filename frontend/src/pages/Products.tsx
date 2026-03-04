@@ -1,6 +1,11 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import { Search, Plus, Pencil, Trash2, ImageIcon, Loader2 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import {
@@ -35,7 +40,16 @@ import {
   DrawerTitle,
 } from "../components/ui/drawer";
 import { Switch } from "../components/ui/switch";
-import { ApiProduct, Category, fetchProducts, fetchCategories, createProduct, updateProduct, deleteProduct, PaginatedResponse } from "../services/api";
+import {
+  ApiProduct,
+  Category,
+  fetchProducts,
+  fetchCategories,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  PaginatedResponse,
+} from "../services/api";
 
 // Helper functions
 function isValidImageSource(src: string): boolean {
@@ -44,6 +58,7 @@ function isValidImageSource(src: string): boolean {
   return (
     trimmed.startsWith("http://") ||
     trimmed.startsWith("https://") ||
+    trimmed.startsWith("blob:") ||
     trimmed.startsWith("/") ||
     trimmed.startsWith("data:image/")
   );
@@ -56,7 +71,8 @@ function parsePrice(value: string | number): number {
 }
 
 function formatPrice(price: number | string | null | undefined): string {
-  const value = typeof price === "number" ? price : parseFloat(String(price ?? ""));
+  const value =
+    typeof price === "number" ? price : parseFloat(String(price ?? ""));
   return Number.isFinite(value) && value > 0 ? `$${value.toFixed(2)}` : "-";
 }
 
@@ -81,81 +97,129 @@ const initialFormData: ProductFormData = {
 };
 
 export default function Products() {
+  const PRODUCTS_PER_PAGE = 10;
   const [products, setProducts] = useState<ApiProduct[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [lastPage, setLastPage] = useState(1);
+  const [totalProducts, setTotalProducts] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [formErrors, setFormErrors] = useState<{ name?: string; category_id?: string }>({});
-  
+  const [formErrors, setFormErrors] = useState<{
+    name?: string;
+    category_id?: string;
+  }>({});
+
   // Add Product Dialog state
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [formData, setFormData] = useState<ProductFormData>(initialFormData);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [createImageFile, setCreateImageFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   // Edit Drawer state
   const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<ApiProduct | null>(null);
-  const [editFormData, setEditFormData] = useState<ProductFormData>(initialFormData);
+  const [editFormData, setEditFormData] =
+    useState<ProductFormData>(initialFormData);
   const [isEditSubmitting, setIsEditSubmitting] = useState(false);
+  const [editImageFile, setEditImageFile] = useState<File | null>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
-  const [togglingProductIds, setTogglingProductIds] = useState<Set<number>>(new Set());
+  const [togglingProductIds, setTogglingProductIds] = useState<Set<number>>(
+    new Set(),
+  );
 
-  // Fetch products and categories on mount
+  // Fetch categories on mount
   useEffect(() => {
     let isMounted = true;
-    
-    const fetchData = async () => {
+
+    const fetchCategoriesData = async () => {
       try {
-        setIsLoading(true);
-        setError(null);
-        
-        // Fetch products - with proper typing
-        let productsData: PaginatedResponse<ApiProduct> = { data: [], current_page: 1, last_page: 1, per_page: 15, total: 0 };
         let categoriesData: Category[] = [];
-        
-        try {
-          const productsResult = await fetchProducts({});
-          if (isMounted && productsResult) {
-            productsData = productsResult;
-          }
-        } catch (productErr) {
-          console.warn('Failed to fetch products:', productErr);
-        }
-        
+
         try {
           const categoriesResult = await fetchCategories();
           if (isMounted && categoriesResult) {
             categoriesData = categoriesResult;
           }
         } catch (categoryErr) {
-          console.warn('Failed to fetch categories:', categoryErr);
+          console.warn("Failed to fetch categories:", categoryErr);
         }
-        
+
         if (!isMounted) return;
-        
-        // Set products with safe access
-        const products = productsData?.data || [];
-        setProducts(products);
-        
+
         // Safely filter categories - handle both boolean and integer (0/1) values from API
         const fetchedCategories = categoriesData;
         const filteredCategories = fetchedCategories.filter((c: Category) => {
           if (!c) return false;
           const isActive = c.is_active as boolean | number | string;
-          return isActive === true || isActive === 1 || isActive === '1' || isActive === 'true';
+          return (
+            isActive === true ||
+            isActive === 1 ||
+            isActive === "1" ||
+            isActive === "true"
+          );
         });
-        
+
         // If no categories after filter, use all categories
-        setCategories(filteredCategories.length > 0 ? filteredCategories : fetchedCategories);
+        setCategories(
+          filteredCategories.length > 0
+            ? filteredCategories
+            : fetchedCategories,
+        );
       } catch (err) {
-        console.error('Error in fetchData:', err);
-        setError('Failed to load data from backend. Please check API and database connection.');
+        console.error("Error in fetchCategoriesData:", err);
+        setError(
+          "Failed to load data from backend. Please check API and database connection.",
+        );
         setCategories([]);
+      }
+    };
+
+    fetchCategoriesData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Fetch products when page/filter changes
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchProductsData = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        const productsResult: PaginatedResponse<ApiProduct> =
+          await fetchProducts({
+            page: currentPage,
+            per_page: PRODUCTS_PER_PAGE,
+            category_id:
+              categoryFilter === "all"
+                ? undefined
+                : parseInt(categoryFilter, 10),
+          });
+
+        if (!isMounted) return;
+
+        setProducts(productsResult?.data || []);
+        setCurrentPage(productsResult?.current_page || 1);
+        setLastPage(productsResult?.last_page || 1);
+        setTotalProducts(productsResult?.total || 0);
+      } catch (err) {
+        if (!isMounted) return;
+        console.error("Error in fetchProductsData:", err);
+        setError(
+          err instanceof Error ? err.message : "Failed to load products",
+        );
         setProducts([]);
+        setLastPage(1);
+        setTotalProducts(0);
       } finally {
         if (isMounted) {
           setIsLoading(false);
@@ -163,33 +227,31 @@ export default function Products() {
       }
     };
 
-    fetchData();
-    
+    fetchProductsData();
+
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [currentPage, categoryFilter]);
 
   // Filter products - with defensive checks for null/undefined values
   const filteredProducts = useMemo(() => {
     if (!Array.isArray(products)) return [];
     return products.filter((product) => {
-      if (!product || typeof product.name !== 'string') return false;
-      const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategory = categoryFilter === "all" || product.category_id?.toString() === categoryFilter;
-      return matchesSearch && matchesCategory;
+      if (!product || typeof product.name !== "string") return false;
+      const matchesSearch = product.name
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase());
+      return matchesSearch;
     });
-  }, [products, searchQuery, categoryFilter]);
+  }, [products, searchQuery]);
 
   // Handle file upload
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData((prev) => ({ ...prev, image: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
+      setCreateImageFile(file);
+      setFormData((prev) => ({ ...prev, image: URL.createObjectURL(file) }));
     }
   };
 
@@ -197,11 +259,11 @@ export default function Products() {
   const handleEditFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setEditFormData((prev) => ({ ...prev, image: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
+      setEditImageFile(file);
+      setEditFormData((prev) => ({
+        ...prev,
+        image: URL.createObjectURL(file),
+      }));
     }
   };
 
@@ -222,13 +284,15 @@ export default function Products() {
     // Validate form
     const errors: { name?: string; category_id?: string } = {};
     if (!formData.name.trim()) {
-      errors.name = 'Product name is required';
+      errors.name = "Product name is required";
     }
     if (!formData.category_id) {
-      errors.category_id = 'Category is required';
+      errors.category_id = "Category is required";
     }
     if (categories.length === 0) {
-      setError('No categories available from database. Create categories first, then add products.');
+      setError(
+        "No categories available from database. Create categories first, then add products.",
+      );
       return;
     }
 
@@ -246,21 +310,22 @@ export default function Products() {
         price_small: parsePrice(formData.priceSmall),
         price_medium: parsePrice(formData.priceMedium),
         price_large: parsePrice(formData.priceLarge),
-        image: formData.image,
+        image: createImageFile ?? (formData.image.trim() || undefined),
         is_available: true,
       });
 
       setProducts((prev) => [newProduct, ...prev]);
       setFormData(initialFormData);
+      setCreateImageFile(null);
       resetFileInput(fileInputRef);
       setIsAddDialogOpen(false);
-      setSuccess('Product created successfully!');
-      
+      setSuccess("Product created successfully!");
+
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create product');
-      console.error('Error creating product:', err);
+      setError(err instanceof Error ? err.message : "Failed to create product");
+      console.error("Error creating product:", err);
     } finally {
       setIsSubmitting(false);
     }
@@ -278,6 +343,7 @@ export default function Products() {
       priceMedium: parsePrice(product.price_medium).toString(),
       priceLarge: parsePrice(product.price_large).toString(),
     });
+    setEditImageFile(null);
     setIsEditDrawerOpen(true);
   };
 
@@ -294,21 +360,22 @@ export default function Products() {
         price_small: parsePrice(editFormData.priceSmall),
         price_medium: parsePrice(editFormData.priceMedium),
         price_large: parsePrice(editFormData.priceLarge),
-        image: editFormData.image,
+        image: editImageFile ?? (editFormData.image.trim() || undefined),
       });
 
       setProducts((prev) =>
-        prev.map((p) => (p.id === editingProduct.id ? updated : p))
+        prev.map((p) => (p.id === editingProduct.id ? updated : p)),
       );
       setIsEditDrawerOpen(false);
       setEditingProduct(null);
-      setSuccess('Product updated successfully!');
-      
+      setEditImageFile(null);
+      setSuccess("Product updated successfully!");
+
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update product');
-      console.error('Error updating product:', err);
+      setError(err instanceof Error ? err.message : "Failed to update product");
+      console.error("Error updating product:", err);
     } finally {
       setIsEditSubmitting(false);
     }
@@ -316,7 +383,7 @@ export default function Products() {
 
   // Toggle availability
   const handleToggleAvailability = async (productId: number) => {
-    const product = products.find(p => p.id === productId);
+    const product = products.find((p) => p.id === productId);
     if (!product) return;
 
     try {
@@ -324,17 +391,23 @@ export default function Products() {
       const updated = await updateProduct(productId, {
         is_available: !product.is_available,
       });
-      
+
       setProducts((prev) =>
-        prev.map((p) => (p.id === productId ? { ...p, is_available: updated.is_available } : p))
+        prev.map((p) =>
+          p.id === productId ? { ...p, is_available: updated.is_available } : p,
+        ),
       );
-      setSuccess(`Product ${updated.is_available ? 'available' : 'unavailable'} successfully!`);
-      
+      setSuccess(
+        `Product ${updated.is_available ? "available" : "unavailable"} successfully!`,
+      );
+
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update availability');
-      console.error('Error toggling availability:', err);
+      setError(
+        err instanceof Error ? err.message : "Failed to update availability",
+      );
+      console.error("Error toggling availability:", err);
     } finally {
       setTogglingProductIds((prev) => {
         const next = new Set(prev);
@@ -353,13 +426,13 @@ export default function Products() {
     try {
       await deleteProduct(productId);
       setProducts((prev) => prev.filter((p) => p.id !== productId));
-      setSuccess('Product deleted successfully!');
-      
+      setSuccess("Product deleted successfully!");
+
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete product');
-      console.error('Error deleting product:', err);
+      setError(err instanceof Error ? err.message : "Failed to delete product");
+      console.error("Error deleting product:", err);
     }
   };
 
@@ -398,7 +471,9 @@ export default function Products() {
 
       {/* Page Header */}
       <div className="mb-6">
-        <h1 className="text-2xl md:text-3xl font-bold text-[#4B2E2B]">Products</h1>
+        <h1 className="text-2xl md:text-3xl font-bold text-[#4B2E2B]">
+          Products
+        </h1>
         <p className="text-[#7C5D58] mt-1">Manage your coffee shop menu</p>
       </div>
 
@@ -418,7 +493,13 @@ export default function Products() {
             </div>
 
             {/* Category Filter */}
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <Select
+              value={categoryFilter}
+              onValueChange={(value) => {
+                setCategoryFilter(value);
+                setCurrentPage(1);
+              }}
+            >
               <SelectTrigger className="w-full md:w-[200px] border-[#EAD6C0]">
                 <SelectValue placeholder="All Categories" />
               </SelectTrigger>
@@ -442,12 +523,14 @@ export default function Products() {
               </DialogTrigger>
               <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle className="text-[#4B2E2B]">Add New Product</DialogTitle>
+                  <DialogTitle className="text-[#4B2E2B]">
+                    Add New Product
+                  </DialogTitle>
                   <DialogDescription>
                     Fill in the details to add a new product to your menu.
                   </DialogDescription>
                 </DialogHeader>
-                
+
                 <div className="space-y-4 py-4">
                   {/* Product Name */}
                   <div className="space-y-2">
@@ -458,10 +541,17 @@ export default function Products() {
                       placeholder="Enter product name"
                       value={formData.name}
                       onChange={(e) => {
-                        setFormData((prev) => ({ ...prev, name: e.target.value }));
-                        if (formErrors.name) setFormErrors((prev) => ({ ...prev, name: undefined }));
+                        setFormData((prev) => ({
+                          ...prev,
+                          name: e.target.value,
+                        }));
+                        if (formErrors.name)
+                          setFormErrors((prev) => ({
+                            ...prev,
+                            name: undefined,
+                          }));
                       }}
-                      className={`border-[#EAD6C0] ${formErrors.name ? 'border-red-500' : ''}`}
+                      className={`border-[#EAD6C0] ${formErrors.name ? "border-red-500" : ""}`}
                     />
                     {formErrors.name && (
                       <p className="text-sm text-red-500">{formErrors.name}</p>
@@ -476,36 +566,56 @@ export default function Products() {
                     <Select
                       value={formData.category_id}
                       onValueChange={(value) => {
-                        setFormData((prev) => ({ ...prev, category_id: value }));
-                        if (formErrors.category_id) setFormErrors((prev) => ({ ...prev, category_id: undefined }));
+                        setFormData((prev) => ({
+                          ...prev,
+                          category_id: value,
+                        }));
+                        if (formErrors.category_id)
+                          setFormErrors((prev) => ({
+                            ...prev,
+                            category_id: undefined,
+                          }));
                       }}
                     >
-                      <SelectTrigger className={`border-[#EAD6C0] ${formErrors.category_id ? 'border-red-500' : ''}`}>
+                      <SelectTrigger
+                        className={`border-[#EAD6C0] ${formErrors.category_id ? "border-red-500" : ""}`}
+                      >
                         <SelectValue placeholder="Select category" />
                       </SelectTrigger>
                       <SelectContent>
                         {categories.map((category) => (
-                          <SelectItem key={category.id} value={category.id.toString()}>
+                          <SelectItem
+                            key={category.id}
+                            value={category.id.toString()}
+                          >
                             {category.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                     {formErrors.category_id && (
-                      <p className="text-sm text-red-500">{formErrors.category_id}</p>
+                      <p className="text-sm text-red-500">
+                        {formErrors.category_id}
+                      </p>
                     )}
                   </div>
 
                   {/* SKU */}
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-[#4B2E2B]">
-                      SKU <span className="text-gray-400">(optional - auto-generated if empty)</span>
+                      SKU{" "}
+                      <span className="text-gray-400">
+                        (optional - auto-generated if empty)
+                      </span>
                     </label>
                     <Input
                       placeholder="e.g., CAP-001"
                       value={formData.sku}
                       onChange={(e) =>
-                        setFormData((prev) => ({ ...prev, sku: e.target.value }))
+                        setFormData((prev) => ({
+                          ...prev,
+                          sku: e.target.value,
+                        }))
                       }
                       className="border-[#EAD6C0]"
                     />
@@ -513,7 +623,9 @@ export default function Products() {
 
                   {/* Image Upload and URL */}
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-[#4B2E2B]">Image</label>
+                    <label className="text-sm font-medium text-[#4B2E2B]">
+                      Image
+                    </label>
                     <div className="flex gap-2">
                       <Input
                         type="file"
@@ -533,9 +645,13 @@ export default function Products() {
                       <Input
                         placeholder="Or enter image URL"
                         value={formData.image}
-                        onChange={(e) =>
-                          setFormData((prev) => ({ ...prev, image: e.target.value }))
-                        }
+                        onChange={(e) => {
+                          setCreateImageFile(null);
+                          setFormData((prev) => ({
+                            ...prev,
+                            image: e.target.value,
+                          }));
+                        }}
                         className="border-[#EAD6C0] flex-1"
                       />
                     </div>
@@ -543,7 +659,9 @@ export default function Products() {
 
                   {/* Image Preview */}
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-[#4B2E2B]">Preview</label>
+                    <label className="text-sm font-medium text-[#4B2E2B]">
+                      Preview
+                    </label>
                     <div className="h-32 w-full border-2 border-dashed border-[#EAD6C0] rounded-lg flex items-center justify-center bg-[#FDF8F3]">
                       {isValidImageSource(formData.image) ? (
                         <img
@@ -554,7 +672,9 @@ export default function Products() {
                       ) : (
                         <div className="text-center text-[#7C5D58]">
                           <ImageIcon className="h-8 w-8 mx-auto mb-1 opacity-50" />
-                          <span className="text-sm">Enter URL or upload image</span>
+                          <span className="text-sm">
+                            Enter URL or upload image
+                          </span>
                         </div>
                       )}
                     </div>
@@ -563,7 +683,9 @@ export default function Products() {
                   {/* Prices */}
                   <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-[#4B2E2B]">Small</label>
+                      <label className="text-sm font-medium text-[#4B2E2B]">
+                        Small
+                      </label>
                       <Input
                         type="number"
                         step="0.01"
@@ -571,13 +693,18 @@ export default function Products() {
                         placeholder="0.00"
                         value={formData.priceSmall}
                         onChange={(e) =>
-                          setFormData((prev) => ({ ...prev, priceSmall: e.target.value }))
+                          setFormData((prev) => ({
+                            ...prev,
+                            priceSmall: e.target.value,
+                          }))
                         }
                         className="border-[#EAD6C0]"
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-[#4B2E2B]">Medium</label>
+                      <label className="text-sm font-medium text-[#4B2E2B]">
+                        Medium
+                      </label>
                       <Input
                         type="number"
                         step="0.01"
@@ -585,13 +712,18 @@ export default function Products() {
                         placeholder="0.00"
                         value={formData.priceMedium}
                         onChange={(e) =>
-                          setFormData((prev) => ({ ...prev, priceMedium: e.target.value }))
+                          setFormData((prev) => ({
+                            ...prev,
+                            priceMedium: e.target.value,
+                          }))
                         }
                         className="border-[#EAD6C0]"
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-[#4B2E2B]">Large</label>
+                      <label className="text-sm font-medium text-[#4B2E2B]">
+                        Large
+                      </label>
                       <Input
                         type="number"
                         step="0.01"
@@ -599,7 +731,10 @@ export default function Products() {
                         placeholder="0.00"
                         value={formData.priceLarge}
                         onChange={(e) =>
-                          setFormData((prev) => ({ ...prev, priceLarge: e.target.value }))
+                          setFormData((prev) => ({
+                            ...prev,
+                            priceLarge: e.target.value,
+                          }))
                         }
                         className="border-[#EAD6C0]"
                       />
@@ -627,7 +762,7 @@ export default function Products() {
                         Creating...
                       </>
                     ) : (
-                      'Create Product'
+                      "Create Product"
                     )}
                   </Button>
                 </DialogFooter>
@@ -641,7 +776,7 @@ export default function Products() {
       <Card className="border-[#E5E7EB] shadow-sm">
         <CardHeader className="pb-4">
           <CardTitle className="text-[#4B2E2B] text-lg">
-            Products ({filteredProducts.length})
+            Products ({totalProducts})
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -650,19 +785,38 @@ export default function Products() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-[#F3F4F6] border-b border-[#E5E7EB]">
-                  <TableHead className="text-[#111827] font-semibold">Image</TableHead>
-                  <TableHead className="text-[#111827] font-semibold">Name</TableHead>
-                  <TableHead className="text-[#111827] font-semibold">Category</TableHead>
-                  <TableHead className="text-[#111827] font-semibold">Small</TableHead>
-                  <TableHead className="text-[#111827] font-semibold">Medium</TableHead>
-                  <TableHead className="text-[#111827] font-semibold">Large</TableHead>
-                  <TableHead className="text-[#111827] font-semibold">Available</TableHead>
-                  <TableHead className="text-[#111827] font-semibold text-right">Actions</TableHead>
+                  <TableHead className="text-[#111827] font-semibold">
+                    Image
+                  </TableHead>
+                  <TableHead className="text-[#111827] font-semibold">
+                    Name
+                  </TableHead>
+                  <TableHead className="text-[#111827] font-semibold">
+                    Category
+                  </TableHead>
+                  <TableHead className="text-[#111827] font-semibold">
+                    Small
+                  </TableHead>
+                  <TableHead className="text-[#111827] font-semibold">
+                    Medium
+                  </TableHead>
+                  <TableHead className="text-[#111827] font-semibold">
+                    Large
+                  </TableHead>
+                  <TableHead className="text-[#111827] font-semibold">
+                    Available
+                  </TableHead>
+                  <TableHead className="text-[#111827] font-semibold text-right">
+                    Actions
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredProducts.map((product) => (
-                  <TableRow key={product.id} className="border-b border-[#E5E7EB] hover:bg-[#F9FAFB]">
+                  <TableRow
+                    key={product.id}
+                    className="border-b border-[#E5E7EB] hover:bg-[#F9FAFB]"
+                  >
                     <TableCell className="py-3">
                       {isValidImageSource(product.image || "") ? (
                         <img
@@ -676,19 +830,29 @@ export default function Products() {
                         </div>
                       )}
                     </TableCell>
-                    <TableCell className="font-medium text-[#111827]">{product.name}</TableCell>
+                    <TableCell className="font-medium text-[#111827]">
+                      {product.name}
+                    </TableCell>
                     <TableCell>
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#F5E6D3] text-[#8A5A2D]">
-                        {product.category?.name || 'N/A'}
+                        {product.category?.name || "N/A"}
                       </span>
                     </TableCell>
-                    <TableCell className="text-[#111827]">{formatPrice(product.price_small)}</TableCell>
-                    <TableCell className="text-[#111827]">{formatPrice(product.price_medium)}</TableCell>
-                    <TableCell className="text-[#111827]">{formatPrice(product.price_large)}</TableCell>
+                    <TableCell className="text-[#111827]">
+                      {formatPrice(product.price_small)}
+                    </TableCell>
+                    <TableCell className="text-[#111827]">
+                      {formatPrice(product.price_medium)}
+                    </TableCell>
+                    <TableCell className="text-[#111827]">
+                      {formatPrice(product.price_large)}
+                    </TableCell>
                     <TableCell>
                       <Switch
                         checked={product.is_available ?? true}
-                        onCheckedChange={() => handleToggleAvailability(product.id)}
+                        onCheckedChange={() =>
+                          handleToggleAvailability(product.id)
+                        }
                         disabled={togglingProductIds.has(product.id)}
                       />
                     </TableCell>
@@ -721,7 +885,10 @@ export default function Products() {
           {/* Mobile Cards */}
           <div className="md:hidden space-y-4 p-4">
             {filteredProducts.map((product) => (
-              <div key={product.id} className="bg-white rounded-lg border border-[#EAD6C0] p-4">
+              <div
+                key={product.id}
+                className="bg-white rounded-lg border border-[#EAD6C0] p-4"
+              >
                 <div className="flex gap-4">
                   <div className="flex-shrink-0">
                     {isValidImageSource(product.image || "") ? (
@@ -739,29 +906,39 @@ export default function Products() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between">
                       <div>
-                        <h3 className="font-medium text-[#4B2E2B]">{product.name}</h3>
+                        <h3 className="font-medium text-[#4B2E2B]">
+                          {product.name}
+                        </h3>
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#F5E6D3] text-[#4B2E2B] mt-1">
-                          {product.category?.name || 'N/A'}
+                          {product.category?.name || "N/A"}
                         </span>
                       </div>
                       <Switch
                         checked={product.is_available ?? true}
-                        onCheckedChange={() => handleToggleAvailability(product.id)}
+                        onCheckedChange={() =>
+                          handleToggleAvailability(product.id)
+                        }
                         disabled={togglingProductIds.has(product.id)}
                       />
                     </div>
                     <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
                       <div>
                         <span className="text-[#7C5D58]">Small:</span>
-                        <span className="ml-1 text-[#4B2E2B]">{formatPrice(product.price_small)}</span>
+                        <span className="ml-1 text-[#4B2E2B]">
+                          {formatPrice(product.price_small)}
+                        </span>
                       </div>
                       <div>
                         <span className="text-[#7C5D58]">Medium:</span>
-                        <span className="ml-1 text-[#4B2E2B]">{formatPrice(product.price_medium)}</span>
+                        <span className="ml-1 text-[#4B2E2B]">
+                          {formatPrice(product.price_medium)}
+                        </span>
                       </div>
                       <div>
                         <span className="text-[#7C5D58]">Large:</span>
-                        <span className="ml-1 text-[#4B2E2B]">{formatPrice(product.price_large)}</span>
+                        <span className="ml-1 text-[#4B2E2B]">
+                          {formatPrice(product.price_large)}
+                        </span>
                       </div>
                     </div>
                     <div className="mt-3 flex gap-2">
@@ -788,6 +965,32 @@ export default function Products() {
                 </div>
               </div>
             ))}
+          </div>
+
+          <div className="flex items-center justify-between px-4 py-4 border-t border-[#E5E7EB]">
+            <p className="text-sm text-[#7C5D58]">
+              Page {currentPage} of {lastPage}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                className="border-[#EAD6C0]"
+                disabled={currentPage <= 1 || isLoading}
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                className="border-[#EAD6C0]"
+                disabled={currentPage >= lastPage || isLoading}
+                onClick={() =>
+                  setCurrentPage((prev) => Math.min(lastPage, prev + 1))
+                }
+              >
+                Next
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -830,7 +1033,10 @@ export default function Products() {
                 </SelectTrigger>
                 <SelectContent>
                   {categories.map((category) => (
-                    <SelectItem key={category.id} value={category.id.toString()}>
+                    <SelectItem
+                      key={category.id}
+                      value={category.id.toString()}
+                    >
                       {category.name}
                     </SelectItem>
                   ))}
@@ -855,7 +1061,9 @@ export default function Products() {
 
             {/* Image Upload and URL */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-[#4B2E2B]">Image</label>
+              <label className="text-sm font-medium text-[#4B2E2B]">
+                Image
+              </label>
               <div className="flex gap-2">
                 <Input
                   type="file"
@@ -875,9 +1083,13 @@ export default function Products() {
                 <Input
                   placeholder="Or enter image URL"
                   value={editFormData.image}
-                  onChange={(e) =>
-                    setEditFormData((prev) => ({ ...prev, image: e.target.value }))
-                  }
+                  onChange={(e) => {
+                    setEditImageFile(null);
+                    setEditFormData((prev) => ({
+                      ...prev,
+                      image: e.target.value,
+                    }));
+                  }}
                   className="border-[#EAD6C0] flex-1"
                 />
               </div>
@@ -885,7 +1097,9 @@ export default function Products() {
 
             {/* Image Preview */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-[#4B2E2B]">Preview</label>
+              <label className="text-sm font-medium text-[#4B2E2B]">
+                Preview
+              </label>
               <div className="h-32 w-full border-2 border-dashed border-[#EAD6C0] rounded-lg flex items-center justify-center bg-[#FDF8F3]">
                 {isValidImageSource(editFormData.image) ? (
                   <img
@@ -905,7 +1119,9 @@ export default function Products() {
             {/* Prices */}
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-[#4B2E2B]">Small</label>
+                <label className="text-sm font-medium text-[#4B2E2B]">
+                  Small
+                </label>
                 <Input
                   type="number"
                   step="0.01"
@@ -913,13 +1129,18 @@ export default function Products() {
                   placeholder="0.00"
                   value={editFormData.priceSmall}
                   onChange={(e) =>
-                    setEditFormData((prev) => ({ ...prev, priceSmall: e.target.value }))
+                    setEditFormData((prev) => ({
+                      ...prev,
+                      priceSmall: e.target.value,
+                    }))
                   }
                   className="border-[#EAD6C0]"
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-[#4B2E2B]">Medium</label>
+                <label className="text-sm font-medium text-[#4B2E2B]">
+                  Medium
+                </label>
                 <Input
                   type="number"
                   step="0.01"
@@ -927,13 +1148,18 @@ export default function Products() {
                   placeholder="0.00"
                   value={editFormData.priceMedium}
                   onChange={(e) =>
-                    setEditFormData((prev) => ({ ...prev, priceMedium: e.target.value }))
+                    setEditFormData((prev) => ({
+                      ...prev,
+                      priceMedium: e.target.value,
+                    }))
                   }
                   className="border-[#EAD6C0]"
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-[#4B2E2B]">Large</label>
+                <label className="text-sm font-medium text-[#4B2E2B]">
+                  Large
+                </label>
                 <Input
                   type="number"
                   step="0.01"
@@ -941,7 +1167,10 @@ export default function Products() {
                   placeholder="0.00"
                   value={editFormData.priceLarge}
                   onChange={(e) =>
-                    setEditFormData((prev) => ({ ...prev, priceLarge: e.target.value }))
+                    setEditFormData((prev) => ({
+                      ...prev,
+                      priceLarge: e.target.value,
+                    }))
                   }
                   className="border-[#EAD6C0]"
                 />
@@ -968,7 +1197,7 @@ export default function Products() {
                   Saving...
                 </>
               ) : (
-                'Save Changes'
+                "Save Changes"
               )}
             </Button>
           </DrawerFooter>

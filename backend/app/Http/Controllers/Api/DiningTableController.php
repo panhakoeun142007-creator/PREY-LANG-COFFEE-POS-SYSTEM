@@ -3,33 +3,16 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\DiningTableResource;
 use App\Models\DiningTable;
+use App\Services\DiningTableService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
 
 class DiningTableController extends Controller
 {
-    /**
-     * Map DB table shape to frontend table shape.
-     *
-     * @return array<string, mixed>
-     */
-    private function transform(DiningTable $table): array
+    public function __construct(private readonly DiningTableService $diningTableService)
     {
-        return [
-            'id' => (int) $table->id,
-            'name' => $table->name,
-            'capacity' => (int) $table->seats,
-            'status' => $table->is_active ? 'active' : 'inactive',
-            'qrCode' => $table->qr_code ?: ('QR-TBL-' . str_pad((string) $table->id, 3, '0', STR_PAD_LEFT)),
-            // Keep raw fields for compatibility with existing consumers.
-            'seats' => (int) $table->seats,
-            'is_active' => (bool) $table->is_active,
-            'qr_code' => $table->qr_code,
-            'db_status' => $table->status,
-        ];
     }
 
     /**
@@ -52,10 +35,7 @@ class DiningTableController extends Controller
             $query->where('is_active', $request->boolean('is_active'));
         }
 
-        $paginated = $query->paginate(20);
-        $paginated->getCollection()->transform(fn (DiningTable $table) => $this->transform($table));
-
-        return response()->json($paginated);
+        return response()->json(DiningTableResource::collection($query->paginate(20)));
     }
 
     /**
@@ -63,36 +43,10 @@ class DiningTableController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:100', Rule::unique('dining_tables', 'name')],
-            'capacity' => ['sometimes', 'integer', 'min:1'],
-            'seats' => ['sometimes', 'integer', 'min:1'],
-            'status' => ['sometimes', Rule::in(['available', 'occupied', 'reserved', 'active', 'inactive'])],
-            'is_active' => ['sometimes', 'boolean'],
-            'qrCode' => ['sometimes', 'string', 'max:191', Rule::unique('dining_tables', 'qr_code')],
-            'qr_code' => ['sometimes', 'string', 'max:191', Rule::unique('dining_tables', 'qr_code')],
-        ]);
+        $validated = $this->diningTableService->validateStore($request);
+        $table = $this->diningTableService->create($validated);
 
-        if (array_key_exists('qrCode', $validated) && !array_key_exists('qr_code', $validated)) {
-            $validated['qr_code'] = $validated['qrCode'];
-            unset($validated['qrCode']);
-        }
-
-        if (array_key_exists('status', $validated) && in_array($validated['status'], ['active', 'inactive'], true)) {
-            $validated['is_active'] = $validated['status'] === 'active';
-            unset($validated['status']);
-        }
-
-        $seats = $validated['capacity'] ?? $validated['seats'] ?? 2;
-        $table = DiningTable::create([
-            'name' => $validated['name'],
-            'seats' => $seats,
-            'status' => $validated['status'] ?? 'available',
-            'is_active' => $validated['is_active'] ?? true,
-            'qr_code' => $validated['qr_code'] ?? ('QR-' . Str::upper(Str::random(10))),
-        ]);
-
-        return response()->json($this->transform($table), 201);
+        return response()->json(new DiningTableResource($table), 201);
     }
 
     /**
@@ -100,7 +54,7 @@ class DiningTableController extends Controller
      */
     public function show(DiningTable $table): JsonResponse
     {
-        return response()->json($this->transform($table));
+        return response()->json(new DiningTableResource($table));
     }
 
     /**
@@ -108,34 +62,9 @@ class DiningTableController extends Controller
      */
     public function update(Request $request, DiningTable $table): JsonResponse
     {
-        $validated = $request->validate([
-            'name' => ['sometimes', 'required', 'string', 'max:100', Rule::unique('dining_tables', 'name')->ignore($table->id)],
-            'capacity' => ['sometimes', 'required', 'integer', 'min:1'],
-            'seats' => ['sometimes', 'required', 'integer', 'min:1'],
-            'status' => ['sometimes', Rule::in(['available', 'occupied', 'reserved', 'active', 'inactive'])],
-            'is_active' => ['sometimes', 'boolean'],
-            'qrCode' => ['sometimes', 'required', 'string', 'max:191', Rule::unique('dining_tables', 'qr_code')->ignore($table->id)],
-            'qr_code' => ['sometimes', 'required', 'string', 'max:191', Rule::unique('dining_tables', 'qr_code')->ignore($table->id)],
-        ]);
+        $validated = $this->diningTableService->validateUpdate($request, $table);
 
-        if (array_key_exists('capacity', $validated)) {
-            $validated['seats'] = $validated['capacity'];
-            unset($validated['capacity']);
-        }
-
-        if (array_key_exists('qrCode', $validated) && !array_key_exists('qr_code', $validated)) {
-            $validated['qr_code'] = $validated['qrCode'];
-            unset($validated['qrCode']);
-        }
-
-        if (array_key_exists('status', $validated) && in_array($validated['status'], ['active', 'inactive'], true)) {
-            $validated['is_active'] = $validated['status'] === 'active';
-            unset($validated['status']);
-        }
-
-        $table->update($validated);
-
-        return response()->json($this->transform($table->fresh()));
+        return response()->json(new DiningTableResource($this->diningTableService->update($table, $validated)));
     }
 
     /**

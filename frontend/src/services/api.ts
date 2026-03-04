@@ -518,6 +518,69 @@ export interface PaginatedResponse<T> {
   total: number;
 }
 
+function unwrapResourceItem<T>(payload: unknown): T {
+  if (
+    payload &&
+    typeof payload === "object" &&
+    !Array.isArray(payload) &&
+    "data" in payload
+  ) {
+    const data = (payload as { data?: unknown }).data;
+    if (data && !Array.isArray(data) && typeof data === "object") {
+      return data as T;
+    }
+  }
+
+  return payload as T;
+}
+
+function normalizePaginatedPayload<T>(payload: unknown): PaginatedResponse<T> {
+  if (Array.isArray(payload)) {
+    return {
+      data: payload as T[],
+      current_page: 1,
+      last_page: 1,
+      per_page: payload.length,
+      total: payload.length,
+    };
+  }
+
+  if (payload && typeof payload === "object") {
+    const record = payload as {
+      data?: unknown;
+      current_page?: number;
+      last_page?: number;
+      per_page?: number;
+      total?: number;
+      meta?: {
+        current_page?: number;
+        last_page?: number;
+        per_page?: number;
+        total?: number;
+      };
+    };
+
+    const rows = Array.isArray(record.data) ? (record.data as T[]) : [];
+    const meta = record.meta ?? {};
+
+    return {
+      data: rows,
+      current_page: Number(record.current_page ?? meta.current_page ?? 1),
+      last_page: Number(record.last_page ?? meta.last_page ?? 1),
+      per_page: Number(record.per_page ?? meta.per_page ?? rows.length),
+      total: Number(record.total ?? meta.total ?? rows.length),
+    };
+  }
+
+  return {
+    data: [],
+    current_page: 1,
+    last_page: 1,
+    per_page: 0,
+    total: 0,
+  };
+}
+
 export interface OrderHistorySummary {
   completed_count: number;
   cancelled_count: number;
@@ -676,7 +739,7 @@ export async function createCategory(
     throw await readApiError(response, "Failed to create category");
   }
 
-  return response.json();
+  return unwrapResourceItem<CategoryApiItem>(await response.json());
 }
 
 export async function updateCategory(
@@ -700,7 +763,7 @@ export async function updateCategory(
     throw await readApiError(response, "Failed to update category");
   }
 
-  return response.json();
+  return unwrapResourceItem<CategoryApiItem>(await response.json());
 }
 
 export async function deleteCategory(categoryId: number): Promise<void> {
@@ -717,6 +780,8 @@ export async function deleteCategory(categoryId: number): Promise<void> {
 export interface FetchProductsParams {
   category_id?: number;
   is_available?: boolean;
+  page?: number;
+  per_page?: number;
 }
 
 export interface ApiProduct {
@@ -741,6 +806,9 @@ export async function fetchProducts(
     queryParams.append("category_id", params.category_id.toString());
   if (params.is_available !== undefined)
     queryParams.append("is_available", params.is_available.toString());
+  if (params.page) queryParams.append("page", params.page.toString());
+  if (params.per_page)
+    queryParams.append("per_page", params.per_page.toString());
 
   const query = queryParams.toString();
   const response = await safeFetch(query ? `/products?${query}` : "/products");
@@ -749,7 +817,8 @@ export async function fetchProducts(
     throw await readApiError(response, "Failed to fetch products");
   }
 
-  return response.json();
+  const payload = await response.json();
+  return normalizePaginatedPayload<ApiProduct>(payload);
 }
 
 export interface CreateProductData {
@@ -759,45 +828,102 @@ export interface CreateProductData {
   price_small: number;
   price_medium: number;
   price_large: number;
-  image?: string;
+  image?: string | File;
   is_available?: boolean;
+}
+
+function appendProductFormData(
+  formData: FormData,
+  data: Partial<CreateProductData>,
+): void {
+  if (data.category_id !== undefined) {
+    formData.append("category_id", String(data.category_id));
+  }
+  if (data.name !== undefined) {
+    formData.append("name", data.name);
+  }
+  if (data.sku !== undefined) {
+    formData.append("sku", data.sku);
+  }
+  if (data.price_small !== undefined) {
+    formData.append("price_small", String(data.price_small));
+  }
+  if (data.price_medium !== undefined) {
+    formData.append("price_medium", String(data.price_medium));
+  }
+  if (data.price_large !== undefined) {
+    formData.append("price_large", String(data.price_large));
+  }
+  if (data.is_available !== undefined) {
+    formData.append("is_available", data.is_available ? "1" : "0");
+  }
+
+  if (data.image instanceof File) {
+    formData.append("image", data.image);
+  } else if (typeof data.image === "string") {
+    const imageValue = data.image.trim();
+    if (imageValue) {
+      formData.append("image", imageValue);
+    }
+  }
 }
 
 export async function createProduct(
   data: CreateProductData,
 ): Promise<ApiProduct> {
-  const response = await safeFetch("/products", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(data),
-  });
+  const hasFileImage = data.image instanceof File;
+  const response = hasFileImage
+    ? await safeFetch("/products", {
+        method: "POST",
+        body: (() => {
+          const formData = new FormData();
+          appendProductFormData(formData, data);
+          return formData;
+        })(),
+      })
+    : await safeFetch("/products", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
 
   if (!response.ok) {
     throw await readApiError(response, "Failed to create product");
   }
 
-  return response.json();
+  return unwrapResourceItem<ApiProduct>(await response.json());
 }
 
 export async function updateProduct(
   id: number,
   data: Partial<CreateProductData>,
 ): Promise<ApiProduct> {
-  const response = await safeFetch(`/products/${id}`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(data),
-  });
+  const hasFileImage = data.image instanceof File;
+  const response = hasFileImage
+    ? await safeFetch(`/products/${id}`, {
+        method: "POST",
+        body: (() => {
+          const formData = new FormData();
+          formData.append("_method", "PUT");
+          appendProductFormData(formData, data);
+          return formData;
+        })(),
+      })
+    : await safeFetch(`/products/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
 
   if (!response.ok) {
     throw await readApiError(response, "Failed to update product");
   }
 
-  return response.json();
+  return unwrapResourceItem<ApiProduct>(await response.json());
 }
 
 export async function deleteProduct(id: number): Promise<void> {
@@ -839,7 +965,8 @@ export async function fetchTables(): Promise<PaginatedResponse<ApiTable>> {
     throw await readApiError(response, "Failed to fetch tables");
   }
 
-  return response.json();
+  const payload = await response.json();
+  return normalizePaginatedPayload<ApiTable>(payload);
 }
 
 export async function createTable(data: CreateTableData): Promise<ApiTable> {
@@ -855,7 +982,7 @@ export async function createTable(data: CreateTableData): Promise<ApiTable> {
     throw await readApiError(response, "Failed to create table");
   }
 
-  return response.json();
+  return unwrapResourceItem<ApiTable>(await response.json());
 }
 
 export async function updateTable(
@@ -874,7 +1001,7 @@ export async function updateTable(
     throw await readApiError(response, "Failed to update table");
   }
 
-  return response.json();
+  return unwrapResourceItem<ApiTable>(await response.json());
 }
 
 export async function deleteTable(id: number): Promise<void> {
@@ -1127,7 +1254,8 @@ export async function fetchExpenses(
     throw await readApiError(response, "Failed to fetch expenses");
   }
 
-  return response.json();
+  const payload = await response.json();
+  return normalizePaginatedPayload<ExpenseApiItem>(payload);
 }
 
 export async function fetchIncomeTransactions(
@@ -1158,7 +1286,23 @@ export async function fetchIncomeTransactions(
     throw await readApiError(response, "Failed to fetch income transactions");
   }
 
-  return response.json();
+  const payload = await response.json();
+  const normalized = normalizePaginatedPayload<IncomeApiItem>(payload);
+  const summary =
+    payload && typeof payload === "object" && "summary" in payload
+      ? ((payload as { summary?: IncomeSummary }).summary ?? {
+          total_income: 0,
+          transactions: 0,
+        })
+      : {
+          total_income: 0,
+          transactions: 0,
+        };
+
+  return {
+    ...normalized,
+    summary,
+  };
 }
 
 export async function createExpense(payload: {
