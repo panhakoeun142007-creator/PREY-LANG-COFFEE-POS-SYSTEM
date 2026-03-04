@@ -77,24 +77,27 @@ export default function ForgotPassword() {
     <div className="login-container forgot-ref-page">
       <main className="login-main">
         <div className="login-card forgot-ref-card">
-          <h2 className="login-title">Forgot Password?</h2>
-
-          <p className="login-description">
-            Enter the email address associated with your account and we&apos;ll send you a 6-digit verification code to reset your password.
-          </p>
+          <div className="forgot-ref-head">
+            <div className="forgot-ref-icon" aria-hidden="true">!</div>
+            <h1 className="login-title">Forgot your password?</h1>
+            <p className="login-description">
+              Enter your account email and we&apos;ll send a 6-digit verification code so you can create a new password.
+            </p>
+          </div>
 
           <form className="login-form" onSubmit={handleSubmit}>
             <div className="form-group">
-              <label htmlFor="email">Email Address</label>
+              <label htmlFor="email">Account Email</label>
               <input
                 type="email"
                 id="email"
-                placeholder="e.g. alex@example.com"
+                placeholder="Enter your email account"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={isLoading}
               />
+              <p className="forgot-ref-fieldhint">Use the same email you use to sign in.</p>
             </div>
 
             {error && (
@@ -105,7 +108,7 @@ export default function ForgotPassword() {
             )}
 
             <button type="submit" className="login-btn" disabled={isLoading}>
-              {isLoading ? 'Sending...' : 'Send Verification Code  ->'}
+              {isLoading ? 'SENDING CODE...' : 'SEND VERIFICATION CODE'}
             </button>
           </form>
 

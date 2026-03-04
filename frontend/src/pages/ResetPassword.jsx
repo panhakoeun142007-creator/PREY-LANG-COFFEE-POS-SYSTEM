@@ -66,17 +66,17 @@ export default function ResetPassword() {
         <div className="login-card reset-ref-card">
           <div className="reset-ref-icon" aria-hidden="true">🔒</div>
 
-          <h2 className="login-title">Set New Password</h2>
+          <h5 className="login-title">Set New Password</h5>
 
           <p className="login-description">
             Create a new password for your account.
           </p>
 
-          {email && (
+          {/* {email && (
             <p className="instruction" style={{ marginBottom: '12px' }}>
               Account: {email}
             </p>
-          )}
+          )} */}
 
           {error && (
             <div className="error-message" style={{ marginBottom: '16px' }}>

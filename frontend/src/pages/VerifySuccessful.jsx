@@ -52,7 +52,7 @@ export default function VerifySuccessful() {
       </main>
 
       <div className="success-ref-footer-link">
-        <Link to="/login" className="back-link">Back to Login -&gt;</Link>
+        <Link to="/dashboard" className="back-link">Back to Login -&gt;</Link>
       </div>
     </div>
   );

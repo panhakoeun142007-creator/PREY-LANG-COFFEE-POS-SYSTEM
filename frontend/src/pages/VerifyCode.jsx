@@ -106,6 +106,7 @@ export default function VerifyCode() {
           <p className="login-description">
             We&apos;ve sent a 6-digit code to your email. Please enter it below to continue.
           </p>
+          {email && <p className="verify-ref-email">{email}</p>}
 
           {error && (
             <div className="error-message">
@@ -122,7 +123,7 @@ export default function VerifyCode() {
 
           <form className="login-form" onSubmit={handleSubmit}>
             <div className="form-group">
-              <label className="verify-ref-label">Verification Code</label>
+              
               <div className="code-inputs verify-ref-code-inputs">
                 {code.map((digit, index) => (
                   <input
