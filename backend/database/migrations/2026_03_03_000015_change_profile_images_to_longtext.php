@@ -6,11 +6,20 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    private function supportsModifyColumn(): bool
+    {
+        return in_array(DB::getDriverName(), ['mysql', 'mariadb'], true);
+    }
+
     /**
      * Run the migrations.
      */
     public function up(): void
     {
+        if (!$this->supportsModifyColumn()) {
+            return;
+        }
+
         if (Schema::hasTable('users') && Schema::hasColumn('users', 'profile_image')) {
             DB::statement('ALTER TABLE `users` MODIFY `profile_image` LONGTEXT NULL');
         }
@@ -25,6 +34,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (!$this->supportsModifyColumn()) {
+            return;
+        }
+
         if (Schema::hasTable('users') && Schema::hasColumn('users', 'profile_image')) {
             DB::statement('ALTER TABLE `users` MODIFY `profile_image` VARCHAR(255) NULL');
         }

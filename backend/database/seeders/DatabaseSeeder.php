@@ -94,6 +94,12 @@ class DatabaseSeeder extends Seeder
         $chocoCroissant = Product::where('sku', 'CC-003')->first();
         $toast = Product::where('sku', 'AT-004')->first();
 
+        // Seed ingredients
+        $this->call([
+            IngredientSeeder::class,
+            RecipeSeeder::class,
+        ]);
+
         // Create dining tables
         $tables = [];
         for ($i = 1; $i <= 10; $i++) {

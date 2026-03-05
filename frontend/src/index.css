@@ -204,3 +204,67 @@ html.dark .text-red-700 {
 html.dark .border-red-200 {
   border-color: rgba(239, 68, 68, 0.4) !important;
 }
+
+html.dark .bg-\[\#5A2E26\] {
+  background-color: #4f46e5 !important;
+}
+
+html.dark .hover\:bg-\[\#4a241d\]:hover {
+  background-color: #6366f1 !important;
+}
+
+html.dark .border-\[\#4A2721\] {
+  border-color: #4f46e5 !important;
+}
+
+html.dark .bg-slate-200 {
+  background-color: #475569 !important;
+}
+
+html.dark .border-slate-200 {
+  border-color: #475569 !important;
+}
+
+html.dark .text-red-600 {
+  color: #fca5a5 !important;
+}
+
+html.dark .border-\[\#5A2E26\] {
+  border-color: #6366f1 !important;
+}
+
+html.dark .text-\[\#5A2E26\] {
+  color: #a5b4fc !important;
+}
+
+html.dark .hover\:bg-\[\#5A2E26\]:hover {
+  background-color: #6366f1 !important;
+}
+
+html.dark .text-amber-800 {
+  color: #fcd34d !important;
+}
+
+html.dark .border-amber-200 {
+  border-color: rgba(234, 179, 8, 0.3) !important;
+}
+
+html.dark .bg-\[\#FFFBF7\] {
+  background-color: var(--surface-1) !important;
+}
+
+html.dark .border-\[\#D9CBB7\] {
+  border-color: #475569 !important;
+}
+
+html.dark .bg-\[\#D9CBB7\] {
+  background-color: #475569 !important;
+}
+
+html.dark .bg-slate-50 {
+  background-color: var(--surface-1) !important;
+}
+
+html.dark .text-\[\#8E706B\] {
+  color: #94a3b8 !important;
+}

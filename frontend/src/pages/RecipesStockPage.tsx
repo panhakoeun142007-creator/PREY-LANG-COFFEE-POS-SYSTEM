@@ -28,7 +28,6 @@ import {
   TableRow,
 } from "../components/ui/table";
 import {
-  ApiIngredient,
   ApiProduct,
   Category,
   createRecipeBoard,
@@ -37,6 +36,7 @@ import {
   fetchIngredients,
   fetchProducts,
   fetchRecipeBoard,
+  IngredientApiItem,
   RecipeBoardRow,
   RecipeSize,
   updateRecipeBoard,
@@ -63,7 +63,7 @@ export default function RecipesStockPage() {
   const [rows, setRows] = useState<RecipeBoardRow[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<ApiProduct[]>([]);
-  const [ingredients, setIngredients] = useState<ApiIngredient[]>([]);
+  const [ingredients, setIngredients] = useState<IngredientApiItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -74,22 +74,6 @@ export default function RecipesStockPage() {
   const [formIngredients, setFormIngredients] = useState<IngredientFormRow[]>([
     { ingredient_id: "", amount: "" },
   ]);
-
-  useEffect(() => {
-    void loadLookups();
-  }, []);
-
-  useEffect(() => {
-    const handleCategoryUpdate = () => {
-      void loadLookups();
-      void loadBoard();
-    };
-
-    window.addEventListener(CATEGORY_UPDATE_EVENT, handleCategoryUpdate);
-    return () => {
-      window.removeEventListener(CATEGORY_UPDATE_EVENT, handleCategoryUpdate);
-    };
-  }, [loadBoard]);
 
   const loadBoard = useCallback(async () => {
     try {
@@ -108,6 +92,22 @@ export default function RecipesStockPage() {
       setLoading(false);
     }
   }, [search, categoryFilter, statusFilter]);
+
+  useEffect(() => {
+    void loadLookups();
+  }, []);
+
+  useEffect(() => {
+    const handleCategoryUpdate = () => {
+      void loadLookups();
+      void loadBoard();
+    };
+
+    window.addEventListener(CATEGORY_UPDATE_EVENT, handleCategoryUpdate);
+    return () => {
+      window.removeEventListener(CATEGORY_UPDATE_EVENT, handleCategoryUpdate);
+    };
+  }, [loadBoard]);
 
   useEffect(() => {
     void loadBoard();
