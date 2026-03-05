@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
-import { Eye, Plus, QrCode, RefreshCw, Users } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Eye, Plus, QrCode, RefreshCw, Users, Download, Printer } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Switch } from "../components/ui/switch";
@@ -21,8 +22,9 @@ import {
   updateTable,
 } from "../services/api";
 
-function createQrCode(id: number): string {
-  return `QR-${id}-${Date.now()}`;
+function createQrCode(id: number, name: string): string {
+  const baseUrl = window.location.origin;
+  return `${baseUrl}/menu?table=${id}&name=${encodeURIComponent(name)}`;
 }
 
 function getQrValue(table: ApiTable): string {
@@ -39,6 +41,8 @@ export default function Tables() {
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [updatingIds, setUpdatingIds] = useState<Set<number>>(new Set());
+
+  const qrRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -98,10 +102,13 @@ export default function Tables() {
   };
 
   const regenerateQR = async (id: number) => {
+    const table = tables.find((t) => t.id === id);
+    if (!table) return;
+    
     try {
       setUpdatingIds((prev) => new Set(prev).add(id));
       setError(null);
-      const updated = await updateTable(id, { qr_code: createQrCode(id) });
+      const updated = await updateTable(id, { qr_code: createQrCode(id, table.name) });
       setTables((prev) => prev.map((t) => (t.id === id ? updated : t)));
       setPreviewTable((prev) => (prev && prev.id === id ? updated : prev));
     } catch (err) {
@@ -136,26 +143,42 @@ export default function Tables() {
   };
 
   const handleDownloadPreview = () => {
-    if (!previewTable) return;
+    if (!previewTable || !qrRef.current) return;
 
-    const qrValue = getQrValue(previewTable);
-    const content = `Table: ${previewTable.name}\nQR: ${qrValue}\nCapacity: ${previewTable.capacity}`;
-    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${previewTable.name.replace(/\s+/g, "-").toLowerCase()}-qr.txt`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
+    const svg = qrRef.current.querySelector('svg');
+    if (!svg) return;
+
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+
+    canvas.width = 512;
+    canvas.height = 512;
+
+    img.onload = () => {
+      ctx?.drawImage(img, 0, 0, 512, 512);
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${previewTable.name.replace(/\s+/g, '-').toLowerCase()}-qr.png`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      });
+    };
+
+    img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
   };
 
   const handlePrintPreview = () => {
     if (!previewTable) return;
 
     const qrValue = getQrValue(previewTable);
-    const win = window.open("", "_blank", "width=420,height=620");
+    const win = window.open("", "_blank", "width=600,height=800");
     if (!win) {
       setError("Popup was blocked. Please allow popups to print.");
       return;
@@ -163,20 +186,37 @@ export default function Tables() {
 
     win.document.write(`
       <html>
-        <head><title>${previewTable.name} QR</title></head>
-        <body style="font-family:Arial,sans-serif;padding:24px;text-align:center;">
-          <h2 style="margin-bottom:8px;">${previewTable.name}</h2>
-          <p style="margin-top:0;color:#666;">Capacity: ${previewTable.capacity}</p>
-          <div style="border:1px solid #ddd;border-radius:12px;padding:20px;margin:20px auto;max-width:300px;">
-            <div style="font-size:13px;color:#666;margin-bottom:8px;">QR Code Value</div>
-            <div style="font-family:monospace;word-break:break-all;">${qrValue}</div>
+        <head>
+          <title>${previewTable.name} QR Code</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 40px; text-align: center; }
+            h1 { margin-bottom: 10px; color: #4B2E2B; }
+            .qr-container { margin: 30px auto; }
+            .info { color: #666; margin-top: 20px; font-size: 14px; }
+            .link { color: #4B2E2B; word-break: break-all; font-size: 12px; margin-top: 15px; }
+            @media print { body { padding: 20px; } }
+          </style>
+        </head>
+        <body>
+          <h1>${previewTable.name}</h1>
+          <p class="info">Capacity: ${previewTable.capacity} people</p>
+          <div class="qr-container">
+            <div id="qr"></div>
           </div>
+          <p class="info">Scan to view menu and place order</p>
+          <p class="link">${qrValue}</p>
+          <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+          <script>
+            QRCode.toCanvas(document.getElementById('qr'), '${qrValue}', {
+              width: 300,
+              margin: 2
+            });
+            setTimeout(() => window.print(), 500);
+          </script>
         </body>
       </html>
     `);
     win.document.close();
-    win.focus();
-    win.print();
   };
 
   return (
@@ -234,12 +274,19 @@ export default function Tables() {
             <CardContent className="space-y-4">
               <div className="rounded-lg border border-[#EAD6C0] bg-[#F5E6D3] p-3">
                 <div className="flex items-center gap-3">
-                  <QrCode className="h-9 w-9 text-[#4B2E2B]" />
-                  <div>
-                    <p className="text-xs text-[#7C5D58]">QR Preview</p>
-                    <p className="text-xs font-mono text-[#4B2E2B] break-all">
+                  <div className="flex-shrink-0">
+                    <QRCodeSVG value={getQrValue(table)} size={48} level="M" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-[#7C5D58] mb-1">Scan to order</p>
+                    <a 
+                      href={getQrValue(table)} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-xs text-[#4B2E2B] hover:text-[#6B4E4B] underline truncate block"
+                    >
                       {getQrValue(table)}
-                    </p>
+                    </a>
                   </div>
                 </div>
               </div>
@@ -328,11 +375,25 @@ export default function Tables() {
           {previewTable && (
             <div className="space-y-4">
               <div className="rounded-xl border border-[#EAD6C0] bg-[#F5E6D3] p-6 text-center">
-                <QrCode className="mx-auto h-28 w-28 text-[#4B2E2B]" />
-                <p className="mt-3 text-sm text-[#7C5D58]">{previewTable.name}</p>
-                <p className="mt-1 text-xs font-mono text-[#4B2E2B] break-all">
+                <div ref={qrRef} className="inline-block">
+                  <QRCodeSVG 
+                    value={getQrValue(previewTable)} 
+                    size={256} 
+                    level="H"
+                    includeMargin={true}
+                  />
+                </div>
+                <p className="mt-4 text-sm font-semibold text-[#4B2E2B]">{previewTable.name}</p>
+                <p className="mt-1 text-xs text-[#7C5D58]">Capacity: {previewTable.capacity} people</p>
+                <p className="mt-2 text-xs text-[#7C5D58] mb-2">Scan QR code or visit link below:</p>
+                <a 
+                  href={getQrValue(previewTable)} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-xs text-[#4B2E2B] hover:text-[#6B4E4B] underline break-all"
+                >
                   {getQrValue(previewTable)}
-                </p>
+                </a>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -341,12 +402,14 @@ export default function Tables() {
                   className="border-[#EAD6C0] text-[#4B2E2B]"
                   onClick={handleDownloadPreview}
                 >
+                  <Download className="h-4 w-4 mr-2" />
                   Download
                 </Button>
                 <Button
                   className="bg-[#4B2E2B] hover:bg-[#5B3E3B] text-white"
                   onClick={handlePrintPreview}
                 >
+                  <Printer className="h-4 w-4 mr-2" />
                   Print
                 </Button>
               </div>

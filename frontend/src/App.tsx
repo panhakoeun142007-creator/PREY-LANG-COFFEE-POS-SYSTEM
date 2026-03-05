@@ -17,6 +17,7 @@ const Tables = lazy(() => import("./pages/Tables"));
 const IngredientsPage = lazy(() => import("./pages/IngredientsPage"));
 const IncomePage = lazy(() => import("./components/ui/income"));
 const SettingsPage = lazy(() => import("./components/ui/setting"));
+const MenuPage = lazy(() => import("./pages/MenuPage"));
 
 function RouteFallback() {
   return (
@@ -34,6 +35,7 @@ export default function App() {
   return (
     <CategoryProvider>
       <Routes>
+        <Route path="/menu" element={withSuspense(<MenuPage />)} />
         <Route path="/" element={<AppLayout />}>
           <Route index element={withSuspense(<DashboardPage />)} />
           <Route path="live-orders" element={withSuspense(<LiveOrders />)} />

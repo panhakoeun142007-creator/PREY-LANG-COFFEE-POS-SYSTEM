@@ -3,7 +3,7 @@ import type { GeneralSettingsData } from "../services/api";
 
 interface GeneralSettingsProps {
   value: GeneralSettingsData;
-  onSave: (payload: GeneralSettingsData) => Promise<void>;
+  onSave: (data: GeneralSettingsData) => Promise<void>;
   isSaving: boolean;
 }
 
