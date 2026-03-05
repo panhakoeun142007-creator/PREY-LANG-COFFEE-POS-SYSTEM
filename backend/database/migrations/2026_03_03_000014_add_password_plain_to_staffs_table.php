@@ -11,14 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        if (!Schema::hasTable('staffs')) {
+        if (!Schema::hasTable('staffs') || Schema::hasColumn('staffs', 'password_plain')) {
             return;
         }
 
         Schema::table('staffs', function (Blueprint $table) {
-            if (!Schema::hasColumn('staffs', 'password_plain')) {
-                $table->text('password_plain')->nullable()->after('password');
-            }
+            $table->text('password_plain')->nullable()->after('password');
         });
     }
 
@@ -27,14 +25,12 @@ return new class extends Migration
      */
     public function down(): void
     {
-        if (!Schema::hasTable('staffs')) {
+        if (!Schema::hasTable('staffs') || !Schema::hasColumn('staffs', 'password_plain')) {
             return;
         }
 
         Schema::table('staffs', function (Blueprint $table) {
-            if (Schema::hasColumn('staffs', 'password_plain')) {
-                $table->dropColumn('password_plain');
-            }
+            $table->dropColumn('password_plain');
         });
     }
 };

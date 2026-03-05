@@ -27,6 +27,7 @@ import {
   type CategoryApiItem,
   type IngredientApiItem,
 } from "../../services/api";
+import { CATEGORY_UPDATE_EVENT } from "../../context/CategoryContext";
 
 interface IngredientFormState {
   name: string;
@@ -78,6 +79,17 @@ export default function IngredientsUI() {
 
   useEffect(() => {
     void loadIngredients();
+  }, []);
+
+  useEffect(() => {
+    const handleCategoryUpdate = () => {
+      void loadIngredients();
+    };
+
+    window.addEventListener(CATEGORY_UPDATE_EVENT, handleCategoryUpdate);
+    return () => {
+      window.removeEventListener(CATEGORY_UPDATE_EVENT, handleCategoryUpdate);
+    };
   }, []);
 
   async function loadIngredients() {

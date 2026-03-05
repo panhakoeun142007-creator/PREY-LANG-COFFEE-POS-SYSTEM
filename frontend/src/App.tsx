@@ -1,6 +1,7 @@
 import { lazy, Suspense, type ReactElement } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import AppLayout from "./components/AppLayout";
+import { CategoryProvider } from "./context/CategoryContext";
 
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
 const CategoriesPage = lazy(() => import("./pages/CategoriesPage"));
@@ -30,23 +31,25 @@ function withSuspense(element: ReactElement) {
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/" element={<AppLayout />}>
-        <Route index element={withSuspense(<DashboardPage />)} />
-        <Route path="live-orders" element={withSuspense(<LiveOrders />)} />
-        <Route path="order-history" element={withSuspense(<OrderHistory />)} />
-        <Route path="receipts" element={withSuspense(<ReceiptsPage />)} />
-        <Route path="products" element={withSuspense(<Products />)} />
-        <Route path="categories" element={withSuspense(<CategoriesPage />)} />
-        <Route path="tables" element={withSuspense(<Tables />)} />
-        <Route path="recipes" element={withSuspense(<RecipesStockPage />)} />
-        <Route path="stock" element={withSuspense(<IngredientsPage />)} />
-        <Route path="staff-management" element={withSuspense(<StaffManagementPage />)} />
-        <Route path="analytics" element={withSuspense(<SalesAnalytics />)} />
-        <Route path="finance" element={withSuspense(<IncomePage />)} />
-        <Route path="settings" element={withSuspense(<PlaceholderPage title="Settings" />)} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Route>
-    </Routes>
+    <CategoryProvider>
+      <Routes>
+        <Route path="/" element={<AppLayout />}>
+          <Route index element={withSuspense(<DashboardPage />)} />
+          <Route path="live-orders" element={withSuspense(<LiveOrders />)} />
+          <Route path="order-history" element={withSuspense(<OrderHistory />)} />
+          <Route path="receipts" element={withSuspense(<ReceiptsPage />)} />
+          <Route path="products" element={withSuspense(<Products />)} />
+          <Route path="categories" element={withSuspense(<CategoriesPage />)} />
+          <Route path="tables" element={withSuspense(<Tables />)} />
+          <Route path="recipes" element={withSuspense(<RecipesStockPage />)} />
+          <Route path="stock" element={withSuspense(<IngredientsPage />)} />
+          <Route path="staff-management" element={withSuspense(<StaffManagementPage />)} />
+          <Route path="analytics" element={withSuspense(<SalesAnalytics />)} />
+          <Route path="finance" element={withSuspense(<IncomePage />)} />
+          <Route path="settings" element={withSuspense(<PlaceholderPage title="Settings" />)} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
+      </Routes>
+    </CategoryProvider>
   );
 }

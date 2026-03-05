@@ -1,6 +1,7 @@
 import { motion } from "motion/react";
 import type { ComponentType } from "react";
 import { useEffect, useMemo, useState } from "react";
+import { useCategoryContext } from "../../context/CategoryContext";
 import {
   Coffee,
   Croissant,
@@ -33,10 +34,8 @@ import {
   SelectValue,
 } from "./select";
 import {
-  createCategory,
-  deleteCategory,
   fetchCategories,
-  updateCategory,
+  type CategoryApiItem,
 } from "../../services/api";
 
 type CategoryStatus = "active" | "archived";
@@ -77,6 +76,7 @@ function isApiConnectionError(message: string): boolean {
 }
 
 export default function CategoriesUI() {
+  const { addCategory, editCategory, removeCategory } = useCategoryContext();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -99,19 +99,23 @@ export default function CategoriesUI() {
     void loadCategories();
   }, []);
 
+  function mapApiCategory(item: CategoryApiItem): Category {
+    return {
+      id: item.id,
+      name: item.name,
+      description: item.description,
+      count: item.quantity ?? item.products_count ?? 0,
+      status: item.is_active ? "active" : "archived",
+      icon: "coffee",
+    };
+  }
+
   async function loadCategories() {
     try {
       setLoading(true);
       setError(null);
       const items = await fetchCategories();
-      const mapped: Category[] = items.map((item) => ({
-        id: item.id,
-        name: item.name,
-        description: item.description,
-        count: item.quantity ?? item.products_count ?? 0,
-        status: item.is_active ? "active" : "archived",
-        icon: "coffee",
-      }));
+      const mapped: Category[] = items.map(mapApiCategory);
       setCategories(mapped);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load categories");
@@ -168,14 +172,14 @@ export default function CategoriesUI() {
       setError(null);
 
       if (editingId !== null) {
-        await updateCategory(editingId, {
+        await editCategory(editingId, {
           name,
           description: description || undefined,
           quantity: count,
           is_active: form.status === "active",
         });
       } else {
-        await createCategory({
+        await addCategory({
           name,
           description: description || undefined,
           quantity: count,
@@ -204,7 +208,7 @@ export default function CategoriesUI() {
     try {
       setDeleting(true);
       setError(null);
-      await deleteCategory(pendingDeleteId);
+      await removeCategory(pendingDeleteId);
       await loadCategories();
       setDeleteOpen(false);
       setPendingDeleteId(null);

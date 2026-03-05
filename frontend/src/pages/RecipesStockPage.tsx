@@ -42,6 +42,7 @@ import {
   updateRecipeBoard,
   updateRecipeBoardStatus,
 } from "../services/api";
+import { CATEGORY_UPDATE_EVENT } from "../context/CategoryContext";
 
 type RecipeStatus = "all" | "active" | "inactive";
 
@@ -77,6 +78,18 @@ export default function RecipesStockPage() {
   useEffect(() => {
     void loadLookups();
   }, []);
+
+  useEffect(() => {
+    const handleCategoryUpdate = () => {
+      void loadLookups();
+      void loadBoard();
+    };
+
+    window.addEventListener(CATEGORY_UPDATE_EVENT, handleCategoryUpdate);
+    return () => {
+      window.removeEventListener(CATEGORY_UPDATE_EVENT, handleCategoryUpdate);
+    };
+  }, [loadBoard]);
 
   const loadBoard = useCallback(async () => {
     try {

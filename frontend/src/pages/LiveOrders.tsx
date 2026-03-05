@@ -43,93 +43,6 @@ import {
   DialogFooter,
 } from "../components/ui/dialog"
 
-// Mock data for demo when API is not available
-const mockLiveOrders: LiveOrder[] = [
-  {
-    id: 108,
-    queue_number: 108,
-    status: "pending" as const,
-    total_price: 28.5,
-    payment_type: "cash",
-    created_at: "2026-02-26T02:58:00.000Z",
-    updated_at: "2026-02-26T02:58:00.000Z",
-    table: { id: 3, name: "Table 3" },
-    items: [
-      { id: 1, product_id: 1, size: "medium", qty: 2, price: 4.5, product: { id: 1, name: "Cappuccino" } },
-      { id: 2, product_id: 2, size: "regular", qty: 1, price: 3.5, product: { id: 2, name: "Croissant" } },
-    ],
-  },
-  {
-    id: 107,
-    queue_number: 107,
-    status: "preparing" as const,
-    total_price: 15.0,
-    payment_type: "khqr",
-    created_at: "2026-02-26T02:52:00.000Z",
-    updated_at: "2026-02-26T02:57:00.000Z",
-    table: { id: 7, name: "Table 7" },
-    items: [
-      { id: 3, product_id: 3, size: "large", qty: 2, price: 3.5, product: { id: 3, name: "Americano" } },
-    ],
-  },
-  {
-    id: 106,
-    queue_number: 106,
-    status: "ready" as const,
-    total_price: 22.75,
-    payment_type: "cash",
-    created_at: "2026-02-26T02:45:00.000Z",
-    updated_at: "2026-02-26T02:58:00.000Z",
-    table: { id: 1, name: "Table 1" },
-    items: [
-      { id: 4, product_id: 4, size: "medium", qty: 1, price: 5.5, product: { id: 4, name: "Latte" } },
-      { id: 5, product_id: 5, size: "regular", qty: 2, price: 4.0, product: { id: 5, name: "Blueberry Muffin" } },
-      { id: 6, product_id: 6, size: "large", qty: 1, price: 3.75, product: { id: 6, name: "Iced Tea" } },
-    ],
-  },
-  {
-    id: 105,
-    queue_number: 105,
-    status: "pending" as const,
-    total_price: 18.5,
-    payment_type: "cash",
-    created_at: "2026-02-26T03:00:00.000Z",
-    updated_at: "2026-02-26T03:00:00.000Z",
-    table: { id: 0, name: "Takeaway" },
-    items: [
-      { id: 7, product_id: 7, size: "medium", qty: 1, price: 4.5, product: { id: 7, name: "Mocha" } },
-      { id: 8, product_id: 8, size: "regular", qty: 2, price: 7.0, product: { id: 8, name: "Chocolate Croissant" } },
-    ],
-  },
-  {
-    id: 104,
-    queue_number: 104,
-    status: "preparing" as const,
-    total_price: 31.25,
-    payment_type: "khqr",
-    created_at: "2026-02-26T02:48:00.000Z",
-    updated_at: "2026-02-26T02:55:00.000Z",
-    table: { id: 5, name: "Table 5" },
-    items: [
-      { id: 9, product_id: 9, size: "large", qty: 1, price: 5.0, product: { id: 9, name: "Caramel Macchiato" } },
-      { id: 10, product_id: 10, size: "regular", qty: 3, price: 8.75, product: { id: 10, name: "Avocado Toast" } },
-    ],
-  },
-  {
-    id: 103,
-    queue_number: 103,
-    status: "ready" as const,
-    total_price: 12.0,
-    payment_type: "cash",
-    created_at: "2026-02-26T02:40:00.000Z",
-    updated_at: "2026-02-26T02:57:00.000Z",
-    table: { id: 2, name: "Table 2" },
-    items: [
-      { id: 11, product_id: 11, size: "medium", qty: 2, price: 6.0, product: { id: 11, name: "Matcha Latte" } },
-    ],
-  },
-]
-
 function formatTimeAgo(dateString: string): string {
   const date = new Date(dateString)
   const now = new Date()
@@ -162,6 +75,7 @@ function formatTimeInStatus(status: string, updatedAt: string): string {
 export default function LiveOrders() {
   const [orders, setOrders] = useState<LiveOrder[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [searchQuery, setSearchQuery] = useState("")
@@ -178,12 +92,13 @@ export default function LiveOrders() {
   // Fetch orders
   const loadOrders = async () => {
     try {
+      setError(null)
       const data = await fetchLiveOrders()
       setOrders(data)
     } catch (err) {
-      console.error("Failed to fetch live orders, using mock data:", err)
-      // Use mock data when API is not available
-      setOrders(mockLiveOrders)
+      const message = err instanceof Error ? err.message : "Failed to fetch live orders"
+      setError(message)
+      setOrders([])
     } finally {
       setLoading(false)
     }
@@ -232,18 +147,12 @@ export default function LiveOrders() {
   // Handle status change
   const handleStatusChange = async (orderId: number, newStatus: string) => {
     try {
+      setError(null)
       await updateOrderStatus(orderId, newStatus)
       await loadOrders()
     } catch (err) {
-      console.error("Failed to update status, simulating locally:", err)
-      // Simulate local update when API is not available
-      setOrders((prev) =>
-        prev.map((order) =>
-          order.id === orderId
-            ? { ...order, status: newStatus as LiveOrder["status"], updated_at: new Date().toISOString() }
-            : order
-        )
-      )
+      const message = err instanceof Error ? err.message : "Failed to update order status"
+      setError(message)
     }
   }
 
@@ -373,6 +282,11 @@ export default function LiveOrders() {
       {/* Orders Table */}
       <Card>
         <CardContent className="p-0">
+          {error && (
+            <div className="border-b border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
+            </div>
+          )}
           {loading ? (
             <div className="flex items-center justify-center p-8">
               <RefreshCw className="h-8 w-8 animate-spin text-[#4B2E2B]" />

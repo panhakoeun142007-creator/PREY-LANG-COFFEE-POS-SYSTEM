@@ -31,42 +31,6 @@ interface ReceiptRow {
   status: "paid";
 }
 
-const mockHistory: LiveOrder[] = [
-  {
-    id: 105,
-    queue_number: 105,
-    status: "completed",
-    total_price: 45.5,
-    payment_type: "cash",
-    created_at: "2026-02-25T18:30:00.000Z",
-    updated_at: "2026-02-25T19:00:00.000Z",
-    table: { id: 5, name: "Table 5" },
-    items: [{ id: 1, product_id: 1, size: "large", qty: 3, price: 5.5 }],
-  },
-  {
-    id: 104,
-    queue_number: 104,
-    status: "completed",
-    total_price: 22.0,
-    payment_type: "khqr",
-    created_at: "2026-02-25T17:15:00.000Z",
-    updated_at: "2026-02-25T17:45:00.000Z",
-    table: { id: 2, name: "Table 2" },
-    items: [{ id: 2, product_id: 2, size: "small", qty: 2, price: 4.0 }],
-  },
-  {
-    id: 103,
-    queue_number: 103,
-    status: "cancelled",
-    total_price: 15.0,
-    payment_type: "cash",
-    created_at: "2026-02-25T16:00:00.000Z",
-    updated_at: "2026-02-25T16:10:00.000Z",
-    table: { id: 8, name: "Table 8" },
-    items: [{ id: 3, product_id: 3, size: "medium", qty: 2, price: 7.5 }],
-  },
-];
-
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -77,16 +41,20 @@ function formatCurrency(amount: number): string {
 export default function ReceiptsPage() {
   const [orders, setOrders] = useState<LiveOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [paymentFilter, setPaymentFilter] = useState<"all" | PaymentMethod>("all");
 
   const loadReceiptOrders = useCallback(async () => {
     setLoading(true);
     try {
+      setError(null);
       const response = await fetchOrderHistory();
       setOrders(response.data);
-    } catch {
-      setOrders(mockHistory);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to load receipts";
+      setError(message);
+      setOrders([]);
     } finally {
       setLoading(false);
     }
@@ -183,6 +151,11 @@ export default function ReceiptsPage() {
 
       <Card>
         <CardContent className="space-y-4 p-5">
+          {error && (
+            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {error}
+            </div>
+          )}
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <h2 className="text-lg font-semibold text-[#4B2E2B]">Receipt Archive</h2>
             <div className="flex flex-col gap-3 md:flex-row">

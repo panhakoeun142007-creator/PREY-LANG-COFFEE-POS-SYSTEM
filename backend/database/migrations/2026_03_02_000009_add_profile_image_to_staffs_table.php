@@ -11,14 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        if (!Schema::hasTable('staffs')) {
+        if (!Schema::hasTable('staffs') || Schema::hasColumn('staffs', 'profile_image')) {
             return;
         }
 
         Schema::table('staffs', function (Blueprint $table) {
-            if (!Schema::hasColumn('staffs', 'profile_image')) {
-                $table->string('profile_image')->nullable()->after('is_active');
-            }
+            $table->string('profile_image')->nullable()->after('is_active');
         });
     }
 
@@ -27,14 +25,12 @@ return new class extends Migration
      */
     public function down(): void
     {
-        if (!Schema::hasTable('staffs')) {
+        if (!Schema::hasTable('staffs') || !Schema::hasColumn('staffs', 'profile_image')) {
             return;
         }
 
         Schema::table('staffs', function (Blueprint $table) {
-            if (Schema::hasColumn('staffs', 'profile_image')) {
-                $table->dropColumn('profile_image');
-            }
+            $table->dropColumn('profile_image');
         });
     }
 };

@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use RuntimeException;
 
@@ -24,12 +25,16 @@ class AuthController extends Controller
             'password' => ['required', 'string'],
         ]);
 
-        $adminUser = User::query()
-            ->where('email', $validated['email'])
-            ->where('is_active', true)
-            ->first();
+        $hasAdminColumns = Schema::hasColumn('users', 'role') && Schema::hasColumn('users', 'is_active');
 
-        if ($adminUser && $this->verifyAndUpgradePassword($adminUser, $validated['password'])) {
+        $adminUserQuery = User::query()->where('email', $validated['email']);
+        if ($hasAdminColumns) {
+            $adminUserQuery->where('is_active', true);
+        }
+
+        $adminUser = $adminUserQuery->first();
+
+        if ($adminUser && (!$hasAdminColumns || $adminUser->role === 'admin') && $this->verifyAndUpgradePassword($adminUser, $validated['password'])) {
             $token = Str::random(64);
             Cache::put("api_auth_token:{$token}", [
                 'subject_type' => 'admin',
@@ -42,7 +47,7 @@ class AuthController extends Controller
                     'id' => $adminUser->id,
                     'name' => $adminUser->name,
                     'email' => $adminUser->email,
-                    'role' => $adminUser->role,
+                    'role' => $adminUser->role ?? 'admin',
                 ],
             ]);
         }

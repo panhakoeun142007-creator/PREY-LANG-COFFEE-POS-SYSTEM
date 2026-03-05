@@ -17,6 +17,8 @@ function normalizeApiUrl(input?: string): string {
 }
 
 const API_URL = normalizeApiUrl(import.meta.env.VITE_API_URL as string | undefined);
+const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL as string | undefined)?.trim().replace(/\/+$/, '') || "";
+const BACKEND_API_URL = BACKEND_URL ? normalizeApiUrl(BACKEND_URL) : "";
 let preferredApiBase: string | null = null;
 
 function buildUrl(path: string, base: string): string {
@@ -28,6 +30,10 @@ function buildCandidateBases(): string[] {
 
   if (preferredApiBase) {
     bases.add(preferredApiBase);
+  }
+
+  if (BACKEND_API_URL) {
+    bases.add(BACKEND_API_URL);
   }
 
   bases.add(API_URL);
@@ -78,6 +84,10 @@ export async function safeFetch(path: string, init?: globalThis.RequestInit): Pr
       });
       const contentType = response.headers.get("content-type")?.toLowerCase() || "";
 
+      if (response.status === 401 && typeof window !== "undefined") {
+        localStorage.removeItem("auth_token");
+      }
+
       // If this base points to a frontend/dev server route, we may get HTML.
       // Skip it and continue trying API bases that return JSON.
       if (contentType.includes("text/html")) {
@@ -101,7 +111,7 @@ export async function safeFetch(path: string, init?: globalThis.RequestInit): Pr
 
   if (lastError instanceof Error) {
     throw new Error(
-      `Cannot connect to API server. Start Laravel with: php artisan serve. Tried: ${attempted.join(", ")}`,
+      `Cannot connect to API server. Start Laravel with: php artisan serve --host=127.0.0.1 --port=8000. Config VITE_BACKEND_URL=${BACKEND_URL || "(empty)"} and VITE_API_URL=${API_URL}. Tried: ${attempted.join(", ")}`,
     );
   }
 
@@ -112,7 +122,7 @@ export async function safeFetch(path: string, init?: globalThis.RequestInit): Pr
   }
 
   throw new Error(
-    `Cannot connect to API server. Start Laravel with: php artisan serve. Tried: ${attempted.join(", ")}`,
+    `Cannot connect to API server. Start Laravel with: php artisan serve --host=127.0.0.1 --port=8000. Config VITE_BACKEND_URL=${BACKEND_URL || "(empty)"} and VITE_API_URL=${API_URL}. Tried: ${attempted.join(", ")}`,
   );
 }
 

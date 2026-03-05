@@ -20,32 +20,31 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Create admin user
-        User::factory()->create([
-            'name' => 'Admin User',
+        // Ensure admin user always exists with known credentials.
+        User::query()->updateOrCreate([
             'email' => 'admin@pos.com',
+        ], [
+            'name' => 'Admin User',
+            'password' => 'password',
             'role' => 'admin',
             'is_active' => true,
         ]);
 
         // Create categories
-        $coffeeCategory = Category::create([
-            'name' => 'Coffee',
-            'description' => 'Premium coffee drinks',
-            'is_active' => true,
-        ]);
+        $coffeeCategory = Category::updateOrCreate(
+            ['name' => 'Coffee'],
+            ['description' => 'Premium coffee drinks', 'is_active' => true],
+        );
 
-        $teaCategory = Category::create([
-            'name' => 'Tea',
-            'description' => 'Refreshing tea beverages',
-            'is_active' => true,
-        ]);
+        $teaCategory = Category::updateOrCreate(
+            ['name' => 'Tea'],
+            ['description' => 'Refreshing tea beverages', 'is_active' => true],
+        );
 
-        $pastryCategory = Category::create([
-            'name' => 'Pastries',
-            'description' => 'Freshly baked pastries',
-            'is_active' => true,
-        ]);
+        $pastryCategory = Category::updateOrCreate(
+            ['name' => 'Pastries'],
+            ['description' => 'Freshly baked pastries', 'is_active' => true],
+        );
 
         // Create products with size-based pricing
         $products = [
@@ -68,17 +67,19 @@ class DatabaseSeeder extends Seeder
         ];
 
         foreach ($products as $product) {
-            Product::create([
-                'category_id' => $product['category_id'],
-                'name' => $product['name'],
-                'sku' => $product['sku'],
-                'price_small' => $product['price_small'],
-                'price_medium' => $product['price_medium'],
-                'price_large' => $product['price_large'],
-                'stock_quantity' => $product['stock_quantity'],
-                'low_stock_threshold' => 5,
-                'is_active' => true,
-            ]);
+            Product::updateOrCreate(
+                ['sku' => $product['sku']],
+                [
+                    'category_id' => $product['category_id'],
+                    'name' => $product['name'],
+                    'price_small' => $product['price_small'],
+                    'price_medium' => $product['price_medium'],
+                    'price_large' => $product['price_large'],
+                    'stock_quantity' => $product['stock_quantity'],
+                    'low_stock_threshold' => 5,
+                    'is_active' => true,
+                ],
+            );
         }
         
         // Get product IDs for order items
@@ -96,20 +97,35 @@ class DatabaseSeeder extends Seeder
         // Create dining tables
         $tables = [];
         for ($i = 1; $i <= 10; $i++) {
-            $tables[$i] = DiningTable::create([
-                'name' => "Table $i",
-                'seats' => $i <= 4 ? 2 : 4,
-                'status' => 'available',
-            ]);
+            $tables[$i] = DiningTable::updateOrCreate(
+                ['name' => "Table $i"],
+                [
+                    'seats' => $i <= 4 ? 2 : 4,
+                    'status' => 'available',
+                ],
+            );
         }
         // Add takeaway "table" (id = 0 in frontend logic)
-        $takeaway = DiningTable::create([
-            'name' => 'Takeaway',
-            'seats' => 0,
-            'status' => 'available',
-        ]);
+        $takeaway = DiningTable::updateOrCreate(
+            ['name' => 'Takeaway'],
+            [
+                'seats' => 0,
+                'status' => 'available',
+            ],
+        );
 
-        // Create sample orders for Live Orders page
+        // Create sample orders for Live Orders page only once
+        if (Order::query()->exists()) {
+            $this->command->info('Database seeded successfully!');
+            $this->command->info('Categories: ' . Category::count());
+            $this->command->info('Products: ' . Product::count());
+            $this->command->info('Tables: ' . DiningTable::count());
+            $this->command->info('Orders: ' . Order::count());
+            $this->command->info('Order Items: ' . OrderItem::count());
+
+            return;
+        }
+
         $now = now();
         
         // Order 1 - Pending

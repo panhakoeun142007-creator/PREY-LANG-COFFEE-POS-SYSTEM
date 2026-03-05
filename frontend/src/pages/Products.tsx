@@ -35,7 +35,8 @@ import {
   DrawerTitle,
 } from "../components/ui/drawer";
 import { Switch } from "../components/ui/switch";
-import { ApiProduct, Category, fetchProducts, fetchCategories, createProduct, updateProduct, deleteProduct, PaginatedResponse } from "../services/api";
+import { ApiProduct, fetchProducts, createProduct, updateProduct, deleteProduct, PaginatedResponse } from "../services/api";
+import { useCategoryContext } from "../context/CategoryContext";
 
 // Helper functions
 function isValidImageSource(src: string): boolean {
@@ -82,7 +83,7 @@ const initialFormData: ProductFormData = {
 
 export default function Products() {
   const [products, setProducts] = useState<ApiProduct[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const { categories, refreshCategories } = useCategoryContext();
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [isLoading, setIsLoading] = useState(true);
@@ -104,7 +105,7 @@ export default function Products() {
   const editFileInputRef = useRef<HTMLInputElement>(null);
   const [togglingProductIds, setTogglingProductIds] = useState<Set<number>>(new Set());
 
-  // Fetch products and categories on mount
+  // Fetch products on mount
   useEffect(() => {
     let isMounted = true;
     
@@ -115,7 +116,6 @@ export default function Products() {
         
         // Fetch products - with proper typing
         let productsData: PaginatedResponse<ApiProduct> = { data: [], current_page: 1, last_page: 1, per_page: 15, total: 0 };
-        let categoriesData: Category[] = [];
         
         try {
           const productsResult = await fetchProducts({});
@@ -126,35 +126,14 @@ export default function Products() {
           console.warn('Failed to fetch products:', productErr);
         }
         
-        try {
-          const categoriesResult = await fetchCategories();
-          if (isMounted && categoriesResult) {
-            categoriesData = categoriesResult;
-          }
-        } catch (categoryErr) {
-          console.warn('Failed to fetch categories:', categoryErr);
-        }
-        
         if (!isMounted) return;
         
         // Set products with safe access
         const products = productsData?.data || [];
         setProducts(products);
-        
-        // Safely filter categories - handle both boolean and integer (0/1) values from API
-        const fetchedCategories = categoriesData;
-        const filteredCategories = fetchedCategories.filter((c: Category) => {
-          if (!c) return false;
-          const isActive = c.is_active as boolean | number | string;
-          return isActive === true || isActive === 1 || isActive === '1' || isActive === 'true';
-        });
-        
-        // If no categories after filter, use all categories
-        setCategories(filteredCategories.length > 0 ? filteredCategories : fetchedCategories);
       } catch (err) {
         console.error('Error in fetchData:', err);
         setError('Failed to load data from backend. Please check API and database connection.');
-        setCategories([]);
         setProducts([]);
       } finally {
         if (isMounted) {
@@ -168,7 +147,12 @@ export default function Products() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [refreshCategories]);
+
+  // Load categories on mount and refresh when they change
+  useEffect(() => {
+    refreshCategories();
+  }, [refreshCategories]);
 
   // Filter products - with defensive checks for null/undefined values
   const filteredProducts = useMemo(() => {
@@ -180,6 +164,28 @@ export default function Products() {
       return matchesSearch && matchesCategory;
     });
   }, [products, searchQuery, categoryFilter]);
+
+  // Filter categories to only show active ones for dropdowns
+  const activeCategories = useMemo(() => {
+    if (!Array.isArray(categories)) return [];
+    return categories.filter((c) => {
+      if (!c) return false;
+      const isActive = c.is_active as boolean | number | string;
+      return isActive === true || isActive === 1 || isActive === '1' || isActive === 'true';
+    });
+  }, [categories]);
+
+  const categoryOptions = useMemo(() => {
+    if (!Array.isArray(categories)) return [];
+    return categories;
+  }, [categories]);
+
+  useEffect(() => {
+    if (!isAddDialogOpen && !isEditDrawerOpen) {
+      return;
+    }
+    void refreshCategories();
+  }, [isAddDialogOpen, isEditDrawerOpen, refreshCategories]);
 
   // Handle file upload
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -227,7 +233,7 @@ export default function Products() {
     if (!formData.category_id) {
       errors.category_id = 'Category is required';
     }
-    if (categories.length === 0) {
+    if (categoryOptions.length === 0) {
       setError('No categories available from database. Create categories first, then add products.');
       return;
     }
@@ -424,7 +430,7 @@ export default function Products() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Categories</SelectItem>
-                {categories.map((category) => (
+                {activeCategories.map((category) => (
                   <SelectItem key={category.id} value={category.id.toString()}>
                     {category.name}
                   </SelectItem>
@@ -484,7 +490,7 @@ export default function Products() {
                         <SelectValue placeholder="Select category" />
                       </SelectTrigger>
                       <SelectContent>
-                        {categories.map((category) => (
+                        {categoryOptions.map((category) => (
                           <SelectItem key={category.id} value={category.id.toString()}>
                             {category.name}
                           </SelectItem>
@@ -829,7 +835,7 @@ export default function Products() {
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories.map((category) => (
+                  {categoryOptions.map((category) => (
                     <SelectItem key={category.id} value={category.id.toString()}>
                       {category.name}
                     </SelectItem>

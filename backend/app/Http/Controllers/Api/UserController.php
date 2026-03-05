@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 
 class UserController extends Controller
@@ -18,7 +19,7 @@ class UserController extends Controller
         $user = $this->resolveCurrentUser();
 
         if (!$user) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return $this->unauthorizedResponse();
         }
 
         return response()->json($this->serializeUser($user));
@@ -31,7 +32,7 @@ class UserController extends Controller
     {
         $user = $this->resolveCurrentUser();
         if (!$user) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return $this->unauthorizedResponse();
         }
 
         $validated = $request->validate([
@@ -42,7 +43,7 @@ class UserController extends Controller
                 'max:255',
                 Rule::unique('users', 'email')->ignore($user->id),
             ],
-            'profile_image' => ['nullable', 'image', 'max:5120'],
+            'profile_image' => ['nullable', 'image', 'max:10240'],
         ]);
 
         $user->name = $validated['name'];
@@ -73,17 +74,19 @@ class UserController extends Controller
 
     private function resolveCurrentUser(): ?User
     {
+        $hasAdminColumns = Schema::hasColumn('users', 'role') && Schema::hasColumn('users', 'is_active');
+
         /** @var User|null $user */
         $user = request()->user();
-        if ($user && $user->is_active && $user->role === 'admin') {
+        if ($user && (!$hasAdminColumns || ($user->is_active && $user->role === 'admin'))) {
             return $user;
         }
 
-        return User::query()
-            ->where('role', 'admin')
-            ->where('is_active', true)
-            ->orderBy('id')
-            ->first();
+        if (!$hasAdminColumns) {
+            return User::query()->orderBy('id')->first();
+        }
+
+        return User::query()->where('role', 'admin')->where('is_active', true)->orderBy('id')->first();
     }
 
     private function serializeUser(User $user): array
@@ -106,6 +109,22 @@ class UserController extends Controller
             'initials' => $this->getInitials($user->name),
             'profile_image_url' => $imageUrl,
         ];
+    }
+
+    private function unauthorizedResponse(): JsonResponse
+    {
+        $hasAdminColumns = Schema::hasColumn('users', 'role') && Schema::hasColumn('users', 'is_active');
+        $hasActiveAdmin = $hasAdminColumns
+            ? User::query()->where('role', 'admin')->where('is_active', true)->exists()
+            : User::query()->exists();
+
+        if (!$hasActiveAdmin) {
+            return response()->json([
+                'message' => 'No active admin account found. Run: php artisan migrate --seed',
+            ], 401);
+        }
+
+        return response()->json(['message' => 'Unauthorized'], 401);
     }
 }
  
