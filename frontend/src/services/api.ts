@@ -255,6 +255,79 @@ export async function logoutAdmin(): Promise<void> {
   }
 }
 
+export interface GeneralSettingsData {
+  shop_name: string;
+  address: string;
+  phone: string;
+  email: string;
+}
+
+export interface NotificationSettingsData {
+  new_orders_push: boolean;
+  new_orders_email: boolean;
+  new_orders_sound: boolean;
+  ready_for_pickup: boolean;
+  cancelled_orders: boolean;
+  low_stock_warning: boolean;
+  out_of_stock: boolean;
+  daily_summary: boolean;
+  weekly_performance: boolean;
+}
+
+export interface PaymentSettingsData {
+  currency: string;
+  tax_rate: number;
+  cash_enabled: boolean;
+  credit_card_enabled: boolean;
+  aba_pay_enabled: boolean;
+  wing_money_enabled: boolean;
+}
+
+export interface ReceiptSettingsData {
+  shop_name: string;
+  address: string;
+  phone: string;
+  tax_id: string;
+  footer_message: string;
+  show_logo: boolean;
+  show_qr_payment: boolean;
+  show_order_number: boolean;
+  show_customer_name: boolean;
+}
+
+export interface AppSettings {
+  general: GeneralSettingsData;
+  notifications: NotificationSettingsData;
+  payment: PaymentSettingsData;
+  receipt: ReceiptSettingsData;
+}
+
+export async function fetchSettings(): Promise<AppSettings> {
+  const response = await safeFetch("/settings");
+
+  if (!response.ok) {
+    throw await readApiError(response, "Failed to fetch settings");
+  }
+
+  return response.json();
+}
+
+export async function updateSettings(payload: Partial<AppSettings>): Promise<AppSettings> {
+  const response = await safeFetch("/settings", {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw await readApiError(response, "Failed to update settings");
+  }
+
+  return response.json();
+}
+
 // Dashboard
 export async function fetchDashboardData(): Promise<DashboardData> {
   const response = await safeFetch("/dashboard");

@@ -16,6 +16,7 @@ const RecipesStockPage = lazy(() => import("./pages/RecipesStockPage"));
 const Tables = lazy(() => import("./pages/Tables"));
 const IngredientsPage = lazy(() => import("./pages/IngredientsPage"));
 const IncomePage = lazy(() => import("./components/ui/income"));
+const SettingsPage = lazy(() => import("./components/ui/setting"));
 
 function RouteFallback() {
   return (
@@ -46,7 +47,7 @@ export default function App() {
           <Route path="staff-management" element={withSuspense(<StaffManagementPage />)} />
           <Route path="analytics" element={withSuspense(<SalesAnalytics />)} />
           <Route path="finance" element={withSuspense(<IncomePage />)} />
-          <Route path="settings" element={withSuspense(<PlaceholderPage title="Settings" />)} />
+          <Route path="settings" element={withSuspense(<SettingsPage />)} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

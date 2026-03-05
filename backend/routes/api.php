@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\PurchaseController;
 use App\Http\Controllers\Api\RecipeController;
 use App\Http\Controllers\Api\ReceiptController;
 use App\Http\Controllers\Api\SalesAnalyticsController;
+use App\Http\Controllers\Api\SettingController;
 use App\Http\Controllers\Api\StaffController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
@@ -34,6 +35,8 @@ Route::get('/sales-analytics', [SalesAnalyticsController::class, 'index']);
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('admin.api');
 Route::get('/user/me', [UserController::class, 'me']);
 Route::post('/user/me', [UserController::class, 'updateMe']);
+Route::get('/settings', [SettingController::class, 'show']);
+Route::put('/settings', [SettingController::class, 'update']);
 
 Route::apiResource('categories', CategoryController::class);
 Route::apiResource('staffs', StaffController::class);
