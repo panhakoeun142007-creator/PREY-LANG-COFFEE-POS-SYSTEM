@@ -10,11 +10,6 @@ class Category extends Model
 {
     use HasFactory;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
-     */
     protected $fillable = [
         'name',
         'description',
@@ -22,22 +17,11 @@ class Category extends Model
         'is_active',
     ];
 
-    /**
-     * The attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
-    protected function casts(): array
-    {
-        return [
-            'is_active' => 'boolean',
-            'quantity' => 'integer',
-        ];
-    }
+    protected $casts = [
+        'is_active' => 'boolean',
+        'quantity' => 'integer',
+    ];
 
-    /**
-     * Get the products for this category.
-     */
     public function products(): HasMany
     {
         return $this->hasMany(Product::class);
