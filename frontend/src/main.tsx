@@ -3,12 +3,9 @@ import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 
-const savedTheme = localStorage.getItem('theme');
-const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-const shouldUseDark = savedTheme === 'dark' || (savedTheme === null && prefersDark);
-
-document.documentElement.classList.toggle('dark', shouldUseDark);
-document.body.classList.toggle('dark', shouldUseDark);
+document.documentElement.classList.remove('dark');
+document.body.classList.remove('dark');
+localStorage.setItem('theme', 'light');
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

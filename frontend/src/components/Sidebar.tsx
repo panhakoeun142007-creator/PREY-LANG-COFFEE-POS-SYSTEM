@@ -20,29 +20,23 @@
   }
 
   const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLogoutClick }) => {
-    // Prefer saved preference first; fallback to system preference
-    const [isDark, setIsDark] = useState<boolean>(() => {
-      const savedTheme = localStorage.getItem('theme');
-      if (savedTheme === 'dark') return true;
-      if (savedTheme === 'light') return false;
-      return window.matchMedia('(prefers-color-scheme: dark)').matches;
-    });
+    const [isDark, setIsDark] = useState<boolean>(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
-    const applyTheme = (dark: boolean) => {
-      document.documentElement.classList.toggle('dark', dark);
-      document.body.classList.toggle('dark', dark);
-      localStorage.setItem('theme', dark ? 'dark' : 'light');
+    const applyTheme = () => {
+      document.documentElement.classList.remove('dark');
+      document.body.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
     };
 
     const setDarkMode = () => {
-      setIsDark(true);
-      applyTheme(true);
+      setIsDark(false);
+      applyTheme();
     };
 
     const setLightMode = () => {
       setIsDark(false);
-      applyTheme(false);
+      applyTheme();
     };
 
     const handleThemeToggle = () => {
@@ -54,7 +48,7 @@
     };
 
     useEffect(() => {
-      applyTheme(isDark);
+      applyTheme();
     }, [isDark]);
 
     const navItems = [
@@ -121,9 +115,9 @@
               className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all active:scale-95 text-white/80 hover:text-white hover:bg-black/10"
             >
               <div className="relative w-6 h-6 flex items-center justify-center">
-                {isDark ? <Sun size={22} /> : <Moon size={22} />}
+                <Sun size={22} />
               </div>
-              <span className="text-base font-bold">{isDark ? 'Light Mode' : 'Dark Mode'}</span>
+              <span className="text-base font-bold">Light Mode</span>
             </button>
 
             <button 
