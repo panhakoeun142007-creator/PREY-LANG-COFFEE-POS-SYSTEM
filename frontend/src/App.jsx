@@ -6,13 +6,53 @@ import Checkout from "./pages/checkout";
 import QRpayment from "./pages/QRpayment";
 import Paymantule from "./pages/paymantule";
 import Wait from "./pages/wait";
+import Ready from "./pages/ready";
 import { getCartTotal } from "./utils/pricing";
 
+const APP_STATE_STORAGE_KEY = "prey-lang-pos:app-state:v1";
+
+const readStoredAppState = () => {
+  try {
+    const rawState = localStorage.getItem(APP_STATE_STORAGE_KEY);
+    if (!rawState) {
+      return null;
+    }
+
+    const parsed = JSON.parse(rawState);
+    if (!parsed || typeof parsed !== "object") {
+      return null;
+    }
+
+    return parsed;
+  } catch {
+    return null;
+  }
+};
+
 function App() {
-  const [cartItems, setCartItems] = useState([]);
-  const [currentPage, setCurrentPage] = useState("menu");
-  const [detailTarget, setDetailTarget] = useState(null);
-  const [qrOrderNumber, setQrOrderNumber] = useState("#A-000");
+  const [cartItems, setCartItems] = useState(() => {
+    const storedState = readStoredAppState();
+    return Array.isArray(storedState?.cartItems) ? storedState.cartItems : [];
+  });
+  const [currentPage, setCurrentPage] = useState(() => {
+    const storedState = readStoredAppState();
+    return typeof storedState?.currentPage === "string" ? storedState.currentPage : "menu";
+  });
+  const [detailTarget, setDetailTarget] = useState(() => {
+    const storedState = readStoredAppState();
+    const target = storedState?.detailTarget;
+    if (!target || typeof target !== "object") {
+      return null;
+    }
+    if (typeof target.productKey !== "string" || typeof target.selectedSize !== "string") {
+      return null;
+    }
+    return target;
+  });
+  const [qrOrderNumber, setQrOrderNumber] = useState(() => {
+    const storedState = readStoredAppState();
+    return typeof storedState?.qrOrderNumber === "string" ? storedState.qrOrderNumber : "#A-000";
+  });
   const [theme, setTheme] = useState(() => {
     const savedTheme = localStorage.getItem("theme");
     return savedTheme === "dark" ? "dark" : "light";
@@ -22,6 +62,23 @@ function App() {
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("theme", theme);
   }, [theme]);
+
+  useEffect(() => {
+    const safePage = cartItems.length === 0 && currentPage !== "menu" ? "menu" : currentPage;
+
+    localStorage.setItem(
+      APP_STATE_STORAGE_KEY,
+      JSON.stringify({
+        cartItems,
+        currentPage: safePage,
+        detailTarget,
+        qrOrderNumber,
+      })
+    );
+  }, [cartItems, currentPage, detailTarget, qrOrderNumber]);
+
+  const effectivePage = cartItems.length === 0 && currentPage !== "menu" ? "menu" : currentPage;
+  const effectiveDetailTarget = effectivePage === currentPage ? detailTarget : null;
 
   const handleAddToCart = ({ product, selectedSize, productKey }) => {
     setCartItems((prev) => {
@@ -186,25 +243,25 @@ function App() {
     setCurrentPage("qr-payment");
   };
 
-  const activeDetailItem = detailTarget
+  const activeDetailItem = effectiveDetailTarget
     ? cartItems.find(
         (item) =>
-          item.productKey === detailTarget.productKey &&
-          item.selectedSize === detailTarget.selectedSize
+          item.productKey === effectiveDetailTarget.productKey &&
+          item.selectedSize === effectiveDetailTarget.selectedSize
       )
     : null;
 
-  const activeDetailIndex = detailTarget
+  const activeDetailIndex = effectiveDetailTarget
     ? cartItems.findIndex(
         (item) =>
-          item.productKey === detailTarget.productKey &&
-          item.selectedSize === detailTarget.selectedSize
+          item.productKey === effectiveDetailTarget.productKey &&
+          item.selectedSize === effectiveDetailTarget.selectedSize
       )
     : -1;
 
   return (
     <div className="app-shell">
-      {currentPage === "menu" && (
+      {effectivePage === "menu" && (
         <Customer
           cartItems={cartItems}
           onAddToCart={handleAddToCart}
@@ -213,7 +270,7 @@ function App() {
           onToggleTheme={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
         />
       )}
-      {currentPage === "cart" && (
+      {effectivePage === "cart" && (
         <Cart
           cartItems={cartItems}
           onBackToMenu={() => setCurrentPage("menu")}
@@ -228,7 +285,7 @@ function App() {
           onBuyNow={handleBuyNow}
         />
       )}
-      {currentPage === "detail" && activeDetailItem && (
+      {effectivePage === "detail" && activeDetailItem && (
         <Detail
           item={activeDetailItem}
           onBack={() => setCurrentPage("cart")}
@@ -241,21 +298,21 @@ function App() {
           detailCount={cartItems.length}
         />
       )}
-      {currentPage === "checkout" && (
+      {effectivePage === "checkout" && (
         <Checkout
           cartItems={cartItems}
           onBack={() => setCurrentPage("cart")}
           onConfirmOrder={confirmCheckout}
         />
       )}
-      {currentPage === "qr-payment" && (
+      {effectivePage === "qr-payment" && (
         <QRpayment
           totalDue={getCartTotal(cartItems)}
           orderNumber={qrOrderNumber}
-          onBack={() => setCurrentPage("checkout")}
+          onBack={() => setCurrentPage("wait")}
         />
       )}
-      {currentPage === "counter-payment" && (
+      {effectivePage === "counter-payment" && (
         <Paymantule
           cartItems={cartItems}
           onDone={() => {
@@ -263,11 +320,24 @@ function App() {
           }}
         />
       )}
-      {currentPage === "wait" && (
+      {effectivePage === "wait" && (
         <Wait
           cartItems={cartItems}
           onBack={() => setCurrentPage("counter-payment")}
+          onPickUpNow={() => {
+            setCurrentPage("ready");
+          }}
           onBackToMenu={() => {
+            setCartItems([]);
+            setCurrentPage("menu");
+          }}
+        />
+      )}
+      {effectivePage === "ready" && (
+        <Ready
+          tableNumber="012"
+          onBack={() => setCurrentPage("wait")}
+          onEnjoyCoffee={() => {
             setCartItems([]);
             setCurrentPage("menu");
           }}

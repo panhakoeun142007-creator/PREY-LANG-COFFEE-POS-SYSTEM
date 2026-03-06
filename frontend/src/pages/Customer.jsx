@@ -92,18 +92,16 @@ const CATEGORY_IDS = new Set(CATEGORIES.map((cat) => cat.id));
 const RAW_API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "").trim();
 const API_BASE_URL = RAW_API_BASE_URL.replace(/\/$/, "");
 const PROD_FALLBACK_API_BASE_URL = "http://127.0.0.1:8000";
-const buildApiUrl = (path) => {
-  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-
+const getProductEndpoints = () => {
   if (API_BASE_URL) {
-    return `${API_BASE_URL}${normalizedPath}`;
+    return [`${API_BASE_URL}/api/products`];
   }
 
   if (import.meta.env.DEV) {
-    return normalizedPath;
+    return ["/api/products", `${PROD_FALLBACK_API_BASE_URL}/api/products`];
   }
 
-  return `${PROD_FALLBACK_API_BASE_URL}${normalizedPath}`;
+  return [`${PROD_FALLBACK_API_BASE_URL}/api/products`];
 };
 const normalizeCategoryId = (value = "") => {
   const normalized = value.trim().toLowerCase();
@@ -871,7 +869,7 @@ const products = [
   
 ];
 
-function customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", onToggleTheme }) {
+function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", onToggleTheme }) {
   const [category, setCategory] = useState("all");
   const [search, setSearch] = useState("");
   const [selectedSizes, setSelectedSizes] = useState({});
@@ -891,38 +889,44 @@ function customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", o
 
   useEffect(() => {
     const controller = new AbortController();
-    const endpointPath = "/api/products";
-    const endpoint = buildApiUrl(endpointPath);
+    const endpoints = getProductEndpoints();
 
-    fetch(endpoint, { signal: controller.signal })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`Failed to fetch products: ${response.status}`);
-        }
-        return response.json();
-      })
-      .then((payload) => {
-        const mappedProducts = Array.isArray(payload?.data)
-          ? payload.data.map((item) => ({
-              ...item,
-              category: item.category,
-              category_slug: item.category_slug,
-              category_id: getStrictProductCategoryId(item),
-              price: Number.isFinite(Number.parseFloat(item.price))
-                ? Number.parseFloat(item.price)
-                : 0,
-              image: normalizeProductImage(item.image),
-            }))
-          : [];
+    const fetchProducts = async () => {
+      for (const endpoint of endpoints) {
+        try {
+          const response = await fetch(endpoint, { signal: controller.signal });
+          if (!response.ok) {
+            throw new Error(`Failed to fetch products: ${response.status}`);
+          }
 
-        setApiProducts(mappedProducts);
-        setUseApiProducts(true);
-      })
-      .catch((error) => {
-        if (error.name !== "AbortError") {
-          setUseApiProducts(false);
+          const payload = await response.json();
+          const mappedProducts = Array.isArray(payload?.data)
+            ? payload.data.map((item) => ({
+                ...item,
+                category: item.category,
+                category_slug: item.category_slug,
+                category_id: getStrictProductCategoryId(item),
+                price: Number.isFinite(Number.parseFloat(item.price))
+                  ? Number.parseFloat(item.price)
+                  : 0,
+                image: normalizeProductImage(item.image),
+              }))
+            : [];
+
+          setApiProducts(mappedProducts);
+          setUseApiProducts(true);
+          return;
+        } catch (error) {
+          if (error.name === "AbortError") {
+            return;
+          }
         }
-      });
+      }
+
+      setUseApiProducts(false);
+    };
+
+    fetchProducts();
 
     return () => {
       controller.abort();
@@ -1086,4 +1090,4 @@ function customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", o
   );
 }
 
-export default customer;
+export default Customer;

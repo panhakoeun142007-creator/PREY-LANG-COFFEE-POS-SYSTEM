@@ -1,70 +1,72 @@
 .paymantule-page {
-  min-height: 100%;
+  min-height: calc(100vh - 32px);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 20px;
-  padding: 20px 14px 28px;
-  background: #e9e9e9;
+  gap: 14px;
+  padding: 12px 0 20px;
 }
 
 .paymantule-card {
   width: 100%;
-  max-width: 350px;
-  background: #f2f2f2;
-  border-radius: 4px;
-  padding: 28px 26px 22px;
-  box-sizing: border-box;
+  max-width: 440px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 20px 16px 16px;
+  box-shadow: var(--shadow-sm);
 }
 
 .paymantule-card h1,
 .paymantule-card h2 {
   margin: 0;
   text-align: center;
-  font-size: 40px;
-  line-height: 1;
-  letter-spacing: -0.02em;
+  font-size: 2.05rem;
+  line-height: 1.05;
   font-weight: 800;
-  color: #161616;
+  color: var(--text-primary);
 }
 
 .paymantule-brand {
-  margin-top: 24px;
+  margin-top: 14px;
   text-align: center;
 }
 
 .paymantule-logo {
-  width: 50px;
-  height: 50px;
+  width: 44px;
+  height: 44px;
   margin: 0 auto 8px;
   border-radius: 999px;
-  background: #f2dec7;
-  border: 1px solid #f0c89f;
+  background: color-mix(in srgb, var(--accent-color) 16%, var(--card-bg));
+  border: 1px solid color-mix(in srgb, var(--accent-color) 36%, var(--border-color));
   display: grid;
   place-items: center;
 }
 
 .paymantule-logo span {
-  color: #e2760f;
+  color: var(--accent-color);
   font-weight: 700;
-  font-size: 20px;
+  font-size: 1.1rem;
 }
 
 .paymantule-brand strong {
   display: block;
-  color: #1f2430;
-  font-size: 15px;
+  color: var(--text-primary);
+  font-size: 0.92rem;
 }
 
 .paymantule-brand p {
   margin: 2px 0 0;
-  font-size: 11px;
-  color: #50555e;
+  font-size: 0.68rem;
+  color: var(--text-secondary);
 }
 
 .paymantule-items {
-  margin-top: 26px;
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .paymantule-item {
@@ -72,14 +74,17 @@
   grid-template-columns: 30px 1fr auto;
   gap: 10px;
   align-items: center;
-  margin-bottom: 12px;
+  padding: 8px;
+  border-radius: 10px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border-color);
 }
 
 .paymantule-item-icon {
   width: 24px;
   height: 24px;
   border-radius: 6px;
-  background: #eb7c13;
+  background: var(--accent-color);
   color: #fff;
   display: grid;
   place-items: center;
@@ -89,130 +94,95 @@
 
 .paymantule-item-main p {
   margin: 0;
-  font-size: 13px;
+  font-size: 0.82rem;
   font-weight: 600;
-  color: #1f2430;
+  color: var(--text-primary);
 }
 
 .paymantule-item-main small {
-  font-size: 11px;
-  color: #666c77;
+  font-size: 0.68rem;
+  color: var(--text-secondary);
 }
 
 .paymantule-item strong {
-  font-size: 14px;
-  color: #161616;
+  font-size: 0.86rem;
+  color: var(--text-primary);
 }
 
 .paymantule-totals {
-  margin-top: 8px;
+  margin-top: 10px;
+  border: 1px solid color-mix(in srgb, var(--accent-color) 20%, var(--border-color));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent-color) 8%, var(--card-bg));
+  padding: 8px 10px;
 }
 
 .paymantule-totals > div {
   display: flex;
   justify-content: space-between;
   padding: 3px 0;
-  font-size: 17px;
-  color: #171717;
+  font-size: 0.95rem;
+  color: var(--text-primary);
 }
 
 .paymantule-total-row {
   margin-top: 4px;
   align-items: baseline;
+  border-top: 1px solid color-mix(in srgb, var(--accent-color) 24%, var(--border-color));
+  padding-top: 6px;
 }
 
 .paymantule-total-row span:first-child {
-  font-size: 20px;
+  font-size: 1rem;
   font-weight: 700;
 }
 
 .paymantule-total-row span:last-child {
-  font-size: 27px;
+  font-size: 1.28rem;
   line-height: 1;
   font-weight: 900;
-  color: #e2760f;
+  color: var(--accent-color);
 }
 
 .paymantule-thanks {
-  margin-top: 16px;
+  margin-top: 12px;
   text-align: center;
 }
 
 .paymantule-thanks p {
   margin: 0;
-  color: #e2760f;
-  font-size: 19px;
+  color: var(--accent-color);
+  font-size: 1rem;
   font-weight: 700;
 }
 
 .paymantule-thanks small {
-  letter-spacing: 0.2em;
-  font-size: 8px;
-  color: #515865;
+  letter-spacing: 0.12em;
+  font-size: 0.56rem;
+  color: var(--text-secondary);
   font-weight: 700;
 }
 
 .paymantule-done {
   border: none;
   border-radius: 999px;
-  background: #ef8618;
-  color: #fff;
-  font-size: 10px;
+  background: var(--accent-color);
+  color: var(--text-on-accent);
+  font-size: 0.84rem;
+  font-weight: 700;
   height: 40px;
-  padding: 15px 30px;
+  padding: 0 22px;
   cursor: pointer;
 }
 
 @media (max-width: 540px) {
+  .paymantule-card {
+    border-radius: 14px;
+    padding: 16px 10px 12px;
+  }
+
   .paymantule-card h1,
   .paymantule-card h2 {
-    font-size: 32px;
+    font-size: 1.7rem;
   }
-
-  .paymantule-total-row span:first-child {
-    font-size: 20px;
-    
-  }
-
-  .paymantule-total-row span:last-child {
-    font-size: 30px;
-  }
-
-  .paymantule-done {
-    font-size: 15px;
-    padding: 9px 24px;
-  }
-}
-
-:root[data-theme="dark"] .paymantule-page {
-  background: var(--bg-color);
-}
-
-:root[data-theme="dark"] .paymantule-card {
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
-}
-
-:root[data-theme="dark"] .paymantule-card h1,
-:root[data-theme="dark"] .paymantule-card h2,
-:root[data-theme="dark"] .paymantule-brand strong,
-:root[data-theme="dark"] .paymantule-item-main p,
-:root[data-theme="dark"] .paymantule-item strong,
-:root[data-theme="dark"] .paymantule-totals > div,
-:root[data-theme="dark"] .paymantule-thanks small {
-  color: var(--text-primary);
-}
-
-:root[data-theme="dark"] .paymantule-brand p,
-:root[data-theme="dark"] .paymantule-item-main small {
-  color: var(--text-secondary);
-}
-
-:root[data-theme="dark"] .paymantule-logo {
-  background: #2a231b;
-  border-color: #3c3326;
-}
-
-:root[data-theme="dark"] .paymantule-done {
-  background: var(--accent-color);
 }
