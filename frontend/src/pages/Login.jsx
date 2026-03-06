@@ -46,14 +46,21 @@ export default function Login() {
           <div className="login-ref-shell">
             <section className="login-ref-aside" aria-hidden="true">
               <div className="login-ref-aside-top">
-                <h1 className="login-ref-brand">Prey Lang Coffee</h1>
+                <p className="login-ref-brand">Prey Lang Coffee POS</p>
+                <h1 className="login-ref-aside-title">Brew Better. Sell Faster.</h1>
                 <p className="login-ref-aside-text">
                   Manage orders, staff, and sales in one secure dashboard built for daily coffee shop operations.
                 </p>
               </div>
 
               <div className="login-ref-aside-bottom">
-                
+                <div className="login-ref-logo-wrap">
+                  <img
+                    src="../imgs/image.png"
+                    alt="Prey Lang Coffee logo"
+                    className="login-ref-logo"
+                  />
+                </div>
 
                 <div className="login-ref-badges">
                   <span>Live Orders</span>

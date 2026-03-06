@@ -710,6 +710,7 @@
   background: #f9fcff;
   padding: 0;
   overflow: hidden;
+  animation: loginCardIn 0.6s ease-out both;
 }
 
 .login-ref-page .login-ref-shell {
@@ -720,57 +721,114 @@
 
 .login-ref-page .login-ref-aside {
   position: relative;
-  padding: 2.25rem 2rem 2rem;
+  padding: 2.2rem 1.9rem 1.7rem;
   color: #f7f9ff;
   background:
-    radial-gradient(circle at 15% 20%, rgba(255, 188, 116, 0.3) 0%, transparent 35%),
-    linear-gradient(170deg, #203347 0%, #1b2e41 52%, #132537 100%);
+    radial-gradient(circle at 12% 18%, rgba(255, 188, 116, 0.26) 0%, transparent 38%),
+    radial-gradient(circle at 88% 84%, rgba(64, 142, 206, 0.22) 0%, transparent 40%),
+    linear-gradient(160deg, #1e3046 0%, #132b42 52%, #0f2439 100%);
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  gap: 1.25rem;
+  justify-content: center;
+  gap: 1.1rem;
+  overflow: hidden;
+}
+
+.login-ref-page .login-ref-aside::before {
+  content: '';
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  top: -56px;
+  left: -70px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 202, 139, 0.3) 0%, rgba(255, 202, 139, 0) 68%);
+  filter: blur(4px);
+  pointer-events: none;
 }
 
 .login-ref-page .login-ref-aside::after {
   content: '';
   position: absolute;
-  inset: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 20px;
+  inset: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 22px;
   pointer-events: none;
 }
 
 .login-ref-page .login-ref-brand {
-  margin: 0 0 0.8rem;
-  font-size: 0.88rem;
+  margin: 0 0 0.45rem;
+  font-size: 0.74rem;
   font-weight: 700;
-  letter-spacing: 0.09em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #f9c48b;
+  color: #ffc88f;
+  opacity: 0.92;
 }
 
 .login-ref-page .login-ref-aside-top {
-  max-width: 30ch;
+  position: relative;
+  z-index: 1;
+  max-width: 34ch;
+  width: 100%;
+  margin: 0 auto 0.15rem;
+  text-align: center;
+  animation: loginFadeUp 0.65s ease-out 0.12s both;
 }
 
-.login-ref-page .login-ref-aside h1 {
+.login-ref-page .login-ref-aside-title {
   margin: 0;
-  font-size: clamp(1.7rem, 2.4vw, 2.15rem);
-  line-height: 1.14;
-  letter-spacing: -0.015em;
+  font-size: clamp(1.85rem, 2.9vw, 2.45rem);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  color: #ffffff;
   text-wrap: balance;
+  text-shadow: 0 12px 24px rgba(2, 12, 22, 0.45);
 }
 
 .login-ref-page .login-ref-aside-text {
-  margin: 0.9rem 0 0;
-  font-size: 0.95rem;
-  line-height: 1.6;
-  color: rgba(241, 245, 255, 0.9);
-  max-width: 32ch;
+  margin: 0.75rem auto 0;
+  font-size: 0.98rem;
+  line-height: 1.58;
+  color: rgba(229, 236, 247, 0.92);
+  max-width: 34ch;
+  text-align: center;
 }
 
 .login-ref-page .login-ref-aside-bottom {
-  margin-top: auto;
+  position: relative;
+  z-index: 1;
+  margin-top: 0.1rem;
+  animation: loginFadeUp 0.7s ease-out 0.2s both;
+  display: grid;
+  justify-items: center;
+  row-gap: 1rem;
+}
+
+.login-ref-page .login-ref-logo-wrap {
+  width: min(360px, 100%);
+  margin: 0;
+  border-radius: 24px;
+  padding: 0.9rem 0.85rem 0.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.02) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 14px 28px rgba(4, 18, 32, 0.3);
+  backdrop-filter: blur(2px);
+}
+
+.login-ref-page .login-ref-logo {
+  display: block;
+  margin: 0 auto;
+  width: min(305px, 90%);
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 14px 22px rgba(0, 0, 0, 0.3));
+  transition: transform 0.35s ease, filter 0.35s ease;
+}
+
+.login-ref-page .login-ref-logo-wrap:hover .login-ref-logo {
+  transform: translateY(-2px) scale(1.015);
+  filter: drop-shadow(0 18px 30px rgba(0, 0, 0, 0.34));
 }
 
 .login-ref-page .login-ref-metrics {
@@ -794,18 +852,27 @@
 .login-ref-page .login-ref-badges {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.55rem;
-  margin-top: 0.8rem;
+  justify-content: center;
+  gap: 0.6rem;
+  margin-top: 0.15rem;
 }
 
 .login-ref-page .login-ref-badges span {
-  border: 1px solid rgba(249, 198, 142, 0.45);
-  background: rgba(255, 255, 255, 0.09);
-  color: #ffe0bc;
-  padding: 0.38rem 0.65rem;
+  border: 1px solid rgba(255, 200, 140, 0.5);
+  background: linear-gradient(140deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.05));
+  color: #ffe5c4;
+  padding: 0.42rem 0.72rem;
   border-radius: 999px;
-  font-size: 0.77rem;
+  font-size: 0.76rem;
   font-weight: 700;
+  letter-spacing: 0.01em;
+  box-shadow: 0 6px 14px rgba(4, 14, 28, 0.22);
+  transition: transform 0.25s ease, background 0.25s ease;
+}
+
+.login-ref-page .login-ref-badges span:hover {
+  transform: translateY(-1px);
+  background: linear-gradient(140deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.08));
 }
 
 .login-ref-page .login-ref-form-wrap {
@@ -813,6 +880,50 @@
   background:
     radial-gradient(circle at 90% 0%, rgba(255, 236, 214, 0.55) 0%, transparent 34%),
     linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+
+.login-ref-page .login-ref-form-wrap > * {
+  opacity: 0;
+  animation: loginFadeUp 0.55s ease-out both;
+}
+
+.login-ref-page .login-ref-form-wrap > *:nth-child(1) { animation-delay: 0.16s; }
+.login-ref-page .login-ref-form-wrap > *:nth-child(2) { animation-delay: 0.22s; }
+.login-ref-page .login-ref-form-wrap > *:nth-child(3) { animation-delay: 0.28s; }
+.login-ref-page .login-ref-form-wrap > *:nth-child(4) { animation-delay: 0.34s; }
+.login-ref-page .login-ref-form-wrap > *:nth-child(5) { animation-delay: 0.40s; }
+
+@keyframes loginCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes loginFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-ref-page .login-card,
+  .login-ref-page .login-ref-aside-top,
+  .login-ref-page .login-ref-aside-bottom,
+  .login-ref-page .login-ref-form-wrap > * {
+    animation: none !important;
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .login-ref-page .login-ref-role-switch {
@@ -965,12 +1076,12 @@
     border-radius: 14px;
   }
 
-  .login-ref-page .login-ref-aside h1 {
-    font-size: 1.35rem;
+  .login-ref-page .login-ref-aside-title {
+    font-size: 1.6rem;
   }
 
   .login-ref-page .login-ref-aside-text {
-    font-size: 0.86rem;
+    font-size: 0.9rem;
     max-width: 100%;
   }
 
@@ -988,6 +1099,16 @@
 
   .login-ref-page .login-ref-badges {
     margin-top: 0.65rem;
+  }
+
+  .login-ref-page .login-ref-logo-wrap {
+    width: min(310px, 100%);
+    margin: 0;
+    padding: 0.6rem 0.55rem 0.45rem;
+  }
+
+  .login-ref-page .login-ref-logo {
+    width: min(220px, 90%);
   }
 
   .login-ref-page .login-ref-badges span {
