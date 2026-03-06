@@ -35,4 +35,13 @@ return [
         ],
     ],
 
+    'dify' => [
+        'url' => env('DIFY_API_URL', 'https://api.dify.ai/v1'),
+        'key' => env('DIFY_API_KEY'),
+        'timeout' => (int) env('DIFY_TIMEOUT', 30),
+        'response_mode' => env('DIFY_RESPONSE_MODE', 'streaming'),
+        'required_input_key' => env('DIFY_REQUIRED_INPUT_KEY', ''),
+        'required_input_value' => env('DIFY_REQUIRED_INPUT_VALUE', 'coffee'),
+    ],
+
 ];

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\AiAnalyticsController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\CustomerMenuController;
 use App\Http\Controllers\Api\DashboardController;
@@ -73,4 +74,11 @@ Route::middleware('admin.api')->group(function () {
 
     // Receipts (paid orders)
     Route::get('/receipts', [ReceiptController::class, 'index']);
+
+    // AI analytics (admin only)
+    Route::prefix('ai')->group(function () {
+        Route::get('/daily-summary', [AiAnalyticsController::class, 'dailySummary']);
+        Route::get('/stock-alert', [AiAnalyticsController::class, 'stockAlert']);
+        Route::post('/ask', [AiAnalyticsController::class, 'ask']);
+    });
 });

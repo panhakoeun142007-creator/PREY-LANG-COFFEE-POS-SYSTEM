@@ -10,7 +10,7 @@ import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import AppLayout from "./components/AppLayout";
 import { loginAdmin } from "./services/api";
 
-function lazyWithRetry<T extends ComponentType<unknown>>(
+function lazyWithRetry<T extends ComponentType<any>>(
   importer: () => Promise<{ default: T }>,
 ) {
   return lazy(async () => {
@@ -249,7 +249,14 @@ export default function App() {
           </RequireAuth>
         }
       >
-        <Route index element={withSuspense(<DashboardPage />)} />
+        <Route
+          index
+          element={
+            <RequireRole allowedRoles={["admin"]}>
+              {withSuspense(<DashboardPage />)}
+            </RequireRole>
+          }
+        />
         <Route path="live-orders" element={withSuspense(<LiveOrders />)} />
         <Route path="order-history" element={withSuspense(<OrderHistory />)} />
         <Route

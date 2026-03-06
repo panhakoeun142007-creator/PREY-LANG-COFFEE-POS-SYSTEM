@@ -10,6 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import AiInsights from "../../../components/AiInsights";
 import { fetchDashboardData, DashboardData } from "../../../services/api";
 
 const statusStyles: Record<string, string> = {
@@ -21,10 +22,30 @@ const statusStyles: Record<string, string> = {
 
 const defaultData: DashboardData = {
   stats: [
-    { label: "Total Revenue Today", value: "$0.00", trend: "Loading...", accent: "text-emerald-600" },
-    { label: "Total Orders Today", value: "0", trend: "Loading...", accent: "text-emerald-600" },
-    { label: "Low Stock Items", value: "0", trend: "Loading...", accent: "text-emerald-600" },
-    { label: "Monthly Profit", value: "$0.00", trend: "Loading...", accent: "text-emerald-600" },
+    {
+      label: "Total Revenue Today",
+      value: "$0.00",
+      trend: "Loading...",
+      accent: "text-emerald-600",
+    },
+    {
+      label: "Total Orders Today",
+      value: "0",
+      trend: "Loading...",
+      accent: "text-emerald-600",
+    },
+    {
+      label: "Low Stock Items",
+      value: "0",
+      trend: "Loading...",
+      accent: "text-emerald-600",
+    },
+    {
+      label: "Monthly Profit",
+      value: "$0.00",
+      trend: "Loading...",
+      accent: "text-emerald-600",
+    },
   ],
   revenueData: [
     { name: "Mon", revenue: 0 },
@@ -85,15 +106,21 @@ export default function DashboardPage() {
             className="rounded-2xl border border-[#EAD6C0] bg-white p-5 shadow-sm"
           >
             <p className="text-sm text-[#7C5D58]">{card.label}</p>
-            <p className="mt-2 text-3xl font-semibold text-[#4B2E2B]">{card.value}</p>
-            <p className={`mt-2 text-sm font-medium ${card.accent}`}>{card.trend}</p>
+            <p className="mt-2 text-3xl font-semibold text-[#4B2E2B]">
+              {card.value}
+            </p>
+            <p className={`mt-2 text-sm font-medium ${card.accent}`}>
+              {card.trend}
+            </p>
           </div>
         ))}
       </section>
 
       <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <div className="rounded-2xl border border-[#EAD6C0] bg-white p-5 shadow-sm">
-          <h3 className="text-base font-semibold text-[#4B2E2B]">Revenue Over Time</h3>
+          <h3 className="text-base font-semibold text-[#4B2E2B]">
+            Revenue Over Time
+          </h3>
           <div className="mt-4 h-72">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={data.revenueData}>
@@ -114,7 +141,9 @@ export default function DashboardPage() {
         </div>
 
         <div className="rounded-2xl border border-[#EAD6C0] bg-white p-5 shadow-sm">
-          <h3 className="text-base font-semibold text-[#4B2E2B]">Orders by Category</h3>
+          <h3 className="text-base font-semibold text-[#4B2E2B]">
+            Orders by Category
+          </h3>
           <div className="mt-4 h-72">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data.categoryData}>
@@ -131,7 +160,9 @@ export default function DashboardPage() {
 
       <section className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <div className="xl:col-span-2 rounded-2xl border border-[#EAD6C0] bg-white p-5 shadow-sm">
-          <h3 className="text-base font-semibold text-[#4B2E2B]">Recent Orders</h3>
+          <h3 className="text-base font-semibold text-[#4B2E2B]">
+            Recent Orders
+          </h3>
           <div className="mt-4 overflow-x-auto">
             {data.recentOrders.length > 0 ? (
               <table className="w-full min-w-[620px] text-left">
@@ -145,8 +176,13 @@ export default function DashboardPage() {
                 </thead>
                 <tbody>
                   {data.recentOrders.map((order) => (
-                    <tr key={order.id} className="border-b border-[#F7EBDD] text-sm">
-                      <td className="py-3 font-medium text-[#4B2E2B]">{order.id}</td>
+                    <tr
+                      key={order.id}
+                      className="border-b border-[#F7EBDD] text-sm"
+                    >
+                      <td className="py-3 font-medium text-[#4B2E2B]">
+                        {order.id}
+                      </td>
                       <td className="py-3 text-[#6E4F4A]">{order.table}</td>
                       <td className="py-3 text-[#6E4F4A]">{order.total}</td>
                       <td className="py-3">
@@ -167,7 +203,9 @@ export default function DashboardPage() {
         </div>
 
         <div className="rounded-2xl border border-[#EAD6C0] bg-white p-5 shadow-sm">
-          <h3 className="text-base font-semibold text-[#4B2E2B]">Low Stock Warning</h3>
+          <h3 className="text-base font-semibold text-[#4B2E2B]">
+            Low Stock Warning
+          </h3>
           <div className="mt-4 space-y-4">
             {data.lowStockItems.length > 0 ? (
               data.lowStockItems.map((item) => (
@@ -187,11 +225,15 @@ export default function DashboardPage() {
                 </div>
               ))
             ) : (
-              <p className="text-sm text-[#7C5D58]">All stock levels are good</p>
+              <p className="text-sm text-[#7C5D58]">
+                All stock levels are good
+              </p>
             )}
           </div>
         </div>
       </section>
+
+      <AiInsights />
     </div>
   );
 }

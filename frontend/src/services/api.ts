@@ -132,6 +132,9 @@ async function readApiError(
     if (data?.message) {
       return new Error(data.message);
     }
+    if (data?.error) {
+      return new Error(data.error);
+    }
     const firstField = data?.errors ? Object.keys(data.errors)[0] : null;
     const firstError =
       firstField && Array.isArray(data.errors[firstField])
@@ -1476,4 +1479,75 @@ export async function deleteExpense(expenseId: number): Promise<void> {
   if (!response.ok) {
     throw await readApiError(response, "Failed to delete expense");
   }
+}
+
+export interface AiDailySummaryResponse {
+  analysis: string;
+  data: {
+    total_orders: number;
+    total_revenue: number;
+    total_expenses: number;
+    gross_profit: number;
+    low_stock: number;
+  };
+}
+
+export interface AiStockAlertItem {
+  id: number;
+  name: string;
+  stock_qty: number;
+  min_stock: number;
+  unit: string;
+}
+
+export interface AiStockAlertResponse {
+  analysis: string;
+  items: AiStockAlertItem[];
+}
+
+export interface AiAskResponse {
+  answer: string;
+  data?: Record<string, unknown>;
+}
+
+export async function fetchAiDailySummary(): Promise<AiDailySummaryResponse> {
+  const response = await safeFetch("/ai/daily-summary");
+
+  if (!response.ok) {
+    throw await readApiError(response, "Failed to fetch AI daily summary");
+  }
+
+  return response.json();
+}
+
+export async function fetchAiStockAlert(): Promise<AiStockAlertResponse> {
+  const response = await safeFetch("/ai/stock-alert");
+
+  if (!response.ok) {
+    throw await readApiError(response, "Failed to fetch AI stock alert");
+  }
+
+  return response.json();
+}
+
+export async function askAiQuestion(
+  question: string,
+  inputs?: Record<string, unknown>,
+): Promise<AiAskResponse> {
+  const response = await safeFetch("/ai/ask", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      question,
+      ...(inputs ? { inputs } : {}),
+    }),
+  });
+
+  if (!response.ok) {
+    throw await readApiError(response, "Failed to ask AI question");
+  }
+
+  return response.json();
 }
