@@ -223,10 +223,52 @@ function App() {
     setCurrentPage("checkout");
   };
 
-  const confirmCheckout = (paymentMethod = "card") => {
+  const submitOrderToBackend = async (paymentMethod) => {
+    try {
+      const items = cartItems.map(item => ({
+        product_id: item.id,
+        size: item.selectedSize?.toLowerCase() || 'medium',
+        qty: item.quantity,
+        price: item.price || 0
+      }));
+
+      const response = await fetch('/api/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          items,
+          total_price: getCartTotal(cartItems),
+          payment_type: paymentMethod === 'card' ? 'khqr' : 'cash',
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        return data.queue_number;
+      } else {
+        console.error('Order failed:', data.message);
+        return null;
+      }
+    } catch (error) {
+      console.error('Error submitting order:', error);
+      return null;
+    }
+  };
+
+  const confirmCheckout = async (paymentMethod = "card") => {
     if (cartItems.length === 0) {
       setCurrentPage("menu");
       return;
+    }
+
+    // Submit order to backend
+    const queueNumber = await submitOrderToBackend(paymentMethod);
+    
+    if (queueNumber) {
+      setQrOrderNumber(`#A-${queueNumber.toString().padStart(3, '0')}`);
     }
 
     if (paymentMethod === "card") {
