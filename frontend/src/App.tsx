@@ -58,6 +58,12 @@ const initialOrders: Order[] = [
 ];
 
 export default function App() {
+  const [isDark, setIsDark] = useState<boolean>(() => {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') return true;
+    if (savedTheme === 'light') return false;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
   const [activeTab, setActiveTab] = useState('dashboard');
   const [orders, setOrders] = useState<Order[]>(initialOrders);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -101,9 +107,16 @@ export default function App() {
     }, 300);
   };
 
+  const handleThemeToggle = () => {
+    setIsDark((prev) => {
+      const next = !prev;
+      localStorage.setItem('theme', next ? 'dark' : 'light');
+      return next;
+    });
+  };
+
   return (
-    /* MAIN WRAPPER: Added dark:bg-[#0f111a] for the dark mode background */
-    <div className="min-h-screen flex bg-white dark:bg-[#0f111a] transition-colors duration-300">
+    <div className="min-h-screen flex bg-white transition-colors duration-300">
       <Toaster position="top-right" />
 
       {/* Sidebar */}
@@ -111,9 +124,12 @@ export default function App() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onLogoutClick={() => toast.error("Logout disabled for this version")}
+        isDark={isDark}
+        onThemeToggle={handleThemeToggle}
       />
 
-      <main className="flex-1 ml-64 p-10 max-w-7xl mx-auto w-full bg-white dark:bg-[#0f111a] transition-colors duration-300">
+      <div className={`flex-1 ml-64 ${isDark ? 'dark' : ''}`}>
+      <main className="w-full max-w-7xl mx-auto p-6 md:p-8 lg:p-10 bg-white dark:bg-[#0f111a] transition-colors duration-300">
         {renderContent()}
       </main>
 
@@ -208,6 +224,7 @@ export default function App() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

@@ -52,8 +52,7 @@ const Orders: React.FC<OrdersProps> = ({ orders = [], updateStatus }) => {
   };
 
   return (
-    /* MAIN CONTAINER: Added dark:bg-transparent because App.tsx handles the dark background */
-    <div className="space-y-6 bg-white dark:bg-transparent p-6 min-h-screen relative transition-colors duration-300">
+    <div className="max-w-6xl mx-auto space-y-6 relative transition-colors duration-300">
       
       {/* Header */}
       <div className="flex justify-between items-center">

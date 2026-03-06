@@ -30,7 +30,7 @@ const RecipeHistory = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 p-4 md:p-8">
+    <div className="max-w-6xl mx-auto space-y-6">
       
       {/* 1. DELETE CONFIRMATION MODAL */}
       <AnimatePresence>
