@@ -96,8 +96,30 @@ export default function SettingsPage() {
     try {
       setSavingTab("General");
       setError(null);
-      const payload = await updateSettings({ general: data });
-      setSettings(payload);
+      const syncedReceipt: ReceiptSettingsData | undefined = settings
+        ? {
+            ...settings.receipt,
+            shop_name: data.shop_name,
+            address: data.address,
+            phone: data.phone,
+          }
+        : undefined;
+
+      const payload = await updateSettings(
+        syncedReceipt
+          ? { general: data, receipt: syncedReceipt }
+          : { general: data },
+      );
+      setSettings({
+        ...payload,
+        general: data,
+        receipt: {
+          ...payload.receipt,
+          shop_name: data.shop_name,
+          address: data.address,
+          phone: data.phone,
+        },
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save general settings");
     } finally {
@@ -190,7 +212,7 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6">
       <section className="rounded-2xl border border-[#EAD6C0] bg-white p-2 shadow-sm">
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {tabs.map((tab) => (
             <button
               key={tab}

@@ -21,13 +21,15 @@ function Toggle({
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className={`relative h-5 w-10 rounded-full border transition-colors ${
-        checked ? "border-[#4A2721] bg-[#5A2E26]" : "border-slate-200 bg-slate-200"
+      className={`settings-toggle relative h-7 w-14 rounded-full border transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#5A2E26] ${
+        checked
+          ? "border-[#5A2E26] bg-[#5A2E26] shadow-[0_3px_10px_rgba(90,46,38,0.25)]"
+          : "border-[#C9D1E2] bg-[#E5EAF3]"
       }`}
     >
       <span
-        className={`absolute left-[2px] top-[2px] h-4 w-4 rounded-full border border-gray-300 bg-white transition-transform ${
-          checked ? "translate-x-5" : "translate-x-0"
+        className={`settings-toggle-thumb absolute top-0.5 h-6 w-6 rounded-full border border-[#DCE3F1] bg-[#0E1E4A] shadow-sm transition-transform duration-200 ${
+          checked ? "translate-x-7 left-0.5" : "translate-x-0 left-0.5"
         }`}
       />
     </button>
@@ -36,6 +38,8 @@ function Toggle({
 
 export default function PaymentSettings({ value, onSave, isSaving }: PaymentSettingsProps) {
   const [form, setForm] = useState<PaymentSettingsData>(value);
+  const labelClass = (enabled: boolean) =>
+    enabled ? "text-brand-text settings-label-on" : "text-brand-text settings-label-off";
 
   useEffect(() => {
     setForm(value);
@@ -43,9 +47,9 @@ export default function PaymentSettings({ value, onSave, isSaving }: PaymentSett
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <section className="bg-white rounded-2xl border border-brand-border p-8 shadow-sm">
+      <section className="payment-settings-panel bg-white rounded-2xl border border-brand-border p-8 shadow-sm">
         <div className="mb-6">
-          <h2 className="text-sm font-bold text-brand-text">Currency & Tax</h2>
+          <h2 className="text-sm font-bold text-brand-text">Currency</h2>
           <p className="text-xs text-brand-muted mt-1">
             Configure your primary currency and local tax settings.
           </p>
@@ -68,29 +72,11 @@ export default function PaymentSettings({ value, onSave, isSaving }: PaymentSett
             </div>
           </div>
           <div>
-            <label className="block text-[10px] font-bold text-brand-text mb-2 uppercase tracking-wide">
-              Tax Rate (VAT)
-            </label>
-            <div className="relative">
-              <input
-                type="number"
-                min={0}
-                max={100}
-                value={form.tax_rate}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, tax_rate: Number(e.target.value || 0) }))
-                }
-                className="w-full bg-slate-50 border border-brand-border rounded-lg px-4 py-2.5 text-xs text-brand-text outline-none focus:ring-1 focus:ring-brand-primary"
-              />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 text-xs font-bold">
-                %
-              </span>
-            </div>
           </div>
         </div>
       </section>
 
-      <section className="bg-white rounded-2xl border border-brand-border p-8 shadow-sm">
+      <section className="payment-methods-section bg-white rounded-2xl border border-brand-border p-8 shadow-sm">
         <div className="mb-6">
           <h2 className="text-sm font-bold text-brand-text">Payment Methods</h2>
           <p className="text-xs text-brand-muted mt-1">
@@ -98,29 +84,37 @@ export default function PaymentSettings({ value, onSave, isSaving }: PaymentSett
           </p>
         </div>
         <div className="space-y-3">
-          <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
-            <h3 className={`text-xs font-bold ${form.cash_enabled ? "text-brand-text" : "text-red-600"}`}>Cash Payment</h3>
+          <div className="payment-method-row flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
+            <h3 className={`payment-method-label text-lg font-semibold ${labelClass(form.cash_enabled)}`}>
+              Cash Payment
+            </h3>
             <Toggle
               checked={form.cash_enabled}
               onChange={(next) => setForm((prev) => ({ ...prev, cash_enabled: next }))}
             />
           </div>
-          <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
-            <h3 className={`text-xs font-bold ${form.credit_card_enabled ? "text-brand-text" : "text-red-600"}`}>Credit Card</h3>
+          <div className="payment-method-row flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
+            <h3 className={`payment-method-label text-lg font-semibold ${labelClass(form.credit_card_enabled)}`}>
+              Credit Card
+            </h3>
             <Toggle
               checked={form.credit_card_enabled}
               onChange={(next) => setForm((prev) => ({ ...prev, credit_card_enabled: next }))}
             />
           </div>
-          <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
-            <h3 className={`text-xs font-bold ${form.aba_pay_enabled ? "text-brand-text" : "text-red-600"}`}>ABA Pay (KHQR)</h3>
+          <div className="payment-method-row flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
+            <h3 className={`payment-method-label text-lg font-semibold ${labelClass(form.aba_pay_enabled)}`}>
+              ABA Pay (KHQR)
+            </h3>
             <Toggle
               checked={form.aba_pay_enabled}
               onChange={(next) => setForm((prev) => ({ ...prev, aba_pay_enabled: next }))}
             />
           </div>
-          <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
-            <h3 className={`text-xs font-bold ${form.wing_money_enabled ? "text-brand-text" : "text-red-600"}`}>Wing Money</h3>
+          <div className="payment-method-row flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
+            <h3 className={`payment-method-label text-lg font-semibold ${labelClass(form.wing_money_enabled)}`}>
+              Wing Money
+            </h3>
             <Toggle
               checked={form.wing_money_enabled}
               onChange={(next) => setForm((prev) => ({ ...prev, wing_money_enabled: next }))}

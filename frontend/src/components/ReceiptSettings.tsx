@@ -68,7 +68,7 @@ export default function ReceiptSettings({ value, onSave, isSaving }: ReceiptSett
       <div className="space-y-6 xl:col-span-7">
         <section className="rounded-2xl border border-[#EAD6C0] bg-white p-6 shadow-sm md:p-8">
           <div className="mb-6 flex items-center gap-3">
-            <div className="rounded-xl bg-[#F8EFE4] p-2.5 text-[#4B2E2B]">
+            <div className="inline-flex h-12 w-12 items-center justify-center rounded-[18px] border border-[#E7E0D4] bg-[#EFEAE1] text-[#111111] shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
               <Store className="h-5 w-5" />
             </div>
             <div>
@@ -102,7 +102,7 @@ export default function ReceiptSettings({ value, onSave, isSaving }: ReceiptSett
               />
             </div>
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-1">
               <div>
                 <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[#8E706B]">
                   Phone
@@ -112,19 +112,6 @@ export default function ReceiptSettings({ value, onSave, isSaving }: ReceiptSett
                   value={form.phone}
                   onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))}
                   className="w-full rounded-xl border border-[#EAD6C0] bg-[#FFFBF7] px-4 py-3 text-sm text-[#4B2E2B] outline-none transition focus:border-[#4B2E2B] focus:bg-white"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[#8E706B]">
-                  Tax ID
-                </label>
-                <input
-                  type="text"
-                  value={form.tax_id}
-                  onChange={(e) => setForm((prev) => ({ ...prev, tax_id: e.target.value }))}
-                  className="w-full rounded-xl border border-[#EAD6C0] bg-[#FFFBF7] px-4 py-3 text-sm text-[#4B2E2B] outline-none transition focus:border-[#4B2E2B] focus:bg-white"
-                  placeholder="Optional"
                 />
               </div>
             </div>
@@ -145,7 +132,7 @@ export default function ReceiptSettings({ value, onSave, isSaving }: ReceiptSett
 
         <section className="rounded-2xl border border-[#EAD6C0] bg-white p-6 shadow-sm md:p-8">
           <div className="mb-5 flex items-center gap-3">
-            <div className="rounded-xl bg-[#F8EFE4] p-2.5 text-[#4B2E2B]">
+            <div className="inline-flex h-12 w-12 items-center justify-center rounded-[18px] border border-[#E7E0D4] bg-[#EFEAE1] text-[#111111] shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
               <FileText className="h-5 w-5" />
             </div>
             <div>
@@ -228,7 +215,6 @@ export default function ReceiptSettings({ value, onSave, isSaving }: ReceiptSett
                 <p className="text-sm font-bold tracking-wide text-[#4B2E2B]">{form.shop_name || "Shop Name"}</p>
                 <p className="mt-1 text-[11px] text-[#8E706B]">{form.address || "Address"}</p>
                 <p className="text-[11px] text-[#8E706B]">{form.phone || "Phone"}</p>
-                {form.tax_id ? <p className="text-[11px] text-[#8E706B]">Tax ID: {form.tax_id}</p> : null}
               </div>
 
               <div className="my-4 border-t border-dashed border-[#EAD6C0]" />
@@ -273,8 +259,8 @@ export default function ReceiptSettings({ value, onSave, isSaving }: ReceiptSett
 
               {form.show_qr_payment ? (
                 <div className="mt-4 flex flex-col items-center gap-1">
-                  <div className="rounded bg-[#F8EFE4] p-2 text-[#4B2E2B]">
-                    <QrCode className="h-8 w-8" />
+                  <div className="inline-flex h-12 w-12 items-center justify-center rounded-[16px] border border-[#E7E0D4] bg-[#EFEAE1] text-[#111111] shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
+                    <QrCode className="h-7 w-7" />
                   </div>
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-[#8E706B]">
                     Scan To Pay

@@ -21,13 +21,15 @@ function Toggle({
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className={`relative h-6 w-11 rounded-full border transition-colors ${
-        checked ? "border-[#4A2721] bg-[#5A2E26]" : "border-slate-200 bg-slate-200"
+      className={`settings-toggle relative h-7 w-14 rounded-full border transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#5A2E26] ${
+        checked
+          ? "border-[#5A2E26] bg-[#5A2E26] shadow-[0_3px_10px_rgba(90,46,38,0.25)]"
+          : "border-[#C9D1E2] bg-[#E5EAF3]"
       }`}
     >
       <span
-        className={`absolute left-[2px] top-[2px] h-5 w-5 rounded-full border border-gray-300 bg-white transition-transform ${
-          checked ? "translate-x-5" : "translate-x-0"
+        className={`settings-toggle-thumb absolute top-0.5 h-6 w-6 rounded-full border border-[#DCE3F1] bg-[#0E1E4A] shadow-sm transition-transform duration-200 ${
+          checked ? "translate-x-7 left-0.5" : "translate-x-0 left-0.5"
         }`}
       />
     </button>
@@ -40,6 +42,8 @@ export default function NotificationSettings({
   isSaving,
 }: NotificationSettingsProps) {
   const [form, setForm] = useState<NotificationSettingsData>(value);
+  const labelClass = (enabled: boolean) =>
+    enabled ? "text-brand-text settings-label-on" : "text-brand-text settings-label-off";
 
   useEffect(() => {
     setForm(value);
@@ -57,7 +61,7 @@ export default function NotificationSettings({
         <div className="bg-white rounded-2xl border border-brand-border divide-y divide-brand-border shadow-sm">
           <div className="p-5 flex items-center justify-between">
             <div>
-              <h4 className={`font-bold ${form.new_orders_push ? "text-brand-text" : "text-red-600"}`}>Push</h4>
+              <h4 className={`font-bold ${labelClass(form.new_orders_push)}`}>Push</h4>
               <p className="text-xs text-brand-muted">In-app popup when new order arrives</p>
             </div>
             <Toggle
@@ -67,7 +71,7 @@ export default function NotificationSettings({
           </div>
           <div className="p-5 flex items-center justify-between">
             <div>
-              <h4 className={`font-bold ${form.new_orders_email ? "text-brand-text" : "text-red-600"}`}>Email</h4>
+              <h4 className={`font-bold ${labelClass(form.new_orders_email)}`}>Email</h4>
               <p className="text-xs text-brand-muted">Send email for each new order</p>
             </div>
             <Toggle
@@ -77,7 +81,7 @@ export default function NotificationSettings({
           </div>
           <div className="p-5 flex items-center justify-between">
             <div>
-              <h4 className={`font-bold ${form.new_orders_sound ? "text-brand-text" : "text-red-600"}`}>Sound</h4>
+              <h4 className={`font-bold ${labelClass(form.new_orders_sound)}`}>Sound</h4>
               <p className="text-xs text-brand-muted">Play sound on new order</p>
             </div>
             <Toggle
@@ -92,42 +96,42 @@ export default function NotificationSettings({
         <h3 className="text-lg font-bold text-brand-text mb-4">Operational Alerts</h3>
         <div className="bg-white rounded-2xl border border-brand-border divide-y divide-brand-border shadow-sm">
           <div className="p-5 flex items-center justify-between">
-            <span className={`font-bold ${form.ready_for_pickup ? "text-brand-text" : "text-red-600"}`}>Ready for Pickup</span>
+            <span className={`font-bold ${labelClass(form.ready_for_pickup)}`}>Ready for Pickup</span>
             <Toggle
               checked={form.ready_for_pickup}
               onChange={(next) => setForm((prev) => ({ ...prev, ready_for_pickup: next }))}
             />
           </div>
           <div className="p-5 flex items-center justify-between">
-            <span className={`font-bold ${form.cancelled_orders ? "text-brand-text" : "text-red-600"}`}>Cancelled Orders</span>
+            <span className={`font-bold ${labelClass(form.cancelled_orders)}`}>Cancelled Orders</span>
             <Toggle
               checked={form.cancelled_orders}
               onChange={(next) => setForm((prev) => ({ ...prev, cancelled_orders: next }))}
             />
           </div>
           <div className="p-5 flex items-center justify-between">
-            <span className={`font-bold ${form.low_stock_warning ? "text-brand-text" : "text-red-600"}`}>Low Stock Warning</span>
+            <span className={`font-bold ${labelClass(form.low_stock_warning)}`}>Low Stock Warning</span>
             <Toggle
               checked={form.low_stock_warning}
               onChange={(next) => setForm((prev) => ({ ...prev, low_stock_warning: next }))}
             />
           </div>
           <div className="p-5 flex items-center justify-between">
-            <span className={`font-bold ${form.out_of_stock ? "text-brand-text" : "text-red-600"}`}>Out of Stock</span>
+            <span className={`font-bold ${labelClass(form.out_of_stock)}`}>Out of Stock</span>
             <Toggle
               checked={form.out_of_stock}
               onChange={(next) => setForm((prev) => ({ ...prev, out_of_stock: next }))}
             />
           </div>
           <div className="p-5 flex items-center justify-between">
-            <span className={`font-bold ${form.daily_summary ? "text-brand-text" : "text-red-600"}`}>Daily Summary</span>
+            <span className={`font-bold ${labelClass(form.daily_summary)}`}>Daily Summary</span>
             <Toggle
               checked={form.daily_summary}
               onChange={(next) => setForm((prev) => ({ ...prev, daily_summary: next }))}
             />
           </div>
           <div className="p-5 flex items-center justify-between">
-            <span className={`font-bold ${form.weekly_performance ? "text-brand-text" : "text-red-600"}`}>Weekly Performance</span>
+            <span className={`font-bold ${labelClass(form.weekly_performance)}`}>Weekly Performance</span>
             <Toggle
               checked={form.weekly_performance}
               onChange={(next) => setForm((prev) => ({ ...prev, weekly_performance: next }))}

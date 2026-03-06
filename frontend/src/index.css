@@ -12,8 +12,161 @@ body {
   background: #fff8f0;
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   color: #4b2e2b;
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 #root {
   height: 100vh;
+}
+
+/* Typography normalization for cleaner, consistent text sizing */
+#root .text-xs,
+#root .text-sm,
+#root .text-base,
+.theme-dark .payment-method-label {
+  font-size: 1rem !important;
+  line-height: 1.45 !important;
+}
+
+#root .text-lg {
+  font-size: 1.05rem !important;
+  line-height: 1.45 !important;
+}
+
+/* Global dark theme overrides for the app shell and page content */
+.theme-dark {
+  color-scheme: dark;
+}
+
+.theme-dark [class~="bg-white"] {
+  background-color: #0f1835 !important;
+}
+
+.theme-dark [class*="bg-[#FFF8F0]"] {
+  background-color: #060c23 !important;
+}
+
+.theme-dark [class*="bg-[#FFFBF7]"] {
+  background-color: #111d3d !important;
+}
+
+.theme-dark [class*="border-[#EAD6C0]"],
+.theme-dark [class*="border-[#F1E3D3]"],
+.theme-dark [class*="border-[#F7EBDD]"],
+.theme-dark [class*="border-[#E5D2BB]"] {
+  border-color: #28365d !important;
+}
+
+.theme-dark [class*="text-[#4B2E2B]"] {
+  color: #eaf0ff !important;
+}
+
+.theme-dark [class*="text-[#7C5D58]"],
+.theme-dark [class*="text-[#8E706B]"],
+.theme-dark [class*="text-[#6E4F4A]"] {
+  color: #9fb0d8 !important;
+}
+
+.theme-dark input,
+.theme-dark textarea,
+.theme-dark select {
+  background-color: #0d1732 !important;
+  border-color: #2d3d68 !important;
+  color: #eaf0ff !important;
+}
+
+.theme-dark ::placeholder {
+  color: #8ea1cf !important;
+}
+
+.theme-dark tr[class*="border-[#F7EBDD]"],
+.theme-dark tr[class*="border-[#F1E3D3]"],
+.theme-dark thead tr[class*="border-[#F1E3D3]"] {
+  border-color: #25345c !important;
+}
+
+.theme-dark [class*="hover:bg-[#F8EFE4]"]:hover {
+  background-color: #1b2b50 !important;
+}
+
+.theme-dark [class*="bg-gradient-to-r from-[#4B2E2B] to-[#6B4E4B]"] {
+  background-image: linear-gradient(90deg, #2a3559 0%, #3c4f84 100%) !important;
+}
+
+.theme-dark .payment-settings-panel {
+  background-color: #0f1835 !important;
+  border-color: #25345c !important;
+}
+
+.theme-dark .payment-methods-section {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  padding-top: 0 !important;
+}
+
+.theme-dark .payment-method-row {
+  background-color: #0f1835 !important;
+  border: 1px solid #28365d !important;
+  border-radius: 16px !important;
+  min-height: 66px;
+}
+
+.theme-dark .payment-method-label {
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.45;
+  letter-spacing: 0;
+}
+
+.theme-dark .payment-method-row .text-brand-text {
+  color: #ffffff !important;
+}
+
+.theme-dark .payment-method-row .text-red-600 {
+  color: #ef352a !important;
+}
+
+.theme-dark .settings-toggle {
+  border-color: #30416f !important;
+  background-color: #1a2b53 !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03) !important;
+}
+
+.theme-dark .settings-toggle[aria-checked="true"] {
+  border-color: #6b3a2f !important;
+  background-color: #6b3a2f !important;
+  box-shadow: 0 3px 12px rgba(107, 58, 47, 0.35) !important;
+}
+
+.theme-dark .settings-toggle:focus-visible {
+  --tw-ring-color: rgba(143, 168, 232, 0.85) !important;
+  --tw-ring-offset-color: #0f1835 !important;
+}
+
+.theme-dark .settings-toggle-thumb {
+  border-color: #2a3e73 !important;
+  background-color: #0b1f4f !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35) !important;
+}
+
+.settings-label-off {
+  opacity: 0.72;
+}
+
+.theme-dark .settings-label-on {
+  color: #eaf0ff !important;
+  opacity: 1 !important;
+}
+
+.theme-dark .settings-label-off {
+  color: #a7b6d6 !important;
+  opacity: 0.62 !important;
+}
+
+.theme-dark .payment-method-row .settings-label-off {
+  color: #a7b6d6 !important;
 }
