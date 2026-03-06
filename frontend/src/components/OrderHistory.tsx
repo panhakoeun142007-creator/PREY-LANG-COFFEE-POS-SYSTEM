@@ -16,8 +16,7 @@ const OrderHistory = ({ orders = [] }) => {
   );
 
   return (
-    /* MAIN CONTAINER: Uses bg-[#0f172a] for Dark Mode to match Dashboard */
-    <div className="min-h-screen bg-white dark:bg-[#0f172a] p-4 md:p-8 pb-32 transition-colors duration-500">
+    <div className="space-y-8 pb-24 transition-colors duration-500">
       
       {/* --- PRINT & PREVIEW CSS --- */}
       <style>{`

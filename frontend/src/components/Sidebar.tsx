@@ -1,4 +1,4 @@
-  import React, { useState, useEffect } from 'react';
+  import React, { useState } from 'react';
   import { 
     LayoutDashboard, 
     ShoppingBag, 
@@ -17,45 +17,12 @@
     activeTab: string;
     setActiveTab: (tab: string) => void;
     onLogoutClick: () => void;
+    isDark: boolean;
+    onThemeToggle: () => void;
   }
 
-  const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLogoutClick }) => {
-    // Prefer saved preference first; fallback to system preference
-    const [isDark, setIsDark] = useState<boolean>(() => {
-      const savedTheme = localStorage.getItem('theme');
-      if (savedTheme === 'dark') return true;
-      if (savedTheme === 'light') return false;
-      return window.matchMedia('(prefers-color-scheme: dark)').matches;
-    });
+  const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLogoutClick, isDark, onThemeToggle }) => {
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-
-    const applyTheme = (dark: boolean) => {
-      document.documentElement.classList.toggle('dark', dark);
-      document.body.classList.toggle('dark', dark);
-      localStorage.setItem('theme', dark ? 'dark' : 'light');
-    };
-
-    const setDarkMode = () => {
-      setIsDark(true);
-      applyTheme(true);
-    };
-
-    const setLightMode = () => {
-      setIsDark(false);
-      applyTheme(false);
-    };
-
-    const handleThemeToggle = () => {
-      if (isDark) {
-        setLightMode();
-      } else {
-        setDarkMode();
-      }
-    };
-
-    useEffect(() => {
-      applyTheme(isDark);
-    }, [isDark]);
 
     const navItems = [
       { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -116,7 +83,7 @@
           {/* FOOTER CONTROLS */}
           <div className="mt-auto space-y-2 pt-6 border-t border-white/20">
             <button 
-              onClick={handleThemeToggle}
+              onClick={onThemeToggle}
               aria-label="Toggle dark mode"
               className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all active:scale-95 text-white/80 hover:text-white hover:bg-black/10"
             >

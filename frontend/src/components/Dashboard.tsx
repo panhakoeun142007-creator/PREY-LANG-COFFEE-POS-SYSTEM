@@ -38,7 +38,7 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, onViewDetails }) => {
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="space-y-8"
+      className="max-w-6xl mx-auto space-y-8"
     >
       {/* Header with Auto-Date and Profile */}
       <header className="flex justify-between items-end">
