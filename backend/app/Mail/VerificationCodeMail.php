@@ -14,20 +14,26 @@ class VerificationCodeMail extends Mailable
     use Queueable, SerializesModels;
 
     public string $verificationCode;
+    public string $purpose;
 
-    public function __construct(string $verificationCode)
+    public function __construct(string $verificationCode, string $purpose = 'verification')
     {
         $this->verificationCode = $verificationCode;
+        $this->purpose = $purpose;
     }
 
     public function envelope(): Envelope
     {
+        $subject = $this->purpose === 'password_reset' 
+            ? 'Prey Lang Coffee - Password Reset Code'
+            : 'Prey Lang Coffee - Verification Code';
+        
         return new Envelope(
             from: new Address(
-                config('mail.from.address', 'noreply@dailygrind.com'),
-                config('mail.from.name', 'The Daily Grind')
+                config('mail.from.address', 'noreply@preylang.com'),
+                config('mail.from.name', 'Prey Lang Coffee')
             ),
-            subject: 'The Daily Grind - Verification Code'
+            subject: $subject
         );
     }
 
@@ -38,6 +44,7 @@ class VerificationCodeMail extends Mailable
             with: [
                 'verificationCode' => $this->verificationCode,
                 'expiryMinutes' => 5,
+                'purpose' => $this->purpose,
             ]
         );
     }

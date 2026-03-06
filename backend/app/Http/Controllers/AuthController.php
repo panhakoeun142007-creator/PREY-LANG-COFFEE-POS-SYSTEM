@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class AuthController extends Controller
 {
@@ -109,10 +110,10 @@ class AuthController extends Controller
 
         try {
             // Send email using Laravel Mail
-            Mail::to($email)->send(new VerificationCodeMail($code));
+            Mail::to($email)->send(new VerificationCodeMail($code, 'password_reset'));
 
             // Log for development
-            \Log::info("Verification code {$code} sent to {$email}");
+            Log::info("Verification code {$code} sent to {$email}");
 
             return response()->json([
                 'success' => true,
@@ -121,7 +122,7 @@ class AuthController extends Controller
                 'devCode' => app()->environment('local') ? $code : null,
             ]);
         } catch (\Throwable $e) {
-            \Log::error('Email sending failed: ' . $e->getMessage());
+            Log::error('Email sending failed: ' . $e->getMessage());
 
             // Local fallback: keep the flow usable even when SMTP is not configured yet.
             if (app()->environment('local')) {

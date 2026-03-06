@@ -1,9 +1,16 @@
+@php
+$isPasswordReset = ($purpose ?? 'verification') === 'password_reset';
+$title = $isPasswordReset ? 'Password Reset Verification' : 'Account Verification';
+$message = $isPasswordReset 
+    ? 'You requested to reset your password for your Prey Lang Coffee account. Use the verification code below to proceed:'
+    : 'Thank you for registering with Prey Lang Coffee. Use the verification code below to verify your email address:';
+@endphp
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The Daily Grind - Verification Code</title>
+    <title>Prey Lang Coffee - {{ $title }}</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -73,13 +80,13 @@
 <body>
     <div class="container">
         <div class="header">
-            <div class="logo">☕ The Daily Grind</div>
-            <h1>Password Reset Verification</h1>
+            <div class="logo">☕ Prey Lang Coffee</div>
+            <h1>{{ $title }}</h1>
         </div>
         
         <div class="content">
             <p>Hello,</p>
-            <p>You requested to reset your password for your The Daily Grind account. Use the verification code below to proceed:</p>
+            <p>{{ $message }}</p>
             
             <div class="code-container">
                 <div class="verification-code">{{ $verificationCode }}</div>
@@ -93,7 +100,7 @@
         </div>
         
         <div class="footer">
-            <p>© 2024 The Daily Grind Cafe Group</p>
+            <p>© 2026 Prey Lang Coffee</p>
             <p>This is an automated message, please do not reply to this email.</p>
         </div>
     </div>
