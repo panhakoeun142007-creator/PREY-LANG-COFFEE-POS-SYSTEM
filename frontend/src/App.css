@@ -1,56 +1,56 @@
-/* =========================
-   PRINT RECEIPT (A1 CENTER)
-========================= */
+/* ============================= */
+/* GLOBAL APP STYLE */
+/* ============================= */
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: sans-serif;
+  background: #ffffff;
+}
+
+/* ============================= */
+/* RECEIPT PREVIEW / SCREEN MODE */
+/* ============================= */
+
+/* Show receipt on screen for preview */
+#physical-receipt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: white;
+  padding: 10px;
+  margin: 20px auto;
+  width: 300px; /* adjust for preview */
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+/* ============================= */
+/* PRINT MODE */
+/* ============================= */
 
 @media print {
 
   @page {
-    size: A1;
+    size: 80mm auto; /* thermal receipt width */
     margin: 0;
   }
 
-  html,
-  body {
-    height: 100%;
-    margin: 0;
-    padding: 0;
+  /* Hide everything except the receipt */
+  body > *:not(#physical-receipt) {
+    display: none !important;
   }
 
-  /* Hide everything */
-  body * {
-    visibility: hidden !important;
-  }
-
-  /* Show receipt only */
-  #physical-receipt,
-  #physical-receipt * {
-    visibility: visible !important;
-  }
-
-  /* CENTER CONTENT ON PAPER */
-  body {
-    display: flex !important;
-    justify-content: center !important;
-    align-items: center !important;
-  }
-
-  /* RECEIPT STYLE */
   #physical-receipt {
-    position: relative !important;
-    width: 80mm !important;   /* keep receipt real size */
+    display: flex !important;
+    flex-direction: column;
+    align-items: center;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 80mm !important; 
+    padding: 12mm 5mm !important;
     background: white !important;
     color: black !important;
-
-    padding: 10mm !important;
-    box-sizing: border-box !important;
-
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: center !important;
-  }
-
-  /* Hide dashboard & popup */
-  .no-print {
-    display: none !important;
   }
 }

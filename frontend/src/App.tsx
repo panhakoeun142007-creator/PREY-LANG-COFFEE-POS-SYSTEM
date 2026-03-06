@@ -60,9 +60,8 @@ const initialOrders: Order[] = [
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [orders, setOrders] = useState<Order[]>(initialOrders);
-  const [isDarkMode, setIsDarkMode] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [orderToPrint, setOrderToPrint] = useState<Order | null>(null); // new state
+  const [orderToPrint, setOrderToPrint] = useState<Order | null>(null);
 
   const updateOrderStatus = (id: string, status: Order['status']) => {
     setOrders(prev => prev.map(order => {
@@ -89,7 +88,7 @@ export default function App() {
       case 'history':
         return <OrderHistory orders={orders} setOrderToPrint={setOrderToPrint} />;
       case 'recipe':
-        return <RecipeView isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} />;
+        return <RecipeView />;
       default:
         return <Dashboard orders={orders} onViewDetails={setSelectedOrder} />;
     }
@@ -99,31 +98,34 @@ export default function App() {
     setTimeout(() => {
       window.print();
       setOrderToPrint(null);
-    }, 300); // allow enough time for print
+    }, 300);
   };
 
   return (
-    <div className={`min-h-screen flex transition-colors duration-300 ${isDarkMode ? 'bg-slate-900' : 'bg-bg-main'}`}>
+    /* MAIN WRAPPER: Added dark:bg-[#0f111a] for the dark mode background */
+    <div className="min-h-screen flex bg-white dark:bg-[#0f111a] transition-colors duration-300">
       <Toaster position="top-right" />
-      
-      <Sidebar 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
-        onLogoutClick={() => toast.error("Logout disabled for this version")} 
+
+      {/* Sidebar */}
+      <Sidebar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        onLogoutClick={() => toast.error("Logout disabled for this version")}
       />
-      
-      <main className="flex-1 ml-64 p-10 max-w-7xl mx-auto w-full">
+
+      <main className="flex-1 ml-64 p-10 max-w-7xl mx-auto w-full bg-white dark:bg-[#0f111a] transition-colors duration-300">
         {renderContent()}
       </main>
 
       {/* --- Order Details Modal --- */}
       {selectedOrder && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
+          {/* MODAL CARD: Added dark:bg-[#1a1c2e] and dark:border-slate-800 */}
+          <div className="bg-white dark:bg-[#1a1c2e] rounded-3xl p-8 max-w-lg w-full shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto border border-transparent dark:border-slate-800">
             <div className="flex justify-between items-start">
               <div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{selectedOrder.tableNo}</p>
-                <h3 className="text-2xl font-black text-slate-900">Order #{selectedOrder.id}</h3>
+                <h3 className="text-2xl font-black text-slate-900 dark:text-white">Order #{selectedOrder.id}</h3>
               </div>
               <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                 selectedOrder.status === 'Preparing' ? 'bg-orange-100 text-orange-600' :
@@ -137,16 +139,16 @@ export default function App() {
             </div>
 
             <div className="space-y-4">
-              <h4 className="font-bold text-slate-900 border-b border-slate-100 pb-2">Order Items</h4>
+              <h4 className="font-bold text-slate-900 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2">Order Items</h4>
               <div className="space-y-3">
                 {selectedOrder.items.map((item, idx) => (
-                  <div key={idx} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl">
+                  <div key={idx} className="flex justify-between items-center bg-slate-50 dark:bg-white/5 p-3 rounded-xl">
                     <div className="flex gap-3 items-center">
-                      <span className="w-8 h-8 bg-white rounded-lg flex items-center justify-center font-bold text-brand-primary shadow-sm">
+                      <span className="w-8 h-8 bg-white dark:bg-slate-800 rounded-lg flex items-center justify-center font-bold text-[#BD5E0A] shadow-sm">
                         {item.quantity}
                       </span>
                       <div>
-                        <p className="font-bold text-slate-700">{item.name}</p>
+                        <p className="font-bold text-slate-700 dark:text-slate-300">{item.name}</p>
                         {item.customization && (
                           <p className="text-[10px] text-slate-400 font-medium">{item.customization}</p>
                         )}
@@ -157,14 +159,14 @@ export default function App() {
               </div>
             </div>
 
-            <div className="flex justify-between items-center pt-4 border-t border-slate-100">
+            <div className="flex justify-between items-center pt-4 border-t border-slate-100 dark:border-slate-800">
               <p className="text-slate-500 font-medium">Total Amount</p>
-              <p className="text-2xl font-black text-slate-900">${selectedOrder.total.toFixed(2)}</p>
+              <p className="text-2xl font-black text-slate-900 dark:text-white">${selectedOrder.total.toFixed(2)}</p>
             </div>
 
-            <button 
+            <button
               onClick={() => setSelectedOrder(null)}
-              className="w-full py-4 rounded-2xl font-bold text-white bg-brand-primary hover:bg-brand-primary/90 transition-all shadow-lg shadow-brand-primary/20"
+              className="w-full py-4 rounded-2xl font-bold text-white bg-[#BD5E0A] hover:bg-[#BD5E0A]/90 transition-all shadow-lg shadow-[#BD5E0A]/20"
             >
               Close Details
             </button>
