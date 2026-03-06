@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { AuthContext } from '../App.jsx';
 import { authService } from '../services/authService';
 import '../style/index.css';
 
@@ -12,7 +12,7 @@ export default function Login() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const auth = useContext(AuthContext);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -26,10 +26,16 @@ export default function Login() {
       });
 
       if (data?.success) {
-        if (data.token) localStorage.setItem('authToken', data.token);
-        if (data.user) localStorage.setItem('authUser', JSON.stringify(data.user));
-        login();
-        navigate('/dashboard');
+        // Use the new auth system with token and user data
+        const token = data.token || data.access_token;
+        const userData = data.user;
+        
+        if (token) {
+          auth.login(token, userData);
+        }
+        
+        // Navigate to admin dashboard
+        navigate('/');
       } else {
         setError(data?.message || 'Invalid credentials. Please try again.');
       }
@@ -111,11 +117,6 @@ export default function Login() {
                     required
                     disabled={isLoading}
                   />
-                  {/* <p className="login-ref-fieldhint">
-                    {loginType === 'admin'
-                      ? 'Example: manager@coffee.com'
-                      : 'Example: ST-102 or staff@coffee.com'}
-                  </p> */}
                 </div>
 
                 <div className="form-group">
