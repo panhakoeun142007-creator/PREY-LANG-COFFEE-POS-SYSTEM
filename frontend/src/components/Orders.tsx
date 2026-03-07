@@ -1,24 +1,12 @@
-import React, { useState } from 'react';
-import { Search, Clock, Coffee, CheckCircle2, X } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { Search, Clock, Coffee, CheckCircle2, X, ClipboardList } from 'lucide-react';
 import logo from '../assets/coffee.png'; 
-
-interface OrderItem {
-  name: string;
-  quantity: number;
-  customization: string;
-}
-
-interface Order {
-  id: string;
-  tableNo: string;
-  status: 'Pending' | 'Preparing' | 'Ready' | 'Completed' | 'Cancelled' | 'Delayed';
-  items: OrderItem[];
-  timeElapsed: string;
-}
+import { Order, OrderStatus } from '../types';
+import { buildOrderDisplayIdMap } from '../lib/orderDisplayId';
 
 interface OrdersProps {
   orders: Order[];
-  updateStatus: (id: string, newStatus: string) => void;
+  updateStatus: (id: string, newStatus: OrderStatus) => void;
 }
 
 const Orders: React.FC<OrdersProps> = ({ orders = [], updateStatus }) => {
@@ -26,12 +14,48 @@ const Orders: React.FC<OrdersProps> = ({ orders = [], updateStatus }) => {
   const [viewMode, setViewMode] = useState<'list' | 'tables'>('list');
   const [activeTab, setActiveTab] = useState<'Live' | 'Completed' | 'Cancelled'>('Live');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const orderDisplayIdMap = useMemo(() => buildOrderDisplayIdMap(orders.map((order) => order.id)), [orders]);
 
   const allTables = ['Table 01', 'Table 02', 'Table 03', 'Table 04', 'Table 05', 'Table 06', 'Table 07', 'Table 08', 'Table 09', 'Table 10', 'Table 11', 'Table 12'];
 
-  const occupiedTableNumbers = orders
-    .filter(o => o.status !== 'Completed' && o.status !== 'Cancelled')
-    .map(o => o.tableNo);
+  const normalizeToFixedTableKey = (tableLabel: string) => {
+    const text = tableLabel.trim().toUpperCase();
+    const match = text.match(/(\d{1,2})$/);
+    if (!match) return null;
+
+    const num = Number(match[1]);
+    if (!Number.isInteger(num) || num < 1 || num > 12) return null;
+    return `TABLE${String(num).padStart(2, '0')}`;
+  };
+
+  const fixedTableKey = (tableLabel: string) => `TABLE${tableLabel.replace(/^Table\s*/i, '')}`;
+
+  const occupiedTableKeys = useMemo(
+    () =>
+      new Set(
+        orders
+          .filter((o) => o.status !== 'Completed' && o.status !== 'Cancelled')
+          .map((o) => normalizeToFixedTableKey(o.tableNo))
+          .filter((key): key is string => Boolean(key))
+      ),
+    [orders]
+  );
+
+  const occupiedTableSources = useMemo(() => {
+    const sources: Record<string, string[]> = {};
+    orders
+      .filter((o) => o.status !== 'Completed' && o.status !== 'Cancelled')
+      .forEach((o) => {
+        const key = normalizeToFixedTableKey(o.tableNo);
+        if (!key) return;
+        if (!sources[key]) sources[key] = [];
+        const label = o.tableNo.trim();
+        if (label && !sources[key].includes(label)) {
+          sources[key].push(label);
+        }
+      });
+    return sources;
+  }, [orders]);
 
   const filteredOrders = orders.filter(order => {
     const matchesTab = 
@@ -40,7 +64,7 @@ const Orders: React.FC<OrdersProps> = ({ orders = [], updateStatus }) => {
         : order.status === activeTab;
 
     const matchesSearch = 
-      order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (orderDisplayIdMap[order.id] ?? order.id).toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.tableNo.toLowerCase().includes(searchTerm.toLowerCase());
 
     return matchesTab && matchesSearch;
@@ -52,7 +76,7 @@ const Orders: React.FC<OrdersProps> = ({ orders = [], updateStatus }) => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 relative transition-colors duration-300">
+    <div className="w-full space-y-6 relative transition-colors duration-300">
       
       {/* Header */}
       <div className="flex justify-between items-center">
@@ -67,20 +91,33 @@ const Orders: React.FC<OrdersProps> = ({ orders = [], updateStatus }) => {
         </div>
         
         <div className="flex items-center gap-4">
-          <button 
+          <button
             onClick={() => setViewMode(viewMode === 'list' ? 'tables' : 'list')}
-            className="px-5 py-2.5 bg-[#BD5E0A] text-white rounded-xl font-bold text-xs shadow-lg shadow-orange-100 dark:shadow-none hover:scale-105 transition-all flex items-center gap-2"
+            className="px-5 py-2.5 bg-[#B75D17] text-white rounded-xl font-bold text-xs shadow-lg shadow-orange-200/60 dark:shadow-none hover:scale-105 transition-all flex items-center gap-2"
           >
             {viewMode === 'list' ? 'Floor Plan' : 'Order List'}
           </button>
         </div>
       </div>
 
-      <hr className="border-slate-100 dark:border-white/5" />
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="rounded-2xl border border-orange-200/60 bg-orange-50 dark:bg-orange-500/10 px-4 py-3">
+          <p className="text-[10px] uppercase tracking-wider text-orange-600 dark:text-orange-400 font-bold">Live Queue</p>
+          <p className="text-2xl font-black text-orange-700 dark:text-orange-400">{getTabCount('Live')}</p>
+        </div>
+        <div className="rounded-2xl border border-emerald-200/60 bg-emerald-50 dark:bg-emerald-500/10 px-4 py-3">
+          <p className="text-[10px] uppercase tracking-wider text-emerald-600 dark:text-emerald-400 font-bold">Completed</p>
+          <p className="text-2xl font-black text-emerald-700 dark:text-emerald-400">{getTabCount('Completed')}</p>
+        </div>
+        <div className="rounded-2xl border border-slate-200/80 bg-white/70 dark:bg-white/5 dark:border-white/10 px-4 py-3">
+          <p className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold">Cancelled</p>
+          <p className="text-2xl font-black text-slate-700 dark:text-slate-300">{getTabCount('Cancelled')}</p>
+        </div>
+      </div>
 
       {/* Tabs and Search Bar */}
       {viewMode === 'list' && (
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-2xl bg-white/80 dark:bg-white/5 border border-slate-200/70 dark:border-white/10 p-4">
           <div className="flex items-center gap-6">
             {(['Live', 'Completed', 'Cancelled'] as const).map((tab) => (
               <button
@@ -119,7 +156,9 @@ const Orders: React.FC<OrdersProps> = ({ orders = [], updateStatus }) => {
       {viewMode === 'tables' ? (
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
           {allTables.map((tableNum) => {
-            const isOccupied = occupiedTableNumbers.includes(tableNum);
+            const tableKey = fixedTableKey(tableNum);
+            const isOccupied = occupiedTableKeys.has(tableKey);
+            const sources = occupiedTableSources[tableKey] ?? [];
             return (
               <div 
                 key={tableNum}
@@ -140,12 +179,26 @@ const Orders: React.FC<OrdersProps> = ({ orders = [], updateStatus }) => {
                 }`}>
                   {isOccupied ? 'Occupied' : 'Free'}
                 </span>
+                {isOccupied && (
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 text-center">
+                    {sources.join(', ')}
+                  </span>
+                )}
               </div>
             );
           })}
+          {orders.length === 0 && (
+            <div className="col-span-full rounded-3xl border border-dashed border-slate-300 dark:border-white/10 bg-white/70 dark:bg-white/5 px-6 py-14 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-slate-600 mx-auto flex items-center justify-center mb-4">
+                <ClipboardList size={24} />
+              </div>
+              <p className="text-slate-700 dark:text-slate-200 font-black">No active tables right now</p>
+              <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Switch back to list mode after new orders arrive.</p>
+            </div>
+          )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
           {filteredOrders.map((order) => (
             <div key={order.id} className={`bg-white dark:bg-white/5 rounded-[28px] p-5 border-2 transition-all ${
               order.status === 'Delayed' 
@@ -157,7 +210,7 @@ const Orders: React.FC<OrdersProps> = ({ orders = [], updateStatus }) => {
                   <p className={`text-[9px] font-black uppercase mb-0.5 ${
                     order.status === 'Delayed' ? 'text-red-500' : 'text-[#BD5E0A]'
                   }`}>{order.tableNo}</p>
-                  <h3 className="text-lg font-black text-slate-900 dark:text-white">#{order.id}</h3>
+                  <h3 className="text-lg font-black text-slate-900 dark:text-white">{orderDisplayIdMap[order.id] ?? order.id}</h3>
                 </div>
                 <span className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase ${
                   order.status === 'Ready' 
@@ -196,10 +249,10 @@ const Orders: React.FC<OrdersProps> = ({ orders = [], updateStatus }) => {
                 {activeTab === 'Live' && (
                   <button 
                     onClick={() => {
-                      let nextStatus = 'Preparing';
+                      let nextStatus: OrderStatus = 'Preparing';
                       if (order.status === 'Preparing') nextStatus = 'Ready';
                       if (order.status === 'Ready') nextStatus = 'Completed';
-                      updateStatus(order.id, nextStatus as any);
+                      updateStatus(order.id, nextStatus);
                     }}
                     className={`py-2 text-white font-black text-[9px] uppercase rounded-lg shadow-md transition-all active:scale-95 ${
                       order.status === 'Ready' ? 'bg-emerald-500' : 'bg-[#BD5E0A]'
@@ -211,6 +264,15 @@ const Orders: React.FC<OrdersProps> = ({ orders = [], updateStatus }) => {
               </div>
             </div>
           ))}
+          {filteredOrders.length === 0 && (
+            <div className="md:col-span-2 xl:col-span-4 rounded-3xl border border-dashed border-slate-300 dark:border-white/10 bg-white/70 dark:bg-white/5 px-6 py-16 text-center">
+              <div className="w-16 h-16 rounded-2xl bg-orange-50 dark:bg-orange-500/10 text-[#B75D17] dark:text-orange-400 mx-auto flex items-center justify-center mb-4">
+                <ClipboardList size={28} />
+              </div>
+              <p className="text-xl font-black text-slate-800 dark:text-slate-200">No {activeTab.toLowerCase()} orders</p>
+              <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">New orders from the API will appear here automatically.</p>
+            </div>
+          )}
         </div>
       )}
 
@@ -251,7 +313,7 @@ const Orders: React.FC<OrdersProps> = ({ orders = [], updateStatus }) => {
               <div className="mt-8 pt-6 border-t border-slate-100 dark:border-white/10">
                 <div className="flex justify-between items-center mb-6">
                     <span className="text-[10px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-widest">Order ID</span>
-                    <span className="text-sm font-black text-slate-900 dark:text-white">#{selectedOrder.id}</span>
+                    <span className="text-sm font-black text-slate-900 dark:text-white">{orderDisplayIdMap[selectedOrder.id] ?? selectedOrder.id}</span>
                 </div>
                 <button 
                   onClick={() => setSelectedOrder(null)}

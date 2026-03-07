@@ -4,6 +4,7 @@ export interface OrderItem {
   name: string;
   quantity: number;
   customization?: string;
+  price?: number;
 }
 
 export interface Order {
@@ -32,4 +33,11 @@ export interface Recipe {
   name: string;
   category: string;
   ingredients: string[];
+}
+
+export interface RecipeLog {
+  id: string;
+  orderId: string;
+  tableNo: string;
+  name: string;
 }

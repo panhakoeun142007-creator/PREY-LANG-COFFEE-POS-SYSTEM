@@ -199,7 +199,7 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, onViewDetails }) => {
                 </div>
                 <div>
                   <p className="text-xs font-bold text-slate-900 dark:text-white">{item.name}</p>
-                  <p className="text-[10px] text-red-500 font-bold uppercase">{item.quantity} {item.unit} left</p>
+                  <p className="text-[10px] text-red-500 dark:text-red-400 font-bold uppercase">{item.quantity} {item.unit} left</p>
                 </div>
               </div>
               <button className="w-8 h-8 bg-slate-50 dark:bg-white/5 rounded-lg flex items-center justify-center text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors">
