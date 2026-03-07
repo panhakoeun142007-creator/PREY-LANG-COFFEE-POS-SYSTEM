@@ -11,18 +11,18 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('purchases', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('ingredient_id')->constrained()->cascadeOnDelete();
-            $table->decimal('qty', 10, 2);
-            $table->decimal('cost', 10, 2);
-            $table->date('date');
-            $table->text('note')->nullable();
-            $table->timestamps();
+        // Schema::create('purchases', function (Blueprint $table) {
+        //     $table->id();
+        //     $table->foreignId('ingredient_id')->constrained()->cascadeOnDelete();
+        //     $table->decimal('qty', 10, 2);
+        //     $table->decimal('cost', 10, 2);
+        //     $table->date('date');
+        //     $table->text('note')->nullable();
+        //     $table->timestamps();
             
-            $table->index('ingredient_id');
-            $table->index('date');
-        });
+        //     $table->index('ingredient_id');
+        //     $table->index('date');
+        // });
     }
 
     /**
@@ -30,6 +30,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('purchases');
+        // Schema::dropIfExists('purchases');
     }
 };

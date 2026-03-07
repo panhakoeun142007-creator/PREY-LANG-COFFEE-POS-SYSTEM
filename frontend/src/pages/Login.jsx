@@ -20,26 +20,37 @@ export default function Login() {
     setIsLoading(true);
 
     try {
+      console.log('Attempting login with:', identifier.trim());
+      
       const data = await authService.login({
         email: identifier.trim(),
         password,
       });
 
-      if (data?.success) {
-        // Use the new auth system with token and user data
-        const token = data.token || data.access_token;
-        const userData = data.user;
-        
-        if (token) {
-          auth.login(token, userData);
-        }
-        
-        // Navigate to admin dashboard
-        navigate('/');
+      console.log('Login response:', data);
+
+      // Handle response - API returns {token, user} format
+      const token = data?.token || data?.access_token;
+      const userData = data?.user;
+      
+      console.log('Token:', token);
+      console.log('User:', userData);
+      
+      if (token && userData) {
+        // Successful login
+        console.log('Login successful, redirecting...');
+        // Store token first
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(userData));
+        // Force full page redirect to admin
+        window.location.replace('/');
+        return;
       } else {
+        console.log('No token or user in response');
         setError(data?.message || 'Invalid credentials. Please try again.');
       }
     } catch (submitError) {
+      console.error('Login error:', submitError);
       setError(submitError?.message || 'Login failed. Please try again.');
     } finally {
       setIsLoading(false);

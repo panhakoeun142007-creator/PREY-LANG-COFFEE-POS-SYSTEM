@@ -35,24 +35,47 @@ class UserController extends Controller
             return $this->unauthorizedResponse();
         }
 
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => [
+        // Allow partial updates - only validate fields that are provided
+        $rules = [];
+        if ($request->has('name')) {
+            $rules['name'] = ['required', 'string', 'max:255'];
+        }
+        if ($request->has('email')) {
+            $rules['email'] = [
                 'required',
                 'email',
                 'max:255',
                 Rule::unique('users', 'email')->ignore($user->id),
-            ],
-            'profile_image' => ['nullable', 'image', 'max:10240'],
-        ]);
+            ];
+        }
+        if ($request->hasFile('profile_image')) {
+            $rules['profile_image'] = ['nullable', 'image', 'max:10240'];
+        }
 
-        $user->name = $validated['name'];
-        $user->email = $validated['email'];
+        // Only validate if there are rules (at least one field provided)
+        if (!empty($rules)) {
+            $validated = $request->validate($rules);
+        }
+
+        // Update only the fields that were provided
+        if ($request->has('name')) {
+            $user->name = $request->input('name');
+        }
+        if ($request->has('email')) {
+            $user->email = $request->input('email');
+        }
 
         if ($request->hasFile('profile_image')) {
-            $file = $request->file('profile_image');
-            $mime = $file->getMimeType() ?: 'application/octet-stream';
-            $user->profile_image = 'data:' . $mime . ';base64,' . base64_encode((string) file_get_contents($file->getRealPath()));
+            try {
+                $file = $request->file('profile_image');
+                $mime = $file->getMimeType() ?: 'application/octet-stream';
+                $imageData = file_get_contents($file->getRealPath());
+                if ($imageData !== false) {
+                    $user->profile_image = 'data:' . $mime . ';base64,' . base64_encode($imageData);
+                }
+            } catch (\Exception $e) {
+                // Silently fail - don't update profile image if there's an error
+            }
         }
 
         $user->save();

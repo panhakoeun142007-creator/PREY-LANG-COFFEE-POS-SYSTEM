@@ -11,10 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('products', function (Blueprint $table) {
-            $table->boolean('is_available')->default(true)->after('is_active');
-            $table->string('image')->nullable()->after('is_available');
-        });
+        // Schema::table('products', function (Blueprint $table) {
+        //     $table->boolean('is_available')->default(true)->after('is_active');
+        //     $table->string('image')->nullable()->after('is_available');
+        // });
     }
 
     /**
@@ -22,8 +22,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('products', function (Blueprint $table) {
-            $table->dropColumn(['is_available', 'image']);
-        });
+        // Schema::table('products', function (Blueprint $table) {
+        //     $table->dropColumn(['is_available', 'image']);
+        // });
     }
 };

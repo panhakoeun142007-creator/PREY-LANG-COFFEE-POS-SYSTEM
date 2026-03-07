@@ -11,14 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('ingredients', function (Blueprint $table) {
-            $table->id();
-            $table->string('name', 100)->unique();
-            $table->string('unit', 20);
-            $table->decimal('stock_qty', 10, 2)->default(0.00);
-            $table->decimal('min_stock', 10, 2)->default(0.00);
-            $table->timestamps();
-        });
+        // Schema::create('ingredients', function (Blueprint $table) {
+        //     $table->id();
+        //     $table->string('name', 100)->unique();
+        //     $table->string('unit', 20);
+        //     $table->decimal('stock_qty', 10, 2)->default(0.00);
+        //     $table->decimal('min_stock', 10, 2)->default(0.00);
+        //     $table->timestamps();
+        // });
     }
 
     /**
@@ -26,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('ingredients');
+        // Schema::dropIfExists('ingredients');
     }
 };

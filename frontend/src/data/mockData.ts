@@ -17,6 +17,7 @@ export type NavItem = {
   label: string;
   path: string;
   icon: LucideIcon;
+  roles?: ('admin' | 'staff')[]; // Which roles can access this item
 };
 
 export type NavGroup = {
@@ -27,47 +28,47 @@ export type NavGroup = {
 export const navGroups: NavGroup[] = [
   {
     group: "Dashboard",
-    items: [{ label: "Dashboard", path: "/", icon: LayoutDashboard }],
+    items: [{ label: "Dashboard", path: "/", icon: LayoutDashboard, roles: ['admin', 'staff'] }],
   },
   {
     group: "Orders",
     items: [
-      { label: "Live Orders", path: "/live-orders", icon: ShoppingCart },
-      { label: "Order History", path: "/order-history", icon: ClipboardList },
-      { label: "Receipts", path: "/receipts", icon: Receipt },
+      { label: "Live Orders", path: "/live-orders", icon: ShoppingCart, roles: ['admin', 'staff'] },
+      { label: "Order History", path: "/order-history", icon: ClipboardList, roles: ['admin', 'staff'] },
+      { label: "Receipts", path: "/receipts", icon: Receipt, roles: ['admin', 'staff'] },
     ],
   },
   {
     group: "Menu Management",
     items: [
-      { label: "Products", path: "/products", icon: Package },
-      { label: "Categories", path: "/categories", icon: Salad },
+      { label: "Products", path: "/products", icon: Package, roles: ['admin'] },
+      { label: "Categories", path: "/categories", icon: Salad, roles: ['admin'] },
     ],
   },
   {
     group: "Tables",
-    items: [{ label: "Table Management", path: "/tables", icon: Table2 }],
+    items: [{ label: "Table Management", path: "/tables", icon: Table2, roles: ['admin'] }],
   },
   {
     group: "Stock & Recipe",
     items: [
-      { label: "Recipes", path: "/recipes", icon: ClipboardList },
-      { label: "Ingredients / Stock", path: "/stock", icon: Package },
+      { label: "Recipes", path: "/recipes", icon: ClipboardList, roles: ['admin'] },
+      { label: "Ingredients / Stock", path: "/stock", icon: Package, roles: ['admin'] },
     ],
   },
   {
     group: "Finance",
-    items: [{ label: "Income & Expenses", path: "/finance", icon: Wallet }],
+    items: [{ label: "Income & Expenses", path: "/finance", icon: Wallet, roles: ['admin'] }],
   },
   {
     group: "Analytics",
-    items: [{ label: "Sales Analytics", path: "/analytics", icon: BarChart3 }],
+    items: [{ label: "Sales Analytics", path: "/analytics", icon: BarChart3, roles: ['admin'] }],
   },
   {
     group: "System",
     items: [
-      { label: "Staff Management", path: "/staff-management", icon: Users },
-      { label: "Settings", path: "/settings", icon: Settings },
+      { label: "Staff Management", path: "/staff-management", icon: Users, roles: ['admin'] },
+      { label: "Settings", path: "/settings", icon: Settings, roles: ['admin'] },
     ],
   },
 ];

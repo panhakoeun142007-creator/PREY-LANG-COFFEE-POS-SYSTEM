@@ -11,18 +11,18 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('expenses', function (Blueprint $table) {
-            $table->id();
-            $table->string('title', 100);
-            $table->decimal('amount', 10, 2);
-            $table->enum('category', ['ingredients', 'utilities', 'salary', 'rent', 'other'])->default('other');
-            $table->date('date');
-            $table->text('note')->nullable();
-            $table->timestamps();
+    //   Schema::create('expenses', function (Blueprint $table) {
+    //         $table->id();
+    //         $table->string('title', 100);
+    //         $table->decimal('amount', 10, 2);
+    //         $table->enum('category', ['ingredients', 'utilities', 'salary', 'rent', 'other'])->default('other');
+    //         $table->date('date');
+    //         $table->text('note')->nullable();
+    //         $table->timestamps();
             
-            $table->index('date');
-            $table->index('category');
-        });
+    //         $table->index('date');
+    //         $table->index('category');
+    //     });  
     }
 
     /**
@@ -30,6 +30,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('expenses');
+        // Schema::dropIfExists('expenses');
     }
 };

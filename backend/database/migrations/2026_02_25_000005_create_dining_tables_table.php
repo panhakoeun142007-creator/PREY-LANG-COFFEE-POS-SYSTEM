@@ -11,13 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('dining_tables', function (Blueprint $table) {
-            $table->id();
-            $table->string('name', 100)->unique();
-            $table->unsignedSmallInteger('seats')->default(2);
-            $table->enum('status', ['available', 'occupied', 'reserved'])->default('available');
-            $table->timestamps();
-        });
+        // Schema::create('dining_tables', function (Blueprint $table) {
+        //     $table->id();
+        //     $table->string('name', 100)->unique();
+        //     $table->unsignedSmallInteger('seats')->default(2);
+        //     $table->enum('status', ['available', 'occupied', 'reserved'])->default('available');
+        //     $table->timestamps();
+        // });
     }
 
     /**
@@ -25,6 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('dining_tables');
+        // Schema::dropIfExists('dining_tables');
     }
 };

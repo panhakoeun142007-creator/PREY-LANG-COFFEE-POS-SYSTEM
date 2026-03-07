@@ -26,8 +26,13 @@ const IngredientsPage = lazy(() => import("./pages/IngredientsPage"));
 const IncomePage = lazy(() => import("./components/ui/income"));
 const SettingsPage = lazy(() => import("./components/ui/setting"));
 
-// Login page
+// Public pages
 const Login = lazy(() => import("./pages/Login"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const VerifyCode = lazy(() => import("./pages/VerifyCode"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const VerifySuccessful = lazy(() => import("./pages/VerifySuccessful"));
+const SessionExpired = lazy(() => import("./pages/SessionExpired"));
 
 function RouteFallback() {
   return (
@@ -53,20 +58,60 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
+// Role-based Route Protection - redirects users away from pages they don't have access to
+function RoleProtectedRoute({ requiredRole, children }) {
+  const auth = useContext(AuthContext);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (auth.user?.role && requiredRole && auth.user.role !== requiredRole) {
+      // Staff trying to access admin page, redirect to dashboard
+      if (requiredRole === 'admin' && auth.user.role !== 'admin') {
+        navigate('/', { replace: true });
+      }
+    }
+  }, [auth.user, requiredRole, navigate]);
+
+  return children;
+}
+
 // Auth Provider
 function AuthProvider({ children }) {
   const navigate = useNavigate();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // Check for existing auth token
     const token = localStorage.getItem("token");
     const userData = localStorage.getItem("user");
     if (token && userData) {
-      setIsAuthenticated(true);
-      setUser(JSON.parse(userData));
+      try {
+        setUser(JSON.parse(userData));
+        setIsAuthenticated(true);
+        // Fetch fresh user data from API to ensure we have latest data from database
+        fetch('http://127.0.0.1:8000/api/user', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        })
+          .then(res => res.json())
+          .then(data => {
+            if (data.id) {
+              setUser(data);
+              localStorage.setItem('user', JSON.stringify(data));
+            }
+          })
+          .catch(() => {});
+      } catch (e) {
+        // Invalid user data, clear storage
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+      }
     }
+    setLoading(false);
   }, []);
 
   const login = (token, userData) => {
@@ -85,14 +130,44 @@ function AuthProvider({ children }) {
     navigate("/login", { replace: true });
   };
 
+  const updateUser = (newUser) => {
+    setUser(newUser);
+    localStorage.setItem('user', JSON.stringify(newUser));
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-[#FAF7F2]">
+        <div className="text-[#7C5D58]">Loading...</div>
+      </div>
+    );
+  }
+
   return (
-    <AuthContext.Provider value={{ isAuthenticated, login, logout, user }}>
+    <AuthContext.Provider value={{ isAuthenticated, login, logout, user, updateUser }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
-// Admin Routes (protected)
+// Staff Routes (limited access)
+function StaffRoutes() {
+  return (
+    <CategoryProvider>
+      <Routes>
+        <Route path="/" element={<AppLayout />}>
+          <Route index element={withSuspense(<DashboardPage />)} />
+          <Route path="live-orders" element={withSuspense(<LiveOrders />)} />
+          <Route path="order-history" element={withSuspense(<OrderHistory />)} />
+          <Route path="receipts" element={withSuspense(<ReceiptsPage />)} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
+      </Routes>
+    </CategoryProvider>
+  );
+}
+
+// Admin Routes (full access)
 function AdminRoutes() {
   return (
     <CategoryProvider>
@@ -118,16 +193,36 @@ function AdminRoutes() {
   );
 }
 
+// Main Routes with role-based access
+function AppRoutes() {
+  const auth = useContext(AuthContext);
+  const userRole = auth.user?.role || 'admin';
+  
+  // Staff users get limited routes, admin gets full access
+  if (userRole === 'staff') {
+    return <StaffRoutes />;
+  }
+  return <AdminRoutes />;
+}
+
 export default function App() {
   return (
     <AuthProvider>
       <Routes>
+        {/* Public routes - accessible without authentication */}
         <Route path="/login" element={withSuspense(<Login />)} />
+        <Route path="/forgot-password" element={withSuspense(<ForgotPassword />)} />
+        <Route path="/verify-code" element={withSuspense(<VerifyCode />)} />
+        <Route path="/reset-password" element={withSuspense(<ResetPassword />)} />
+        <Route path="/verify-successful" element={withSuspense(<VerifySuccessful />)} />
+        <Route path="/session-expired" element={withSuspense(<SessionExpired />)} />
+        
+        {/* All other routes - protected with role-based access */}
         <Route
           path="/*"
           element={
             <ProtectedRoute>
-              <AdminRoutes />
+              <AppRoutes />
             </ProtectedRoute>
           }
         />

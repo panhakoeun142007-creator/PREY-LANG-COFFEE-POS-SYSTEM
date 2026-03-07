@@ -59,14 +59,7 @@ export default function VerifyCode() {
       return;
     }
 
-    if (devCode && enteredCode === devCode) {
-      setSuccess('Code verified successfully.');
-      localStorage.removeItem('verificationDevCode');
-      localStorage.setItem('passwordResetVerified', 'true');
-      navigate('/reset-password', { state: { email } });
-      return;
-    }
-
+    // Always verify through the API
     setIsLoading(true);
 
     try {
@@ -81,6 +74,7 @@ export default function VerifyCode() {
       const data = await response.json();
       if (data.success) {
         setSuccess('Code verified successfully.');
+        localStorage.setItem('verificationEmail', email);
         localStorage.removeItem('verificationDevCode');
         localStorage.setItem('passwordResetVerified', 'true');
         navigate('/reset-password', { state: { email } });
@@ -130,12 +124,23 @@ export default function VerifyCode() {
                     key={index}
                     ref={(el) => (inputRefs.current[index] = el)}
                     type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
                     maxLength="1"
                     value={digit}
                     onChange={(e) => handleChange(e.target, index)}
                     onKeyDown={(e) => handleKeyDown(e, index)}
                     onPaste={index === 0 ? handlePaste : null}
                     className="code-input verify-ref-code-input"
+                    style={{
+                      color: '#22314d',
+                      backgroundColor: '#ffffff',
+                      textAlign: 'center',
+                      width: '42px',
+                      height: '50px',
+                      fontSize: '20px',
+                      fontWeight: 'bold'
+                    }}
                     required
                   />
                 ))}

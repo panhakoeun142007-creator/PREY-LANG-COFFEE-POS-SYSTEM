@@ -51,10 +51,27 @@ export default function ResetPassword() {
         return;
       }
 
+      // Auto-login after password reset
+      try {
+        const loginData = await authService.login({
+          email,
+          password: newPassword,
+        });
+
+        if (loginData?.token) {
+          localStorage.setItem('token', loginData.token);
+          localStorage.setItem('user', JSON.stringify(loginData.user));
+        }
+      } catch (loginErr) {
+        // If auto-login fails, user can still log in manually
+        console.log('Auto-login failed, user can log in manually');
+      }
+
       localStorage.removeItem('passwordResetVerified');
       localStorage.removeItem('verificationDevCode');
+      localStorage.removeItem('verificationEmail');
       setSuccess('Password changed successfully. Redirecting...');
-      setTimeout(() => navigate('/verify-successful'), 600);
+      setTimeout(() => window.location.replace('/'), 600);
     } catch (err) {
       setError(err?.message || 'Reset password failed. Please try again.');
     } finally {

@@ -11,9 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('ingredients', function (Blueprint $table) {
-            $table->decimal('unit_cost', 10, 2)->default(0.00)->after('min_stock');
-        });
+        // Schema::table('ingredients', function (Blueprint $table) {
+        //     $table->decimal('unit_cost', 10, 2)->default(0.00)->after('min_stock');
+        // });
     }
 
     /**
@@ -21,8 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('ingredients', function (Blueprint $table) {
-            $table->dropColumn('unit_cost');
-        });
+        // Schema::table('ingredients', function (Blueprint $table) {
+        //     $table->dropColumn('unit_cost');
+        // });
     }
 };

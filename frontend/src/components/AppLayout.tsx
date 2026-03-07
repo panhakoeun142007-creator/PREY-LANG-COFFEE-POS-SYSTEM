@@ -1,5 +1,5 @@
 import { Bell, ChevronLeft, ChevronRight, LogOut, Menu, Moon, Settings, Sun, User } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, createContext, useContext } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { navGroups, pageTitleByPath } from "../data/mockData";
 import {
@@ -36,6 +36,7 @@ function getNotificationIcon(type: string) {
 }
 
 export default function AppLayout() {
+  // We'll just use local state and localStorage - no need for AuthContext
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -86,6 +87,8 @@ export default function AppLayout() {
         setAccountName(user.name);
         setAccountEmail(user.email);
         setAccountImagePreview(user.profile_image_url ?? null);
+        // Update localStorage with fresh data from database
+        localStorage.setItem('user', JSON.stringify(user));
       } catch (err) {
         console.error("Failed to load user:", err);
         setCurrentUser(null);
@@ -136,6 +139,22 @@ export default function AppLayout() {
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
+  // Filter navGroups based on user role
+  const userRole = currentUser?.role || 'admin';
+  const filteredNavGroups = useMemo(() => {
+    return navGroups
+      .map(group => ({
+        ...group,
+        items: group.items.filter(item => {
+          // If no roles specified, show to all
+          if (!item.roles || item.roles.length === 0) return true;
+          // Otherwise check if user's role is in the allowed roles
+          return item.roles.includes(userRole as 'admin' | 'staff');
+        })
+      }))
+      .filter(group => group.items.length > 0); // Remove groups with no items
+  }, [userRole]);
+
   const pageTitle = pageTitleByPath[location.pathname] ?? "Dashboard";
   const dateText = useMemo(
     () =>
@@ -152,7 +171,7 @@ export default function AppLayout() {
   const mainMargin = collapsed ? "md:ml-20" : "md:ml-64";
 
   function roleLabel(role: string | undefined): string {
-    void role;
+    if (role === 'staff') return 'Staff';
     return "Admin";
   }
 
@@ -175,20 +194,32 @@ export default function AppLayout() {
     const name = accountName.trim();
     const email = accountEmail.trim();
 
-    if (!name || !email) {
-      setAccountError("Name and email are required.");
+    // Build update data - only include fields that have values
+    const updateData: { name?: string; email?: string; profile_image?: File } = {};
+    
+    if (name) {
+      updateData.name = name;
+    }
+    if (email) {
+      updateData.email = email;
+    }
+    if (accountImageFile) {
+      updateData.profile_image = accountImageFile;
+    }
+
+    // Check if there's anything to update
+    if (Object.keys(updateData).length === 0) {
+      setAccountError("No changes to save.");
       return;
     }
 
     try {
       setAccountSaving(true);
       setAccountError(null);
-      const updated = await updateCurrentUser({
-        name,
-        email,
-        profile_image: accountImageFile,
-      });
+      const updated = await updateCurrentUser(updateData as any);
       setCurrentUser(updated);
+      // Update localStorage with the latest user data
+      localStorage.setItem('user', JSON.stringify(updated));
       setAccountImageFile(null);
       setAccountImagePreview(updated.profile_image_url ?? null);
       setShowAccountModal(false);
@@ -256,13 +287,13 @@ export default function AppLayout() {
               />
             ) : (
               <div className={`flex h-10 w-10 items-center justify-center rounded-full font-semibold ${isDarkMode ? "bg-slate-700 text-slate-100" : "bg-[#F5E6D3] text-[#4B2E2B]"}`}>
-                {currentUser?.initials ?? 'AD'}
+                {currentUser?.initials ?? (currentUser?.role === 'staff' ? 'ST' : 'AD')}
               </div>
             )}
             {!collapsed && (
               <div>
-                <p className="text-sm font-semibold">{currentUser?.name ?? 'Admin User'}</p>
-                <p className="text-xs text-white/70">Admin</p>
+                <p className="text-sm font-semibold">{currentUser?.name ?? 'User'}</p>
+                <p className="text-xs text-white/70">{roleLabel(currentUser?.role)}</p>
               </div>
             )}
           </div>
@@ -270,7 +301,7 @@ export default function AppLayout() {
 
         <nav className="flex-1 overflow-y-auto px-3 py-4">
           <div className="space-y-5">
-            {navGroups.map((group) => (
+            {filteredNavGroups.map((group) => (
               <div key={group.group} className="space-y-2">
                 {!collapsed && (
                   <p className={`px-2 text-[11px] font-semibold uppercase tracking-widest ${isDarkMode ? "text-slate-500" : "text-white/50"}`}>
@@ -303,6 +334,17 @@ export default function AppLayout() {
         <div className={`p-3 ${isDarkMode ? "border-t border-slate-800" : "border-t border-white/10"}`}>
           <button
             type="button"
+            onClick={async () => {
+              try {
+                await logoutAdmin();
+              } catch (err) {
+                console.error("Failed to logout:", err);
+              } finally {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                window.location.href = '/login';
+              }
+            }}
             className={`flex w-full items-center rounded-xl px-3 py-2.5 text-sm transition ${
               isDarkMode ? "text-slate-300 hover:bg-slate-800/70" : "text-white/80 hover:bg-white/10"
             }`}
@@ -438,12 +480,12 @@ export default function AppLayout() {
                     />
                   ) : (
                     <div className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold text-white ${isDarkMode ? "bg-slate-700" : "bg-[#4B2E2B]"}`}>
-                      {currentUser?.initials ?? "AD"}
+                      {currentUser?.initials ?? (currentUser?.role === 'staff' ? 'ST' : 'AD')}
                     </div>
                   )}
                   <div className="hidden text-left md:block">
-                    <p className="text-sm font-semibold leading-tight">{currentUser?.name ?? 'Admin User'}</p>
-                    <p className={`text-xs ${isDarkMode ? "text-slate-400" : "text-[#7C5D58]"}`}>{currentUser?.email ?? 'admin@preylang.com'}</p>
+                    <p className="text-sm font-semibold leading-tight">{currentUser?.name ?? 'User'}</p>
+                    <p className={`text-xs ${isDarkMode ? "text-slate-400" : "text-[#7C5D58]"}`}>{currentUser?.email ?? 'user@preylang.com'}</p>
                   </div>
                 </button>
 
@@ -462,6 +504,7 @@ export default function AppLayout() {
                       <User size={16} />
                       Account
                     </button>
+                    {userRole === 'admin' && (
                     <button
                       type="button"
                       onClick={() => {
@@ -475,6 +518,7 @@ export default function AppLayout() {
                       <Settings size={16} />
                       Settings
                     </button>
+                    )}
                     <button
                       type="button"
                       onClick={async () => {
@@ -483,9 +527,9 @@ export default function AppLayout() {
                         } catch (err) {
                           console.error("Failed to logout:", err);
                         } finally {
-                          localStorage.removeItem('auth_token');
+                          localStorage.removeItem('token');
                           localStorage.removeItem('user');
-                          window.location.href = '/';
+                          window.location.href = '/login';
                         }
                       }}
                       className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
