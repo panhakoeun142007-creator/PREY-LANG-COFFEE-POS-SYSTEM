@@ -42,6 +42,7 @@ Route::post('/login', [AuthController::class, 'login']);
 // Admin-only routes
 Route::middleware('admin.api')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/user', [UserController::class, 'me']);
     Route::get('/user/me', [UserController::class, 'me']);
     Route::post('/user/me', [UserController::class, 'updateMe']);
     Route::apiResource('staffs', StaffController::class);
@@ -51,6 +52,7 @@ Route::middleware('admin.api')->group(function () {
     Route::apiResource('ingredients', IngredientController::class);
     Route::apiResource('recipes', RecipeController::class);
     Route::apiResource('expenses', ExpenseController::class);
+    Route::get('/expenses/income', [ExpenseController::class, 'income']);
     Route::apiResource('purchases', PurchaseController::class);
     Route::get('/recipes-board', [RecipeController::class, 'boardIndex']);
     Route::post('/recipes-board', [RecipeController::class, 'boardStore']);
@@ -64,7 +66,9 @@ Route::middleware('admin.api')->group(function () {
 Route::middleware('staff.api')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index']);
     Route::get('/dashboard/notifications', [DashboardController::class, 'notifications']);
+    Route::get('/notifications', [DashboardController::class, 'notifications']);
     Route::get('/sales-analytics', [SalesAnalyticsController::class, 'index']);
+    Route::get('/analytics', [SalesAnalyticsController::class, 'index']);
     Route::get('/orders/history', [OrderController::class, 'history']);
     Route::get('/orders/live', [OrderController::class, 'live']);
     Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus']);

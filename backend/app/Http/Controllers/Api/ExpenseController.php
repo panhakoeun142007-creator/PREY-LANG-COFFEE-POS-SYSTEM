@@ -77,4 +77,12 @@ class ExpenseController extends Controller
 
         return response()->json(['message' => 'Expense deleted']);
     }
+
+    /**
+     * Get income transactions (alias for index).
+     */
+    public function income(Request $request): JsonResponse
+    {
+        return $this->index($request);
+    }
 }

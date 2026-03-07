@@ -92,14 +92,24 @@ function AuthProvider({ children }) {
         setUser(JSON.parse(userData));
         setIsAuthenticated(true);
         // Fetch fresh user data from API to ensure we have latest data from database
-        fetch('http://127.0.0.1:8000/api/user', {
+        const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+        fetch(`${API_BASE_URL}/user`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
         })
-          .then(res => res.json())
+          .then(res => {
+            if (!res.ok) {
+              // Token is invalid, clear storage
+              localStorage.removeItem('token');
+              localStorage.removeItem('user');
+              setIsAuthenticated(false);
+              return null;
+            }
+            return res.json();
+          })
           .then(data => {
-            if (data.id) {
+            if (data && data.id) {
               setUser(data);
               localStorage.setItem('user', JSON.stringify(data));
             }
