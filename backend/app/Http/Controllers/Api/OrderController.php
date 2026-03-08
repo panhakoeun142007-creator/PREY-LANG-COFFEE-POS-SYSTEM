@@ -50,7 +50,7 @@ class OrderController extends Controller
         ]);
 
         $order = DB::transaction(function () use ($validated) {
-            $nextQueue = Order::query()->max('queue_number') ?? 0;
+            $nextQueue = Order::max('queue_number') ?? 0;
             $order = Order::create([
                 'table_id' => $validated['table_id'],
                 'status' => $validated['status'] ?? 'pending',
@@ -59,9 +59,24 @@ class OrderController extends Controller
                 'total_price' => 0,
             ]);
 
+            // Pre-fetch all product prices in a single query to avoid N+1
+            $productIds = array_column($validated['items'], 'product_id');
+            $products = Product::whereIn('id', $productIds)->get()->keyBy('id');
+
             $total = 0;
             foreach ($validated['items'] as $item) {
-                $price = $item['price'] ?? $this->getProductSizePrice($item['product_id'], $item['size']);
+                // Use provided price or get from pre-fetched product
+                if (isset($item['price'])) {
+                    $price = $item['price'];
+                } else {
+                    $product = $products->get($item['product_id']);
+                    $price = match ($item['size']) {
+                        'small' => (float) $product->price_small,
+                        'medium' => (float) $product->price_medium,
+                        'large' => (float) $product->price_large,
+                    };
+                }
+                
                 $total += ((float) $price * (int) $item['qty']);
 
                 OrderItem::create([
@@ -187,18 +202,43 @@ class OrderController extends Controller
             $query->latest('created_at');
         }
 
-        // Summary must be calculated from the fully filtered dataset (not current page only).
-        $summaryBase = (clone $query)->reorder();
-        $completedCount = (clone $summaryBase)->where('status', 'completed')->count();
-        $cancelledCount = (clone $summaryBase)->where('status', 'cancelled')->count();
-        $totalRevenue = (float) ((clone $summaryBase)->where('status', 'completed')->sum('total_price'));
+        // Optimized summary calculation - single query with conditional counts
+        $summaryBase = Order::query()
+            ->whereIn('status', ['completed', 'cancelled']);
+            
+        // Apply same filters as main query
+        if ($request->filled('status')) {
+            $summaryBase->where('status', $request->string('status'));
+        }
+        if ($request->filled('date_from')) {
+            $summaryBase->whereDate('created_at', '>=', $request->string('date_from'));
+        }
+        if ($request->filled('date_to')) {
+            $summaryBase->whereDate('created_at', '<=', $request->string('date_to'));
+        }
+        if ($request->filled('payment_type')) {
+            $summaryBase->where('payment_type', $request->string('payment_type'));
+        }
+
+        // Single query to get all summary stats
+        $summaryStats = (clone $summaryBase)
+            ->selectRaw('
+                SUM(CASE WHEN status = "completed" THEN 1 ELSE 0 END) as completed_count,
+                SUM(CASE WHEN status = "cancelled" THEN 1 ELSE 0 END) as cancelled_count,
+                SUM(CASE WHEN status = "completed" THEN total_price ELSE 0 END) as total_revenue
+            ')
+            ->first();
+
+        $completedCount = (int) ($summaryStats->completed_count ?? 0);
+        $cancelledCount = (int) ($summaryStats->cancelled_count ?? 0);
+        $totalRevenue = round((float) ($summaryStats->total_revenue ?? 0), 2);
 
         $paginator = $query->paginate(20);
         $payload = $paginator->toArray();
         $payload['summary'] = [
             'completed_count' => $completedCount,
             'cancelled_count' => $cancelledCount,
-            'total_revenue' => round($totalRevenue, 2),
+            'total_revenue' => $totalRevenue,
         ];
 
         return response()->json($payload);
@@ -216,19 +256,5 @@ class OrderController extends Controller
         $order->update(['status' => $validated['status']]);
 
         return response()->json($order->fresh()->load(['table', 'items.product']));
-    }
-
-    /**
-     * Get product price by selected size.
-     */
-    private function getProductSizePrice(int $productId, string $size): float
-    {
-        $product = Product::query()->findOrFail($productId);
-
-        return match ($size) {
-            'small' => (float) $product->price_small,
-            'medium' => (float) $product->price_medium,
-            'large' => (float) $product->price_large,
-        };
     }
 }

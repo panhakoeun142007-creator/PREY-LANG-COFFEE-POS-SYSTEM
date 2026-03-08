@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useEffect, createContext, useContext } from "react";
+import { lazy, Suspense, useState, useEffect, createContext, useContext, useCallback } from "react";
 import { Navigate, Route, Routes, useNavigate, useLocation } from "react-router-dom";
 import AppLayout from "./components/AppLayout";
 import { CategoryProvider } from "./context/CategoryContext";
@@ -34,6 +34,9 @@ const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const VerifySuccessful = lazy(() => import("./pages/VerifySuccessful"));
 const SessionExpired = lazy(() => import("./pages/SessionExpired"));
 
+// API Base URL
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+
 function RouteFallback() {
   return (
     <div className="rounded-lg border border-[#EAD6C0] bg-white p-4 text-sm text-[#7C5D58]">
@@ -58,15 +61,13 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
-// Role-based Route Protection - redirects users away from pages they don't have access to
+// Role-based Route Protection
 function RoleProtectedRoute({ requiredRole, children }) {
   const auth = useContext(AuthContext);
   const navigate = useNavigate();
-  const location = useLocation();
 
   useEffect(() => {
     if (auth.user?.role && requiredRole && auth.user.role !== requiredRole) {
-      // Staff trying to access admin page, redirect to dashboard
       if (requiredRole === 'admin' && auth.user.role !== 'admin') {
         navigate('/', { replace: true });
       }
@@ -76,59 +77,80 @@ function RoleProtectedRoute({ requiredRole, children }) {
   return children;
 }
 
-// Auth Provider
+// Auth Provider with optimized loading
 function AuthProvider({ children }) {
   const navigate = useNavigate();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [userFetched, setUserFetched] = useState(false);
+
+  const fetchUserData = useCallback(async (token) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/user`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        setIsAuthenticated(false);
+        return false;
+      }
+
+      const data = await response.json();
+      if (data && data.id) {
+        setUser(data);
+        localStorage.setItem('user', JSON.stringify(data));
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('User fetch error:', error);
+      return false;
+    }
+  }, []);
 
   useEffect(() => {
-    // Check for existing auth token
     const token = localStorage.getItem("token");
     const userData = localStorage.getItem("user");
+    
     if (token && userData) {
       try {
-        setUser(JSON.parse(userData));
+        const parsedUser = JSON.parse(userData);
+        setUser(parsedUser);
         setIsAuthenticated(true);
-        // Fetch fresh user data from API to ensure we have latest data from database
-        const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
-        fetch(`${API_BASE_URL}/user`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        })
-          .then(res => {
-            if (!res.ok) {
-              // Token is invalid, clear storage
-              localStorage.removeItem('token');
-              localStorage.removeItem('user');
+        
+        if (!userFetched) {
+          fetchUserData(token).then(success => {
+            if (!success) {
               setIsAuthenticated(false);
-              return null;
             }
-            return res.json();
-          })
-          .then(data => {
-            if (data && data.id) {
-              setUser(data);
-              localStorage.setItem('user', JSON.stringify(data));
-            }
-          })
-          .catch(() => {});
+            setUserFetched(true);
+            setLoading(false);
+          });
+        } else {
+          setLoading(false);
+        }
       } catch (e) {
-        // Invalid user data, clear storage
         localStorage.removeItem("token");
         localStorage.removeItem("user");
+        setLoading(false);
       }
+    } else {
+      setLoading(false);
     }
-    setLoading(false);
-  }, []);
+  }, [fetchUserData, userFetched]);
 
   const login = (token, userData) => {
     localStorage.setItem("token", token);
     localStorage.setItem("user", JSON.stringify(userData));
     setIsAuthenticated(true);
     setUser(userData);
+    setUserFetched(true);
     navigate("/", { replace: true });
   };
 
@@ -137,6 +159,7 @@ function AuthProvider({ children }) {
     localStorage.removeItem("user");
     setIsAuthenticated(false);
     setUser(null);
+    setUserFetched(false);
     navigate("/login", { replace: true });
   };
 
@@ -160,7 +183,7 @@ function AuthProvider({ children }) {
   );
 }
 
-// Staff Routes (limited access)
+// Staff Routes
 function StaffRoutes() {
   return (
     <CategoryProvider>
@@ -177,7 +200,7 @@ function StaffRoutes() {
   );
 }
 
-// Admin Routes (full access)
+// Admin Routes
 function AdminRoutes() {
   return (
     <CategoryProvider>
@@ -208,7 +231,6 @@ function AppRoutes() {
   const auth = useContext(AuthContext);
   const userRole = auth.user?.role || 'admin';
   
-  // Staff users get limited routes, admin gets full access
   if (userRole === 'staff') {
     return <StaffRoutes />;
   }
@@ -219,7 +241,6 @@ export default function App() {
   return (
     <AuthProvider>
       <Routes>
-        {/* Public routes - accessible without authentication */}
         <Route path="/login" element={withSuspense(<Login />)} />
         <Route path="/forgot-password" element={withSuspense(<ForgotPassword />)} />
         <Route path="/verify-code" element={withSuspense(<VerifyCode />)} />
@@ -227,7 +248,6 @@ export default function App() {
         <Route path="/verify-successful" element={withSuspense(<VerifySuccessful />)} />
         <Route path="/session-expired" element={withSuspense(<SessionExpired />)} />
         
-        {/* All other routes - protected with role-based access */}
         <Route
           path="/*"
           element={
@@ -241,5 +261,4 @@ export default function App() {
   );
 }
 
-// Export auth context for use in components
 export { AuthContext };

@@ -19,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
         'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
         'admin.api' => \App\Http\Middleware\AdminApiTokenMiddleware::class,
         'staff.api' => \App\Http\Middleware\StaffApiTokenMiddleware::class,
+        'api.cache' => \App\Http\Middleware\ApiCacheMiddleware::class,
     ]);
 
 })

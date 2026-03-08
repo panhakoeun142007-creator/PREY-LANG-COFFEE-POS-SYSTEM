@@ -7,57 +7,92 @@ use App\Models\Expense;
 use App\Models\Ingredient;
 use App\Models\Order;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
     /**
+     * Cache TTL in seconds (5 minutes).
+     */
+    private const CACHE_TTL = 300;
+
+    /**
      * Get all dashboard statistics.
      */
     public function index(): JsonResponse
+    {
+        // Try to get cached dashboard data
+        $cacheKey = 'dashboard_' . now()->format('Y-m-d-H');
+        
+        $data = Cache::remember($cacheKey, self::CACHE_TTL, function () {
+            return $this->buildDashboardData();
+        });
+
+        // Always get fresh notifications (don't cache orders that may change)
+        $data['notifications'] = $this->getNotifications();
+
+        return response()->json($data);
+    }
+
+    /**
+     * Build the cached dashboard data.
+     */
+    private function buildDashboardData(): array
     {
         $today = now()->startOfDay();
         $startOfMonth = now()->startOfMonth();
         $endOfMonth = now()->endOfMonth();
 
-        // Today's revenue
-        $todayRevenue = Order::whereDate('created_at', $today)
+        // Use single query with conditional sums for today's stats
+        $todayStats = Order::whereDate('created_at', $today)
             ->where('status', '!=', 'cancelled')
-            ->sum('total_price');
+            ->selectRaw('SUM(total_price) as revenue, COUNT(*) as orders')
+            ->first();
 
-        // Today's orders count
-        $todayOrders = Order::whereDate('created_at', $today)
-            ->where('status', '!=', 'cancelled')
-            ->count();
+        $todayRevenue = (float) ($todayStats->revenue ?? 0);
+        $todayOrders = (int) ($todayStats->orders ?? 0);
 
-        // Low stock items (stock_qty <= min_stock)
-        $lowStockCount = Ingredient::whereRaw('stock_qty <= min_stock')
+        // Low stock items count - single query
+        $lowStockCount = Ingredient::whereColumn('stock_qty', '<=', 'min_stock')
             ->where('min_stock', '>', 0)
             ->count();
 
-        // Monthly revenue
-        $monthlyRevenue = Order::whereBetween('created_at', [$startOfMonth, $endOfMonth])
+        // Monthly stats - single query
+        $monthlyStats = Order::whereBetween('created_at', [$startOfMonth, $endOfMonth])
             ->where('status', '!=', 'cancelled')
-            ->sum('total_price');
+            ->selectRaw('SUM(total_price) as revenue')
+            ->first();
 
-        // Monthly expenses
+        $monthlyRevenue = (float) ($monthlyStats->revenue ?? 0);
+
+        // Monthly expenses - single query
         $monthlyExpenses = Expense::whereBetween('date', [$startOfMonth->toDateString(), $endOfMonth->toDateString()])
             ->sum('amount');
 
         // Monthly profit
-        $monthlyProfit = $monthlyRevenue - $monthlyExpenses;
+        $monthlyProfit = $monthlyRevenue - (float) $monthlyExpenses;
 
-        // Revenue last 7 days
-        $revenueData = [];
+        // Revenue last 7 days - single query with group by
+        $revenueData = Order::where('created_at', '>=', now()->subDays(7)->startOfDay())
+            ->where('status', '!=', 'cancelled')
+            ->selectRaw('DATE(created_at) as date, SUM(total_price) as revenue')
+            ->groupBy('date')
+            ->orderBy('date')
+            ->get()
+            ->keyBy('date')
+            ->map(function ($row) {
+                return (float) $row->revenue;
+            });
+
+        // Build complete 7-day array
+        $formattedRevenueData = [];
         for ($i = 6; $i >= 0; $i--) {
             $date = now()->subDays($i)->startOfDay();
-            $revenue = Order::whereDate('created_at', $date)
-                ->where('status', '!=', 'cancelled')
-                ->sum('total_price');
-            
-            $revenueData[] = [
+            $dateKey = $date->format('Y-m-d');
+            $formattedRevenueData[] = [
                 'name' => $date->format('D'),
-                'revenue' => (float) $revenue,
+                'revenue' => $revenueData->get($dateKey, 0),
             ];
         }
 
@@ -83,8 +118,8 @@ class DashboardController extends Controller
                 ];
             });
 
-        // Recent orders (last 10)
-        $recentOrders = Order::with('table')
+        // Recent orders (last 10) - optimized with eager loading
+        $recentOrders = Order::with('table:id,name')
             ->orderBy('created_at', 'desc')
             ->limit(10)
             ->get()
@@ -97,9 +132,10 @@ class DashboardController extends Controller
                 ];
             });
 
-        // Low stock items with percentage
-        $lowStockItems = Ingredient::whereRaw('stock_qty <= min_stock')
+        // Low stock items with percentage - optimized query
+        $lowStockItems = Ingredient::whereColumn('stock_qty', '<=', 'min_stock')
             ->where('min_stock', '>', 0)
+            ->limit(10)
             ->get()
             ->map(function ($ingredient) {
                 $level = $ingredient->min_stock > 0 
@@ -111,7 +147,7 @@ class DashboardController extends Controller
                 ];
             });
 
-        return response()->json([
+        return [
             'stats' => [
                 [
                     'label' => 'Total Revenue Today',
@@ -138,12 +174,11 @@ class DashboardController extends Controller
                     'accent' => $monthlyProfit >= 0 ? 'text-emerald-600' : 'text-rose-600',
                 ],
             ],
-            'revenueData' => $revenueData,
+            'revenueData' => $formattedRevenueData,
             'categoryData' => $categoryData,
             'recentOrders' => $recentOrders,
             'lowStockItems' => $lowStockItems,
-            'notifications' => $this->getNotifications(),
-        ]);
+        ];
     }
 
     /**
@@ -157,14 +192,15 @@ class DashboardController extends Controller
     }
 
     /**
-     * Generate notifications from database.
+     * Generate notifications from database - optimized.
      */
     private function getNotifications(): array
     {
         $notifications = [];
 
-        // New pending orders
-        $pendingOrders = Order::where('status', 'pending')
+        // Get pending orders - with table eager loading
+        $pendingOrders = Order::with('table:id,name')
+            ->where('status', 'pending')
             ->orderBy('created_at', 'desc')
             ->limit(5)
             ->get();
@@ -180,8 +216,9 @@ class DashboardController extends Controller
             ];
         }
 
-        // Orders ready for pickup
-        $readyOrders = Order::where('status', 'ready')
+        // Get ready orders - with table eager loading
+        $readyOrders = Order::with('table:id,name')
+            ->where('status', 'ready')
             ->orderBy('updated_at', 'desc')
             ->limit(3)
             ->get();
@@ -197,8 +234,8 @@ class DashboardController extends Controller
             ];
         }
 
-        // Low stock alerts
-        $lowStockItems = Ingredient::whereRaw('stock_qty <= min_stock')
+        // Get low stock alerts - optimized query
+        $lowStockItems = Ingredient::whereColumn('stock_qty', '<=', 'min_stock')
             ->where('min_stock', '>', 0)
             ->limit(3)
             ->get();
@@ -214,8 +251,9 @@ class DashboardController extends Controller
             ];
         }
 
-        // Near stock warnings (stock between 100% and 150% of min_stock)
-        $nearStockItems = Ingredient::whereRaw('stock_qty > min_stock AND stock_qty <= (min_stock * 1.5)')
+        // Near stock warnings - optimized query
+        $nearStockItems = Ingredient::whereColumn('stock_qty', '>', 'min_stock')
+            ->whereColumn('stock_qty', '<=', DB::raw('min_stock * 1.5'))
             ->where('min_stock', '>', 0)
             ->limit(3)
             ->get();
@@ -235,20 +273,23 @@ class DashboardController extends Controller
     }
 
     /**
-     * Get revenue trend compared to yesterday.
+     * Get revenue trend compared to yesterday - optimized.
      */
     private function getTodayTrend(): string
     {
         $today = now()->startOfDay();
         $yesterday = now()->subDay()->startOfDay();
 
-        $todayRevenue = Order::whereDate('created_at', $today)
+        // Single query with conditional sum
+        $revenues = Order::whereInRaw('DATE(created_at)', [$today, $yesterday])
             ->where('status', '!=', 'cancelled')
-            ->sum('total_price');
+            ->selectRaw('DATE(created_at) as date, SUM(total_price) as revenue')
+            ->groupBy('date')
+            ->get()
+            ->keyBy('date');
 
-        $yesterdayRevenue = Order::whereDate('created_at', $yesterday)
-            ->where('status', '!=', 'cancelled')
-            ->sum('total_price');
+        $todayRevenue = (float) ($revenues->get($today->format('Y-m-d'))?->revenue ?? 0);
+        $yesterdayRevenue = (float) ($revenues->get($yesterday->format('Y-m-d'))?->revenue ?? 0);
 
         if ($yesterdayRevenue == 0) {
             return $todayRevenue > 0 ? '↑ New records' : 'No data';
@@ -261,20 +302,23 @@ class DashboardController extends Controller
     }
 
     /**
-     * Get orders trend compared to yesterday.
+     * Get orders trend compared to yesterday - optimized.
      */
     private function getOrdersTrend(): string
     {
         $today = now()->startOfDay();
         $yesterday = now()->subDay()->startOfDay();
 
-        $todayOrders = Order::whereDate('created_at', $today)
+        // Single query with conditional count
+        $counts = Order::whereInRaw('DATE(created_at)', [$today, $yesterday])
             ->where('status', '!=', 'cancelled')
-            ->count();
+            ->selectRaw('DATE(created_at) as date, COUNT(*) as orders')
+            ->groupBy('date')
+            ->get()
+            ->keyBy('date');
 
-        $yesterdayOrders = Order::whereDate('created_at', $yesterday)
-            ->where('status', '!=', 'cancelled')
-            ->count();
+        $todayOrders = (int) ($counts->get($today->format('Y-m-d'))?->orders ?? 0);
+        $yesterdayOrders = (int) ($counts->get($yesterday->format('Y-m-d'))?->orders ?? 0);
 
         if ($yesterdayOrders == 0) {
             return $todayOrders > 0 ? '↑ New records' : 'No data';
@@ -284,5 +328,16 @@ class DashboardController extends Controller
         $direction = $change >= 0 ? '↑' : '↓';
 
         return $direction . ' ' . abs(round($change, 1)) . '%';
+    }
+
+    /**
+     * Clear dashboard cache (called when data changes).
+     */
+    public static function clearCache(): void
+    {
+        // Clear all hourly dashboard caches for today
+        for ($hour = 0; $hour <= now()->hour; $hour++) {
+            Cache::forget('dashboard_' . now()->format("Y-m-d-{$hour}"));
+        }
     }
 }

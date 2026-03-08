@@ -77,6 +77,8 @@ Route::middleware('staff.api')->group(function () {
     Route::get('/receipts', [ReceiptController::class, 'index']);
 });
 
-// Public routes (no auth required)
-Route::get('/settings', [SettingController::class, 'show']);
-Route::put('/settings', [SettingController::class, 'update']);
+// Public routes (no auth required) with caching
+Route::middleware('api.cache')->group(function () {
+    Route::get('/settings', [SettingController::class, 'show']);
+    Route::put('/settings', [SettingController::class, 'update']);
+});

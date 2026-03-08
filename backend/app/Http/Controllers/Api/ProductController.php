@@ -6,22 +6,43 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class ProductController extends Controller
 {
+    /**
+     * Cache TTL for products (5 minutes).
+     */
+    private const CACHE_TTL = 300;
+
+    /**
+     * Display a listing of products.
+     */
     public function index(Request $request): JsonResponse
     {
-        $query = Product::with('category');
-
+        // Build cache key based on request filters
+        $cacheKey = 'products_list';
         if ($request->has('category_id')) {
-            $query->where('category_id', $request->category_id);
+            $cacheKey .= '_cat_' . $request->category_id;
         }
-
         if ($request->has('is_available')) {
-            $query->where('is_available', $request->boolean('is_available'));
+            $cacheKey .= '_avail_' . ($request->boolean('is_available') ? '1' : '0');
         }
 
-        $products = $query->get();
+        // Try cache first
+        $products = Cache::remember($cacheKey, self::CACHE_TTL, function () use ($request) {
+            $query = Product::with('category');
+
+            if ($request->has('category_id')) {
+                $query->where('category_id', $request->category_id);
+            }
+
+            if ($request->has('is_available')) {
+                $query->where('is_available', $request->boolean('is_available'));
+            }
+
+            return $query->get();
+        });
 
         return response()->json([
             'data' => $products,
@@ -32,6 +53,9 @@ class ProductController extends Controller
         ]);
     }
 
+    /**
+     * Store a newly created product.
+     */
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -48,15 +72,24 @@ class ProductController extends Controller
         $product = Product::create($validated);
         $product->load('category');
 
+        // Clear product cache on create
+        $this->clearProductsCache();
+
         return response()->json($product, 201);
     }
 
+    /**
+     * Display the specified product.
+     */
     public function show(Product $product): JsonResponse
     {
         $product->load('category');
         return response()->json($product);
     }
 
+    /**
+     * Update the specified product.
+     */
     public function update(Request $request, Product $product): JsonResponse
     {
         $validated = $request->validate([
@@ -73,12 +106,40 @@ class ProductController extends Controller
         $product->update($validated);
         $product->load('category');
 
+        // Clear product cache on update
+        $this->clearProductsCache();
+
         return response()->json($product);
     }
 
+    /**
+     * Remove the specified product.
+     */
     public function destroy(Product $product): JsonResponse
     {
         $product->delete();
+        
+        // Clear product cache on delete
+        $this->clearProductsCache();
+        
         return response()->json(['message' => 'Product deleted successfully']);
+    }
+
+    /**
+     * Clear all products cache.
+     */
+    private function clearProductsCache(): void
+    {
+        Cache::forget('products_list');
+        Cache::forget('products_list_cat_');
+        Cache::forget('products_list_avail_');
+        
+        // Clear category-specific caches
+        $categoryIds = \App\Models\Category::pluck('id');
+        foreach ($categoryIds as $categoryId) {
+            Cache::forget('products_list_cat_' . $categoryId);
+            Cache::forget('products_list_cat_' . $categoryId . '_avail_1');
+            Cache::forget('products_list_cat_' . $categoryId . '_avail_0');
+        }
     }
 }
