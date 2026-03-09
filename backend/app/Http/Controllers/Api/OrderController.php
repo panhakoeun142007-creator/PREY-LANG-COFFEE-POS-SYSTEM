@@ -8,11 +8,22 @@ use App\Models\OrderItem;
 use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class OrderController extends Controller
 {
+    /**
+     * Cache TTL for live orders (30 seconds).
+     */
+    private const CACHE_TTL_LIVE = 30;
+
+    /**
+     * Cache TTL for order history (2 minutes).
+     */
+    private const CACHE_TTL_HISTORY = 120;
+
     /**
      * Display a listing of orders.
      */
@@ -139,11 +150,16 @@ class OrderController extends Controller
      */
     public function live(): JsonResponse
     {
-        $orders = Order::query()
-            ->with(['table', 'items.product'])
-            ->whereIn('status', ['pending', 'preparing', 'ready'])
-            ->orderBy('created_at', 'asc')
-            ->get();
+        // Cache live orders for 30 seconds to reduce database load
+        $cacheKey = 'orders_live_' . now()->format('Y-m-d-H-i');
+        
+        $orders = Cache::remember($cacheKey, self::CACHE_TTL_LIVE, function () {
+            return Order::query()
+                ->with(['table', 'items.product'])
+                ->whereIn('status', ['pending', 'preparing', 'ready'])
+                ->orderBy('created_at', 'asc')
+                ->get();
+        });
 
         return response()->json($orders);
     }
