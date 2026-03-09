@@ -1,0 +1,325 @@
+.checkout-page {
+  width: 100%;
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 8px 0 24px;
+  background: transparent;
+}
+
+.checkout-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 2px;
+  margin-bottom: 10px;
+  background: transparent;
+}
+
+.checkout-topbar h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  flex: 1;
+  text-align: center;
+  color: var(--text-primary);
+}
+
+.checkout-top-spacer {
+  width: 32px;
+  height: 32px;
+}
+
+.checkout-back {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.checkout-section {
+  margin-bottom: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--card-bg);
+  padding: 14px;
+  box-shadow: var(--shadow-sm);
+}
+
+.checkout-section h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.checkout-section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.checkout-section-head span {
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  background: var(--surface-muted);
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-weight: 700;
+}
+
+.checkout-list {
+  border: 1px solid color-mix(in srgb, var(--border-color) 78%, #ffffff);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.checkout-item {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  gap: 11px;
+  align-items: center;
+  padding: 11px 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 80%, #ffffff);
+}
+
+.checkout-item:last-child {
+  border-bottom: none;
+}
+
+.checkout-item-image {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 1px solid var(--border-color);
+}
+
+.checkout-item-name {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.checkout-item-meta {
+  margin: 3px 0 0;
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  line-height: 1.2;
+}
+
+.checkout-item-price {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--accent-color);
+}
+
+.checkout-totals {
+  margin-top: 10px;
+  background: color-mix(in srgb, var(--accent-color) 8%, var(--card-bg));
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent-color) 22%, var(--border-color));
+  padding: 10px 11px;
+}
+
+.checkout-totals > div {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  padding: 4px 0;
+}
+
+.checkout-total-row {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid color-mix(in srgb, var(--accent-color) 24%, var(--border-color));
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.checkout-total-row span:last-child {
+  color: var(--accent-color);
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.payment-option {
+  width: 100%;
+  margin-top: 9px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--card-bg);
+  padding: 11px 13px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  text-align: left;
+  cursor: pointer;
+}
+
+.payment-option.active {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-color) 32%, #ffffff) inset;
+}
+
+.payment-option p {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.payment-option small {
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+}
+
+.payment-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 2px solid color-mix(in srgb, var(--border-color) 88%, #ffffff);
+  flex-shrink: 0;
+}
+
+.payment-option.active .payment-dot {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px #fff inset;
+  background: var(--accent-color);
+}
+
+.checkout-confirm {
+  margin-top: 10px;
+  width: 100%;
+  border: none;
+  border-radius: 12px;
+  background: var(--accent-color);
+  color: var(--text-on-accent);
+  padding: 13px 16px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(230, 103, 12, 0.25);
+}
+
+.checkout-secure {
+  margin: 8px 0 0;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+  font-size: 0.64rem;
+  font-weight: 700;
+}
+
+@media (max-width: 540px) {
+  .checkout-page {
+    max-width: 100%;
+    padding: 6px 0 16px;
+  }
+
+  .checkout-section {
+    padding: 10px;
+    border-radius: 14px;
+  }
+
+  .checkout-topbar h2 {
+    font-size: 1rem;
+  }
+
+  .checkout-item {
+    grid-template-columns: 38px 1fr auto;
+    gap: 8px;
+    padding: 10px 8px;
+  }
+
+  .checkout-item-image {
+    width: 38px;
+    height: 38px;
+  }
+
+  .checkout-item-name {
+    font-size: 0.86rem;
+  }
+
+  .checkout-total-row span:last-child {
+    font-size: 1.2rem;
+  }
+
+  .payment-option {
+    padding: 10px 11px;
+  }
+
+  .payment-option p {
+    font-size: 0.84rem;
+  }
+
+  .payment-option small {
+    font-size: 0.68rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .checkout-item {
+    grid-template-columns: 1fr auto;
+    gap: 6px 8px;
+    align-items: start;
+  }
+
+  .checkout-item-image {
+    display: none;
+  }
+
+  .checkout-item-main {
+    min-width: 0;
+  }
+
+  .checkout-item-meta {
+    font-size: 0.7rem;
+  }
+
+  .checkout-item-price {
+    font-size: 0.84rem;
+    align-self: center;
+  }
+}
+
+:root[data-theme="dark"] .checkout-list,
+:root[data-theme="dark"] .payment-option {
+  background: var(--card-bg);
+  border-color: var(--border-color);
+}
+
+:root[data-theme="dark"] .checkout-item {
+  border-bottom-color: #29313b;
+}
+
+:root[data-theme="dark"] .checkout-item-price {
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .checkout-item-meta,
+:root[data-theme="dark"] .payment-option small {
+  color: var(--text-secondary);
+}
+
+:root[data-theme="dark"] .checkout-totals {
+  background: color-mix(in srgb, var(--accent-color) 14%, #141b22);
+  border-color: color-mix(in srgb, var(--accent-color) 35%, var(--border-color));
+}
+
+:root[data-theme="dark"] .checkout-total-row {
+  border-top-color: color-mix(in srgb, var(--accent-color) 28%, var(--border-color));
+}
+
+:root[data-theme="dark"] .checkout-section {
+  background: var(--card-bg);
+  border-color: var(--border-color);
+}

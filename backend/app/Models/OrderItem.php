@@ -10,11 +10,6 @@ class OrderItem extends Model
 {
     use HasFactory;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
-     */
     protected $fillable = [
         'order_id',
         'product_id',
@@ -23,11 +18,6 @@ class OrderItem extends Model
         'price',
     ];
 
-    /**
-     * The attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
     protected function casts(): array
     {
         return [
@@ -36,17 +26,11 @@ class OrderItem extends Model
         ];
     }
 
-    /**
-     * Get order for this item.
-     */
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
     }
 
-    /**
-     * Get product for this item.
-     */
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);

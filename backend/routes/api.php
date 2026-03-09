@@ -17,7 +17,6 @@ use App\Http\Controllers\Api\SalesAnalyticsController;
 use App\Http\Controllers\Api\SettingController;
 use App\Http\Controllers\Api\StaffController;
 use App\Http\Controllers\Api\UserController;
-// use App\Http\Controllers\AuthController as OriginalAuthController;
 use App\Http\Controllers\ForgotPasswordController;
 use Illuminate\Support\Facades\Route;
 
@@ -26,20 +25,13 @@ Route::get('/health', function () {
     return response()->json(['status' => 'ok']);
 });
 
-// Original Auth Routes (from develop)
-// Route::post('/register', [OriginalAuthController::class, 'register']);
-// Route::post('/logout', [OriginalAuthController::class, 'logout']);
-// Route::post('/send-reset-link', [OriginalAuthController::class, 'sendResetLink']);
-// Route::post('/verify-code', [OriginalAuthController::class, 'verifyCode']);
 Route::post('/forgot-password', [ForgotPasswordController::class, 'forgotPassword']);
 Route::post('/send-reset-link', [ForgotPasswordController::class, 'sendResetLink']);
 Route::post('/verify-code', [ForgotPasswordController::class, 'verifyCode']);
 Route::post('/reset-password', [ForgotPasswordController::class, 'resetPassword']);
 
-// Login - public route (no auth required)
 Route::post('/login', [AuthController::class, 'login']);
 
-// Admin-only routes
 Route::middleware('admin.api')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/user', [UserController::class, 'me']);
@@ -62,7 +54,6 @@ Route::middleware('admin.api')->group(function () {
     Route::get('/finance/income', [FinanceController::class, 'income']);
 });
 
-// Staff and Admin routes (both can access)
 Route::middleware('staff.api')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index']);
     Route::get('/dashboard/notifications', [DashboardController::class, 'notifications']);
@@ -77,6 +68,5 @@ Route::middleware('staff.api')->group(function () {
     Route::get('/receipts', [ReceiptController::class, 'index']);
 });
 
-// Public routes (no auth required)
 Route::get('/settings', [SettingController::class, 'show']);
 Route::put('/settings', [SettingController::class, 'update']);

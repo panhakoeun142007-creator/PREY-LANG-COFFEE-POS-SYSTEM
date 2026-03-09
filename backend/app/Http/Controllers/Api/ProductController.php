@@ -4,81 +4,232 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Product;
+use App\Models\Category;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Validator;
 
 class ProductController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = Product::with('category');
+        try {
+            $search = trim((string) $request->query('search', ''));
+            $category = trim((string) $request->query('category', ''));
+            $perPage = (int) $request->query('per_page', 50);
+            $perPage = min(max($perPage, 1), 100);
 
-        if ($request->has('category_id')) {
-            $query->where('category_id', $request->category_id);
+            $cacheKey = "products:" . md5("{$search}:{$category}:{$perPage}");
+
+            $products = Cache::remember($cacheKey, 300, function () use ($request, $search, $category, $perPage) {
+                return Product::query()
+                    ->with(['category:id,name,slug'])
+                    ->when($category !== '' && $category !== 'all', function ($query) use ($category) {
+                        $query->whereHas('category', function ($categoryQuery) use ($category) {
+                            $categoryQuery
+                                ->where('slug', $category)
+                                ->orWhereRaw('LOWER(name) = ?', [strtolower($category)]);
+                        });
+                    })
+                    ->when($search !== '', function ($query) use ($search) {
+                        $query->where(function ($q) use ($search) {
+                            $q->where('name', 'like', "%{$search}%")
+                              ->orWhere('description', 'like', "%{$search}%");
+                        });
+                    })
+                    ->orderBy('sort_order')
+                    ->orderBy('name')
+                    ->paginate($perPage);
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Products retrieved successfully',
+                'data' => $products->map(fn ($product) => $this->formatProduct($product)),
+                'meta' => [
+                    'current_page' => $products->currentPage(),
+                    'last_page' => $products->lastPage(),
+                    'per_page' => $products->perPage(),
+                    'total' => $products->total(),
+                ]
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve products',
+                'error' => $e->getMessage(),
+            ], 500);
         }
-
-        if ($request->has('is_available')) {
-            $query->where('is_available', $request->boolean('is_available'));
-        }
-
-        $products = $query->get();
-
-        return response()->json([
-            'data' => $products,
-            'current_page' => 1,
-            'last_page' => 1,
-            'per_page' => $products->count(),
-            'total' => $products->count(),
-        ]);
     }
 
     public function store(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'category_id' => 'required|exists:categories,id',
+        $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
-            'sku' => 'nullable|string|max:100',
-            'price_small' => 'required|numeric|min:0',
-            'price_medium' => 'required|numeric|min:0',
-            'price_large' => 'required|numeric|min:0',
-            'image' => 'nullable|string',
-            'is_available' => 'nullable|boolean',
+            'description' => 'nullable|string|max:1000',
+            'price' => 'required|numeric|min:0',
+            'image' => 'nullable|string|max:500',
+            'badge' => 'nullable|string|max:50',
+            'is_active' => 'nullable|boolean',
+            'sort_order' => 'nullable|integer|min:0',
+            'category_id' => 'required|integer|exists:categories,id',
         ]);
 
-        $product = Product::create($validated);
-        $product->load('category');
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
 
-        return response()->json($product, 201);
+        try {
+            $product = Product::create($request->all());
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Product created successfully',
+                'data' => $this->formatProduct($product->load('category')),
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create product',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
 
-    public function show(Product $product): JsonResponse
+    public function show(int $id): JsonResponse
     {
-        $product->load('category');
-        return response()->json($product);
+        try {
+            $product = Product::with('category')->find($id);
+
+            if (!$product) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Product not found',
+                ], 404);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Product retrieved successfully',
+                'data' => $this->formatProduct($product),
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve product',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
 
-    public function update(Request $request, Product $product): JsonResponse
+    public function update(Request $request, int $id): JsonResponse
     {
-        $validated = $request->validate([
-            'category_id' => 'sometimes|required|exists:categories,id',
+        $product = Product::find($id);
+
+        if (!$product) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Product not found',
+            ], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
             'name' => 'sometimes|required|string|max:255',
-            'sku' => 'nullable|string|max:100',
-            'price_small' => 'sometimes|required|numeric|min:0',
-            'price_medium' => 'sometimes|required|numeric|min:0',
-            'price_large' => 'sometimes|required|numeric|min:0',
-            'image' => 'nullable|string',
-            'is_available' => 'nullable|boolean',
+            'description' => 'nullable|string|max:1000',
+            'price' => 'sometimes|required|numeric|min:0',
+            'image' => 'nullable|string|max:500',
+            'badge' => 'nullable|string|max:50',
+            'is_active' => 'nullable|boolean',
+            'sort_order' => 'nullable|integer|min:0',
+            'category_id' => 'sometimes|required|integer|exists:categories,id',
         ]);
 
-        $product->update($validated);
-        $product->load('category');
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
 
-        return response()->json($product);
+        try {
+            $product->update($request->all());
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Product updated successfully',
+                'data' => $this->formatProduct($product->fresh('category')),
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update product',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
 
-    public function destroy(Product $product): JsonResponse
+    public function destroy(int $id): JsonResponse
     {
-        $product->delete();
-        return response()->json(['message' => 'Product deleted successfully']);
+        $product = Product::find($id);
+
+        if (!$product) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Product not found',
+            ], 404);
+        }
+
+        try {
+            $product->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Product deleted successfully',
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete product',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    private function formatProduct(Product $product): array
+    {
+        return [
+            'id' => $product->id,
+            'name' => $product->name,
+            'description' => $product->description,
+            'price' => (float) $product->price,
+            'image' => $this->resolveImageUrl($product->image),
+            'badge' => $product->badge,
+            'is_active' => (bool) $product->is_active,
+            'sort_order' => (int) $product->sort_order,
+            'category_id' => $product->category_id,
+            'category' => $product->category?->name,
+            'category_slug' => $product->category?->slug,
+            'created_at' => $product->created_at?->toISOString(),
+            'updated_at' => $product->updated_at?->toISOString(),
+        ];
+    }
+
+    private function resolveImageUrl(?string $image): ?string
+    {
+        if (empty($image)) {
+            return null;
+        }
+
+        if (preg_match('/^(https?:\/\/|data:|blob:)/', $image)) {
+            return $image;
+        }
+
+        return asset('storage/' . ltrim($image, '/'));
     }
 }

@@ -11,11 +11,6 @@ class Order extends Model
 {
     use HasFactory;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
-     */
     protected $fillable = [
         'table_id',
         'status',
@@ -24,11 +19,6 @@ class Order extends Model
         'queue_number',
     ];
 
-    /**
-     * The attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
     protected function casts(): array
     {
         return [
@@ -37,17 +27,11 @@ class Order extends Model
         ];
     }
 
-    /**
-     * Get the table tied to this order.
-     */
     public function table(): BelongsTo
     {
         return $this->belongsTo(DiningTable::class, 'table_id');
     }
 
-    /**
-     * Get line items for the order.
-     */
     public function items(): HasMany
     {
         return $this->hasMany(OrderItem::class);

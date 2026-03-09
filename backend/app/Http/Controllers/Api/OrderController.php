@@ -13,9 +13,6 @@ use Illuminate\Validation\Rule;
 
 class OrderController extends Controller
 {
-    /**
-     * Display a listing of orders.
-     */
     public function index(Request $request): JsonResponse
     {
         $query = Order::query()->with(['table', 'items.product'])->latest();
@@ -31,9 +28,6 @@ class OrderController extends Controller
         return response()->json($query->paginate(20));
     }
 
-    /**
-     * Store a newly created order.
-     */
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -83,17 +77,11 @@ class OrderController extends Controller
         return response()->json($order, 201);
     }
 
-    /**
-     * Display the specified order.
-     */
     public function show(Order $order): JsonResponse
     {
         return response()->json($order->load(['table', 'items.product']));
     }
 
-    /**
-     * Update the specified order.
-     */
     public function update(Request $request, Order $order): JsonResponse
     {
         $validated = $request->validate([
@@ -109,9 +97,6 @@ class OrderController extends Controller
         return response()->json($order->fresh()->load(['table', 'items.product']));
     }
 
-    /**
-     * Remove the specified order.
-     */
     public function destroy(Order $order): JsonResponse
     {
         $order->delete();
@@ -119,9 +104,6 @@ class OrderController extends Controller
         return response()->json(['message' => 'Order deleted']);
     }
 
-    /**
-     * Display live (active) orders.
-     */
     public function live(): JsonResponse
     {
         $orders = Order::query()
@@ -133,21 +115,16 @@ class OrderController extends Controller
         return response()->json($orders);
     }
 
-    /**
-     * Display order history (completed and cancelled orders).
-     */
     public function history(Request $request): JsonResponse
     {
         $query = Order::query()
             ->with(['table', 'items.product'])
             ->whereIn('status', ['completed', 'cancelled']);
 
-        // Filter by status (completed or cancelled)
         if ($request->filled('status')) {
             $query->where('status', $request->string('status'));
         }
 
-        // Filter by date range
         if ($request->filled('date_from')) {
             $query->whereDate('created_at', '>=', $request->string('date_from'));
         }
@@ -155,12 +132,10 @@ class OrderController extends Controller
             $query->whereDate('created_at', '<=', $request->string('date_to'));
         }
 
-        // Filter by payment type
         if ($request->filled('payment_type')) {
             $query->where('payment_type', $request->string('payment_type'));
         }
 
-        // Search by order ID or queue number
         if ($request->filled('search')) {
             $search = trim((string) $request->string('search'));
             $query->where(function ($q) use ($search) {
@@ -177,7 +152,6 @@ class OrderController extends Controller
             });
         }
 
-        // Sorting
         $sortBy = $request->string('sort_by', 'created_at');
         $sortOrder = $request->string('sort_order', 'desc');
         $allowedSorts = ['created_at', 'updated_at', 'total_price', 'queue_number'];
@@ -187,7 +161,6 @@ class OrderController extends Controller
             $query->latest('created_at');
         }
 
-        // Summary must be calculated from the fully filtered dataset (not current page only).
         $summaryBase = (clone $query)->reorder();
         $completedCount = (clone $summaryBase)->where('status', 'completed')->count();
         $cancelledCount = (clone $summaryBase)->where('status', 'cancelled')->count();
@@ -204,9 +177,6 @@ class OrderController extends Controller
         return response()->json($payload);
     }
 
-    /**
-     * Update order status.
-     */
     public function updateStatus(Request $request, Order $order): JsonResponse
     {
         $validated = $request->validate([
@@ -218,9 +188,6 @@ class OrderController extends Controller
         return response()->json($order->fresh()->load(['table', 'items.product']));
     }
 
-    /**
-     * Get product price by selected size.
-     */
     private function getProductSizePrice(int $productId, string $size): float
     {
         $product = Product::query()->findOrFail($productId);
