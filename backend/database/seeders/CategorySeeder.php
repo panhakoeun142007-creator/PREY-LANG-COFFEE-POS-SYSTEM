@@ -13,16 +13,16 @@ class CategorySeeder extends Seeder
     public function run(): void
     {
         $categories = [
-            ['name' => 'Coffee', 'slug' => 'coffee'],
-            ['name' => 'Tea', 'slug' => 'tea'],
-            ['name' => 'Smoothies', 'slug' => 'smoothies'],
-            ['name' => 'Pastries', 'slug' => 'pastries'],
+            ['name' => 'Coffee', 'description' => 'Various coffee beverages and espresso drinks'],
+            ['name' => 'Tea', 'description' => 'Hot and cold tea selections'],
+            ['name' => 'Smoothies', 'description' => 'Blended fruit and dairy drinks'],
+            ['name' => 'Pastries', 'description' => 'Fresh baked goods and desserts'],
         ];
 
         foreach ($categories as $category) {
             Category::query()->updateOrCreate(
-                ['slug' => $category['slug']],
-                ['name' => $category['name']]
+                ['name' => $category['name']],
+                ['description' => $category['description']]
             );
         }
     }

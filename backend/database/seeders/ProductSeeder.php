@@ -14,29 +14,29 @@ class ProductSeeder extends Seeder
     public function run(): void
     {
         $categoryIds = Category::query()
-            ->pluck('id', 'slug')
+            ->pluck('id', 'name')
             ->all();
 
         $products = [
-            ['category' => 'coffee', 'name' => 'Espresso', 'price' => 3.00, 'badge' => 'HOT'],
-            ['category' => 'coffee', 'name' => 'Americano', 'price' => 3.50, 'badge' => 'HOT'],
-            ['category' => 'coffee', 'name' => 'Latte', 'price' => 4.25, 'badge' => 'HOT'],
-            ['category' => 'coffee', 'name' => 'Cappuccino', 'price' => 4.00, 'badge' => 'HOT'],
-            ['category' => 'coffee', 'name' => 'Iced Latte', 'price' => 4.50, 'badge' => 'ICED'],
+            ['category' => 'Coffee', 'name' => 'Espresso', 'price_small' => 3.00, 'price_medium' => 3.50, 'price_large' => 4.00],
+            ['category' => 'Coffee', 'name' => 'Americano', 'price_small' => 3.50, 'price_medium' => 4.00, 'price_large' => 4.50],
+            ['category' => 'Coffee', 'name' => 'Latte', 'price_small' => 4.25, 'price_medium' => 4.75, 'price_large' => 5.25],
+            ['category' => 'Coffee', 'name' => 'Cappuccino', 'price_small' => 4.00, 'price_medium' => 4.50, 'price_large' => 5.00],
+            ['category' => 'Coffee', 'name' => 'Iced Latte', 'price_small' => 4.50, 'price_medium' => 5.00, 'price_large' => 5.50],
 
-            ['category' => 'tea', 'name' => 'Green Tea', 'price' => 3.00, 'badge' => 'HOT'],
-            ['category' => 'tea', 'name' => 'Black Tea', 'price' => 3.00, 'badge' => 'HOT'],
-            ['category' => 'tea', 'name' => 'Matcha Latte', 'price' => 5.00, 'badge' => 'POPULAR'],
-            ['category' => 'tea', 'name' => 'Iced Tea', 'price' => 3.50, 'badge' => 'ICED'],
+            ['category' => 'Tea', 'name' => 'Green Tea', 'price_small' => 3.00, 'price_medium' => 3.50, 'price_large' => 4.00],
+            ['category' => 'Tea', 'name' => 'Black Tea', 'price_small' => 3.00, 'price_medium' => 3.50, 'price_large' => 4.00],
+            ['category' => 'Tea', 'name' => 'Matcha Latte', 'price_small' => 5.00, 'price_medium' => 5.50, 'price_large' => 6.00],
+            ['category' => 'Tea', 'name' => 'Iced Tea', 'price_small' => 3.50, 'price_medium' => 4.00, 'price_large' => 4.50],
 
-            ['category' => 'smoothies', 'name' => 'Berry Blast', 'price' => 5.50, 'badge' => 'FRESH'],
-            ['category' => 'smoothies', 'name' => 'Mango Tango', 'price' => 5.25, 'badge' => 'FRESH'],
-            ['category' => 'smoothies', 'name' => 'Banana Shake', 'price' => 4.75, 'badge' => 'CREAMY'],
+            ['category' => 'Smoothies', 'name' => 'Berry Blast', 'price_small' => 5.50, 'price_medium' => 6.00, 'price_large' => 6.50],
+            ['category' => 'Smoothies', 'name' => 'Mango Tango', 'price_small' => 5.25, 'price_medium' => 5.75, 'price_large' => 6.25],
+            ['category' => 'Smoothies', 'name' => 'Banana Shake', 'price_small' => 4.75, 'price_medium' => 5.25, 'price_large' => 5.75],
 
-            ['category' => 'pastries', 'name' => 'Croissant', 'price' => 3.50, 'badge' => 'FRESH'],
-            ['category' => 'pastries', 'name' => 'Chocolate Croissant', 'price' => 3.75, 'badge' => 'FRESH'],
-            ['category' => 'pastries', 'name' => 'Blueberry Muffin', 'price' => 3.25, 'badge' => 'FRESH'],
-            ['category' => 'pastries', 'name' => 'Cinnamon Roll', 'price' => 4.00, 'badge' => 'HOT'],
+            ['category' => 'Pastries', 'name' => 'Croissant', 'price_small' => 3.50, 'price_medium' => 0, 'price_large' => 0],
+            ['category' => 'Pastries', 'name' => 'Chocolate Croissant', 'price_small' => 3.75, 'price_medium' => 0, 'price_large' => 0],
+            ['category' => 'Pastries', 'name' => 'Blueberry Muffin', 'price_small' => 3.25, 'price_medium' => 0, 'price_large' => 0],
+            ['category' => 'Pastries', 'name' => 'Cinnamon Roll', 'price_small' => 4.00, 'price_medium' => 0, 'price_large' => 0],
         ];
 
         foreach ($products as $index => $item) {
@@ -48,10 +48,10 @@ class ProductSeeder extends Seeder
             Product::query()->updateOrCreate(
                 ['name' => $item['name'], 'category_id' => $categoryId],
                 [
-                    'price' => $item['price'],
-                    'badge' => $item['badge'],
-                    'is_active' => true,
-                    'sort_order' => $index + 1,
+                    'price_small' => $item['price_small'],
+                    'price_medium' => $item['price_medium'],
+                    'price_large' => $item['price_large'],
+                    'is_available' => true,
                 ]
             );
         }
