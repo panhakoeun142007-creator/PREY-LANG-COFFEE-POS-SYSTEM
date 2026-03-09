@@ -1,7 +1,24 @@
 <?php
 
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\CategoryController;
+use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\DiningTableController;
+use App\Http\Controllers\Api\ExpenseController;
+use App\Http\Controllers\Api\FinanceController;
+use App\Http\Controllers\Api\IngredientController;
 use App\Http\Controllers\Api\OrderController;
+use App\Http\Controllers\Api\OrderItemController;
+use App\Http\Controllers\Api\ProductController;
+use App\Http\Controllers\Api\PurchaseController;
+use App\Http\Controllers\Api\RecipeController;
 use App\Http\Controllers\Api\RecipeLogController;
+use App\Http\Controllers\Api\ReceiptController;
+use App\Http\Controllers\Api\SalesAnalyticsController;
+use App\Http\Controllers\Api\SettingController;
+use App\Http\Controllers\Api\StaffController;
+use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\ForgotPasswordController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -18,26 +35,6 @@ Route::patch('/orders/{id}/status', [OrderController::class, 'updateStatus']);
 Route::get('/recipe-logs', [RecipeLogController::class, 'index']);
 Route::post('/recipe-logs', [RecipeLogController::class, 'store']);
 Route::delete('/recipe-logs/{id}', [RecipeLogController::class, 'destroy']);
-use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\CategoryController;
-use App\Http\Controllers\Api\DashboardController;
-use App\Http\Controllers\Api\DiningTableController;
-use App\Http\Controllers\Api\ExpenseController;
-use App\Http\Controllers\Api\FinanceController;
-use App\Http\Controllers\Api\IngredientController;
-use App\Http\Controllers\Api\OrderController;
-use App\Http\Controllers\Api\OrderItemController;
-use App\Http\Controllers\Api\ProductController;
-use App\Http\Controllers\Api\PurchaseController;
-use App\Http\Controllers\Api\RecipeController;
-use App\Http\Controllers\Api\ReceiptController;
-use App\Http\Controllers\Api\SalesAnalyticsController;
-use App\Http\Controllers\Api\SettingController;
-use App\Http\Controllers\Api\StaffController;
-use App\Http\Controllers\Api\UserController;
-// use App\Http\Controllers\AuthController as OriginalAuthController;
-use App\Http\Controllers\ForgotPasswordController;
-use Illuminate\Support\Facades\Route;
 
 
 Route::get('/health', function () {
