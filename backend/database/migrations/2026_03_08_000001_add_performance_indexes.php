@@ -69,17 +69,29 @@ return new class extends Migration
      */
     private function getExistingIndexes(): array
     {
-        $indexes = DB::select('SHOW INDEXES');
         $existing = [];
         
-        foreach ($indexes as $index) {
-            $table = $index->Table;
-            $keyName = $index->Key_name;
-            
-            if (!isset($existing[$table])) {
-                $existing[$table] = [];
+        // Get all tables
+        $tables = DB::select('SHOW TABLES');
+        $dbName = DB::connection()->getDatabaseName();
+        $tableField = 'Tables_in_' . $dbName;
+        
+        foreach ($tables as $tableObj) {
+            $table = $tableObj->$tableField;
+            try {
+                // Use SHOW INDEX FROM which works in both MySQL and MariaDB
+                $indexes = DB::select("SHOW INDEX FROM `{$table}`");
+                
+                if (!isset($existing[$table])) {
+                    $existing[$table] = [];
+                }
+                
+                foreach ($indexes as $index) {
+                    $existing[$table][] = $index->Key_name;
+                }
+            } catch (\Exception $e) {
+                // Table might not exist or have issues, skip it
             }
-            $existing[$table][] = $keyName;
         }
         
         return $existing;
