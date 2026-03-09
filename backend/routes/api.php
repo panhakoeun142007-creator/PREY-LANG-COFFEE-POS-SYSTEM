@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\RecipeController;
 use App\Http\Controllers\Api\ReceiptController;
 use App\Http\Controllers\Api\SalesAnalyticsController;
 use App\Http\Controllers\Api\StaffController;
+use App\Http\Controllers\Api\TelegramBotController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -31,6 +32,7 @@ Route::get('/menu/table/{token}', [CustomerMenuController::class, 'tableByToken'
 Route::get('/menu/products', [CustomerMenuController::class, 'products']);
 Route::post('/menu/orders', [CustomerMenuController::class, 'placeOrder']);
 Route::get('/orders/{order}/status', [CustomerMenuController::class, 'orderStatus']);
+Route::post('/telegram/webhook', [TelegramBotController::class, 'webhook']);
 
 Route::middleware('api.auth')->group(function () {
     // Dashboard statistics

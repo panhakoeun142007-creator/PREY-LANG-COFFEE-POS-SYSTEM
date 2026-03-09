@@ -44,4 +44,15 @@ return [
         'required_input_value' => env('DIFY_REQUIRED_INPUT_VALUE', 'coffee'),
     ],
 
+    'telegram' => [
+        'bot_token' => env('TELEGRAM_BOT_TOKEN'),
+        'chat_id' => env('TELEGRAM_CHAT_ID'),
+        'chat_ids' => array_values(array_filter(array_map(
+            static fn (string $id): string => trim($id),
+            explode(',', (string) env('TELEGRAM_CHAT_IDS', '')),
+        ))),
+        'timeout' => (int) env('TELEGRAM_TIMEOUT', 10),
+        'webhook_secret' => env('TELEGRAM_WEBHOOK_SECRET'),
+    ],
+
 ];

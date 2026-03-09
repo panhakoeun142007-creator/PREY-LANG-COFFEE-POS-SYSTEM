@@ -14,32 +14,129 @@ use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
-class AiAnalyticsController extends Controller
+class TelegramBotController extends Controller
 {
     public function __construct(
         private readonly DifyService $difyService,
         private readonly TelegramService $telegramService,
-    )
+    ) {
+    }
+
+    public function webhook(Request $request): JsonResponse
     {
+        $secret = trim((string) config('services.telegram.webhook_secret', ''));
+        if ($secret !== '') {
+            $provided = (string) $request->header('X-Telegram-Bot-Api-Secret-Token', '');
+            if (!hash_equals($secret, $provided)) {
+                return response()->json(['ok' => false, 'message' => 'Unauthorized'], 403);
+            }
+        }
+
+        $update = $request->all();
+        $chatId = (string) data_get($update, 'message.chat.id', '');
+        $text = trim((string) data_get($update, 'message.text', ''));
+
+        if ($chatId === '' || $text === '') {
+            return response()->json(['ok' => true, 'ignored' => 'No message text']);
+        }
+
+        $allowedChatIds = $this->getAllowedChatIds();
+        if ($allowedChatIds !== [] && !in_array($chatId, $allowedChatIds, true)) {
+            Log::warning('Telegram webhook message ignored from unauthorized chat', [
+                'chat_id' => $chatId,
+            ]);
+
+            return response()->json(['ok' => true, 'ignored' => 'Unauthorized chat']);
+        }
+
+        $reply = $this->handleTelegramMessage($text, $chatId);
+        $sent = $this->telegramService->sendMessage($reply, $chatId);
+
+        if (!($sent['success'] ?? false)) {
+            Log::warning('Failed to send Telegram webhook reply', [
+                'chat_id' => $chatId,
+                'error' => $sent['error'] ?? 'Unknown Telegram error',
+            ]);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'replied' => (bool) ($sent['success'] ?? false),
+        ]);
     }
 
     /**
-     * Daily Summary Analysis
+     * @return list<string>
      */
-    public function dailySummary(Request $request): JsonResponse
+    private function getAllowedChatIds(): array
+    {
+        $chatIds = [];
+
+        $single = trim((string) config('services.telegram.chat_id', ''));
+        if ($single !== '') {
+            $chatIds[] = $single;
+        }
+
+        $many = config('services.telegram.chat_ids', []);
+        if (is_array($many)) {
+            foreach ($many as $chatId) {
+                $normalized = trim((string) $chatId);
+                if ($normalized !== '') {
+                    $chatIds[] = $normalized;
+                }
+            }
+        }
+
+        return array_values(array_unique($chatIds));
+    }
+
+    private function handleTelegramMessage(string $text, string $chatId): string
+    {
+        $normalized = trim($text);
+
+        if ($normalized === '/start' || $normalized === '/help') {
+            return $this->helpMessage();
+        }
+
+        if ($normalized === '/daily') {
+            return $this->dailySummaryMessage($chatId);
+        }
+
+        if ($normalized === '/stock') {
+            return $this->stockAlertMessage($chatId);
+        }
+
+        $question = str_starts_with($normalized, '/ask ')
+            ? trim(substr($normalized, 5))
+            : $normalized;
+
+        if ($question === '' || $normalized === '/ask') {
+            return 'Please send your question after /ask. Example: /ask What are today\'s top selling drinks?';
+        }
+
+        return $this->customAskMessage($question, $chatId);
+    }
+
+    private function helpMessage(): string
+    {
+        return "🤖 PREY LANG Coffee AI Bot\n"
+            . "Commands:\n"
+            . "/ask <question> - Ask AI manually\n"
+            . "/daily - Daily AI summary\n"
+            . "/stock - Low stock AI analysis\n"
+            . "/help - Show commands\n\n"
+            . "You can also send plain text directly, and I will treat it as /ask.";
+    }
+
+    private function dailySummaryMessage(string $chatId): string
     {
         $today = Carbon::today();
-
         $totalOrders = Order::query()->whereDate('created_at', $today)->count();
-        $totalRevenue = Order::query()
-            ->whereDate('created_at', $today)
-            ->where('status', 'completed')
-            ->sum('total_price');
-        $totalExpenses = Expense::query()->whereDate('date', $today)->sum('amount');
-        $grossProfit = (float) $totalRevenue - (float) $totalExpenses;
+        $totalRevenue = (float) Order::query()->whereDate('created_at', $today)->where('status', 'completed')->sum('total_price');
+        $totalExpenses = (float) Expense::query()->whereDate('date', $today)->sum('amount');
+        $grossProfit = $totalRevenue - $totalExpenses;
         $lowStock = Ingredient::query()->whereColumn('stock_qty', '<=', 'min_stock')->count();
 
         $query = "Analyze today's coffee shop performance:\n"
@@ -48,198 +145,91 @@ class AiAnalyticsController extends Controller
             . "- Total Expenses: \${$totalExpenses}\n"
             . "- Gross Profit: \${$grossProfit}\n"
             . "- Low Stock Ingredients: {$lowStock}\n"
-            . '- Date: '.$today->toDateString()."\n\n"
+            . '- Date: ' . $today->toDateString() . "\n\n"
             . 'Provide a brief summary, key findings, and recommended actions for the admin.';
 
-        $result = $this->difyService->chat($query, 'admin-system', [
+        $result = $this->difyService->chat($query, 'telegram-' . $chatId, [
             'date' => $today->toDateString(),
             'total_orders' => $totalOrders,
-            'total_revenue' => (float) $totalRevenue,
-            'total_expenses' => (float) $totalExpenses,
+            'total_revenue' => $totalRevenue,
+            'total_expenses' => $totalExpenses,
             'gross_profit' => $grossProfit,
             'low_stock' => $lowStock,
         ]);
 
-        if (!$result['success']) {
-            $message = $result['error'] ?? 'Unable to analyze daily summary';
-
-            return response()->json([
-                'message' => $message,
-                'error' => $message,
-            ], 500);
+        if (!($result['success'] ?? false)) {
+            return 'Unable to generate daily summary right now: ' . (string) ($result['error'] ?? 'Unknown error');
         }
 
-        $response = [
-            'analysis' => $result['answer'] ?? '',
-            'data' => [
-                'total_orders' => $totalOrders,
-                'total_revenue' => (float) $totalRevenue,
-                'total_expenses' => (float) $totalExpenses,
-                'gross_profit' => $grossProfit,
-                'low_stock' => $lowStock,
-            ],
-        ];
-
-        if ($this->shouldNotifyTelegram($request)) {
-            $response['telegram'] = $this->sendAiAnalysisToTelegram(
-                'Daily Summary',
-                (string) ($result['answer'] ?? ''),
-                [
-                    'Date' => $today->toDateString(),
-                    'Orders' => (string) $totalOrders,
-                    'Revenue' => '$' . number_format((float) $totalRevenue, 2),
-                    'Expenses' => '$' . number_format((float) $totalExpenses, 2),
-                    'Gross Profit' => '$' . number_format($grossProfit, 2),
-                    'Low Stock Items' => (string) $lowStock,
-                ],
-            );
-        }
-
-        return response()->json($response);
+        return $this->limitTelegramMessage(
+            "📊 Daily Summary ({$today->toDateString()})\n"
+            . "Orders: {$totalOrders}\n"
+            . 'Revenue: $' . number_format($totalRevenue, 2) . "\n"
+            . 'Expenses: $' . number_format($totalExpenses, 2) . "\n"
+            . 'Profit: $' . number_format($grossProfit, 2) . "\n"
+            . "Low Stock: {$lowStock}\n"
+            . "━━━━━━━━━━━━━━━━━━━━━━\n"
+            . trim((string) ($result['answer'] ?? ''))
+        );
     }
 
-    /**
-     * Stock Alert Analysis
-     */
-    public function stockAlert(Request $request): JsonResponse
+    private function stockAlertMessage(string $chatId): string
     {
         $lowStockItems = Ingredient::query()
             ->whereColumn('stock_qty', '<=', 'min_stock')
-            ->select('id', 'name', 'stock_qty', 'min_stock', 'unit')
+            ->select('name', 'stock_qty', 'min_stock', 'unit')
             ->orderBy('stock_qty')
+            ->limit(20)
             ->get();
 
         if ($lowStockItems->isEmpty()) {
-            return response()->json([
-                'analysis' => 'All stock levels are healthy.',
-                'items' => [],
-            ]);
+            return '✅ Stock is healthy. No low stock items right now.';
         }
 
         $itemList = $lowStockItems
-            ->map(fn (Ingredient $ingredient) => "- {$ingredient->name}: {$ingredient->stock_qty}{$ingredient->unit} (min: {$ingredient->min_stock}{$ingredient->unit})")
+            ->map(fn (Ingredient $ingredient) => "- {$ingredient->name}: {$ingredient->stock_qty}{$ingredient->unit} (min {$ingredient->min_stock}{$ingredient->unit})")
             ->join("\n");
 
-        $query = "These ingredients are low in stock:\n{$itemList}\n\n"
-            . 'Recommend a purchase plan and urgency level for each item.';
-
-        $result = $this->difyService->chat($query, 'admin-system', [
+        $query = "These ingredients are low in stock:\n{$itemList}\n\nRecommend a purchase plan and urgency level for each item.";
+        $result = $this->difyService->chat($query, 'telegram-' . $chatId, [
             'low_stock_items' => $lowStockItems->toArray(),
         ]);
 
-        $analysis = $result['success'] ? ($result['answer'] ?? '') : 'Unable to analyze stock alert right now.';
-        $response = [
-            'analysis' => $result['success'] ? ($result['answer'] ?? '') : 'Unable to analyze stock alert right now.',
-            'items' => $lowStockItems,
-        ];
+        $analysis = $result['success'] ?? false
+            ? (string) ($result['answer'] ?? '')
+            : 'Unable to analyze stock alert right now.';
 
-        if ($this->shouldNotifyTelegram($request)) {
-            $response['telegram'] = $this->sendAiAnalysisToTelegram(
-                'Stock Alert',
-                $analysis,
-                [
-                    'Low Stock Count' => (string) $lowStockItems->count(),
-                ],
-            );
-        }
-
-        return response()->json($response);
+        return $this->limitTelegramMessage(
+            "⚠️ Low Stock Alert\n"
+            . "Count: {$lowStockItems->count()}\n"
+            . "━━━━━━━━━━━━━━━━━━━━━━\n"
+            . $analysis
+        );
     }
 
-    /**
-     * Ask AI a custom question
-     */
-    public function ask(Request $request): JsonResponse
+    private function customAskMessage(string $question, string $chatId): string
     {
-        $validated = $request->validate([
-            'question' => ['required', 'string', 'max:1000'],
-            'inputs' => ['sometimes', 'array'],
-        ]);
-
-        $authUserId = Auth::id();
-        $userId = $authUserId ? "user-{$authUserId}" : 'admin-system';
         $contextPayload = $this->buildAnalyticsContext();
         $groundedQuestion = $this->buildGroundedQuestion(
-            $validated['question'],
-            $contextPayload['analytics_context'] ?? [],
+            $question,
+            (array) ($contextPayload['analytics_context'] ?? []),
         );
 
-        $result = $this->difyService->chat(
-            $groundedQuestion,
-            $userId,
-            [
-                ...((array) ($validated['inputs'] ?? [])),
-                ...$contextPayload,
-            ],
-        );
-
-        if (!$result['success']) {
-            $message = $result['error'] ?? 'Unable to get AI response';
-
-            return response()->json([
-                'message' => $message,
-                'error' => $message,
-            ], 500);
+        $result = $this->difyService->chat($groundedQuestion, 'telegram-' . $chatId, $contextPayload);
+        if (!($result['success'] ?? false)) {
+            return 'Unable to get AI response right now: ' . (string) ($result['error'] ?? 'Unknown error');
         }
 
-        $response = [
-            'answer' => $result['answer'] ?? '',
-            'data' => $result['data'] ?? [],
-        ];
-
-        if ($this->shouldNotifyTelegram($request)) {
-            $response['telegram'] = $this->sendAiAnalysisToTelegram(
-                'Custom AI Ask',
-                (string) ($result['answer'] ?? ''),
-                [
-                    'Question' => (string) $validated['question'],
-                    'User' => $userId,
-                ],
-            );
-        }
-
-        return response()->json($response);
+        return $this->limitTelegramMessage("🤖 AI Answer\n━━━━━━━━━━━━━━━━━━━━━━\n" . trim((string) ($result['answer'] ?? '')));
     }
 
-    private function shouldNotifyTelegram(Request $request): bool
+    private function limitTelegramMessage(string $message): string
     {
-        return $request->boolean('notify_telegram') || $request->boolean('telegram');
-    }
-
-    /**
-     * @param array<string, string> $facts
-     * @return array{notified: bool, error?: string}
-     */
-    private function sendAiAnalysisToTelegram(string $title, string $analysis, array $facts = []): array
-    {
-        $factLines = collect($facts)
-            ->map(fn (string $value, string $key) => "{$key}: {$value}")
-            ->join("\n");
-
-        $message = "🤖 [AI {$title}]\n"
-            . "━━━━━━━━━━━━━━━━━━━━━━\n"
-            . ($factLines !== '' ? $factLines . "\n━━━━━━━━━━━━━━━━━━━━━━\n" : '')
-            . "Insight:\n"
-            . trim($analysis);
-
-        if (mb_strlen($message) > 3900) {
-            $message = mb_substr($message, 0, 3900) . "\n...";
+        if (mb_strlen($message) <= 3900) {
+            return $message;
         }
 
-        $telegram = $this->telegramService->sendMessage($message);
-        if (!($telegram['success'] ?? false)) {
-            Log::warning('Unable to send AI analytics message to Telegram', [
-                'title' => $title,
-                'error' => $telegram['error'] ?? 'Unknown Telegram error',
-            ]);
-
-            return [
-                'notified' => false,
-                'error' => (string) ($telegram['error'] ?? 'Telegram send failed'),
-            ];
-        }
-
-        return ['notified' => true];
+        return mb_substr($message, 0, 3900) . "\n...";
     }
 
     /**

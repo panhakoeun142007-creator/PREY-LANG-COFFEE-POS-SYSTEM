@@ -178,6 +178,7 @@ export default function OrderHistory() {
     setSelectedOrder(order)
     setShowDetails(true)
   }
+ 
 
   return (
     <div className="space-y-6">
