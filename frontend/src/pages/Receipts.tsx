@@ -6,9 +6,32 @@ const dateTime = new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'sho
 
 export default function Receipts() {
   const [receipts, setReceipts] = useState<ReceiptRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    getReceipts().then(setReceipts).catch(console.error);
+    let isMounted = true;
+    setLoading(true);
+    setError(null);
+
+    getReceipts()
+      .then((rows) => {
+        if (!isMounted) return;
+        setReceipts(rows);
+      })
+      .catch((err) => {
+        if (!isMounted) return;
+        setReceipts([]);
+        setError(err instanceof Error ? err.message : "Failed to load receipts");
+      })
+      .finally(() => {
+        if (!isMounted) return;
+        setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const totalAmount = useMemo(() => {
@@ -37,6 +60,11 @@ export default function Receipts() {
         <div className="border-b px-6 py-4">
           <h2 className="text-lg font-semibold">Receipt Archive</h2>
         </div>
+        {error ? (
+          <div className="mx-6 mt-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {error}
+          </div>
+        ) : null}
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50">
@@ -50,7 +78,13 @@ export default function Receipts() {
               </tr>
             </thead>
             <tbody>
-              {receipts.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                    Loading receipts...
+                  </td>
+                </tr>
+              ) : receipts.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
                     No paid receipts yet. Complete payments from orders and they will appear here.
@@ -61,7 +95,9 @@ export default function Receipts() {
                   <tr key={receipt.receiptId} className="border-t hover:bg-gray-50">
                     <td className="px-4 py-3 font-semibold text-[#4B2E2B]">{receipt.receiptId}</td>
                     <td className="px-4 py-3 text-gray-700">{receipt.orderId}</td>
-                    <td className="px-4 py-3 text-gray-700">{dateTime.format(new Date(receipt.paidAt))}</td>
+                    <td className="px-4 py-3 text-gray-700">
+                      {receipt.paidAt ? dateTime.format(new Date(receipt.paidAt)) : "-"}
+                    </td>
                     <td className="px-4 py-3 text-gray-700">{receipt.table}</td>
                     <td className="px-4 py-3 text-gray-700">{receipt.paymentMethod}</td>
                     <td className="px-4 py-3 text-right font-semibold text-gray-900">{money.format(receipt.total)}</td>

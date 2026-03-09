@@ -54,6 +54,15 @@ export default function AppLayout() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const persistedUser: CurrentUser | null = useMemo(() => {
+    try {
+      const raw = localStorage.getItem("user");
+      if (!raw) return null;
+      return JSON.parse(raw) as CurrentUser;
+    } catch {
+      return null;
+    }
+  }, []);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme");
@@ -91,15 +100,16 @@ export default function AppLayout() {
         localStorage.setItem('user', JSON.stringify(user));
       } catch (err) {
         console.error("Failed to load user:", err);
-        setCurrentUser(null);
-        setAccountName("");
-        setAccountEmail("");
-        setAccountImagePreview(null);
+        // Keep localStorage user fallback so role-based navigation still works.
+        setCurrentUser(persistedUser);
+        setAccountName(persistedUser?.name ?? "");
+        setAccountEmail(persistedUser?.email ?? "");
+        setAccountImagePreview(persistedUser?.profile_image_url ?? null);
       }
     }
 
     loadUser();
-  }, []);
+  }, [persistedUser]);
 
   useEffect(() => {
     if (!notificationsPollingEnabled) {
@@ -140,7 +150,7 @@ export default function AppLayout() {
   const unreadCount = notifications.filter(n => !n.read).length;
 
   // Filter navGroups based on user role
-  const userRole = currentUser?.role || 'admin';
+  const userRole = currentUser?.role || persistedUser?.role || 'staff';
   const filteredNavGroups = useMemo(() => {
     return navGroups
       .map(group => ({
@@ -341,6 +351,7 @@ export default function AppLayout() {
                 console.error("Failed to logout:", err);
               } finally {
                 localStorage.removeItem('token');
+                localStorage.removeItem('auth_token');
                 localStorage.removeItem('user');
                 window.location.href = '/login';
               }
@@ -528,6 +539,7 @@ export default function AppLayout() {
                           console.error("Failed to logout:", err);
                         } finally {
                           localStorage.removeItem('token');
+                          localStorage.removeItem('auth_token');
                           localStorage.removeItem('user');
                           window.location.href = '/login';
                         }

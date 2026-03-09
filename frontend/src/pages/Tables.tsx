@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Eye, Plus, QrCode, RefreshCw, Users, Download, Printer } from "lucide-react";
-import { QRCodeSVG } from "qrcode.react";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Switch } from "../components/ui/switch";
@@ -22,13 +21,28 @@ import {
   updateTable,
 } from "../services/api";
 
+function qrImageUrl(value: string, size: number): string {
+  return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(value)}`;
+}
+
 function createQrCode(id: number, name: string): string {
-  const baseUrl = window.location.origin;
+  const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
   return `${baseUrl}/menu?table=${id}&name=${encodeURIComponent(name)}`;
 }
 
 function getQrValue(table: ApiTable): string {
-  return table.qrCode ?? table.qr_code ?? "No QR";
+  const raw = table.qrCode ?? table.qr_code;
+  if (raw && raw.trim()) {
+    if (raw.startsWith("http://") || raw.startsWith("https://")) {
+      return raw;
+    }
+    if (raw.startsWith("/")) {
+      const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+      return `${baseUrl}${raw}`;
+    }
+  }
+
+  return createQrCode(table.id, table.name);
 }
 
 export default function Tables() {
@@ -86,7 +100,7 @@ export default function Tables() {
       setUpdatingIds((prev) => new Set(prev).add(id));
       setError(null);
       const updated = await updateTable(id, {
-        is_active: !(table.status === "active"),
+        is_active: !table.is_active,
       });
       setTables((prev) => prev.map((t) => (t.id === id ? updated : t)));
       setPreviewTable((prev) => (prev && prev.id === id ? updated : prev));
@@ -201,16 +215,11 @@ export default function Tables() {
           <h1>${previewTable.name}</h1>
           <p class="info">Capacity: ${previewTable.capacity} people</p>
           <div class="qr-container">
-            <div id="qr"></div>
+            ${qrRef.current?.innerHTML ?? ""}
           </div>
           <p class="info">Scan to view menu and place order</p>
           <p class="link">${qrValue}</p>
-          <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
           <script>
-            QRCode.toCanvas(document.getElementById('qr'), '${qrValue}', {
-              width: 300,
-              margin: 2
-            });
             setTimeout(() => window.print(), 500);
           </script>
         </body>
@@ -275,7 +284,14 @@ export default function Tables() {
               <div className="rounded-lg border border-[#EAD6C0] bg-[#F5E6D3] p-3">
                 <div className="flex items-center gap-3">
                   <div className="flex-shrink-0">
-                    <QRCodeSVG value={getQrValue(table)} size={48} level="M" />
+                    <img
+                      src={qrImageUrl(getQrValue(table), 96)}
+                      alt={`${table.name} QR code`}
+                      width={48}
+                      height={48}
+                      className="h-12 w-12 rounded bg-white object-contain"
+                      loading="lazy"
+                    />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-[#7C5D58] mb-1">Scan to order</p>
@@ -376,11 +392,12 @@ export default function Tables() {
             <div className="space-y-4">
               <div className="rounded-xl border border-[#EAD6C0] bg-[#F5E6D3] p-6 text-center">
                 <div ref={qrRef} className="inline-block">
-                  <QRCodeSVG 
-                    value={getQrValue(previewTable)} 
-                    size={256} 
-                    level="H"
-                    includeMargin={true}
+                  <img
+                    src={qrImageUrl(getQrValue(previewTable), 512)}
+                    alt={`${previewTable.name} QR code`}
+                    width={256}
+                    height={256}
+                    className="h-64 w-64 rounded bg-white object-contain"
                   />
                 </div>
                 <p className="mt-4 text-sm font-semibold text-[#4B2E2B]">{previewTable.name}</p>

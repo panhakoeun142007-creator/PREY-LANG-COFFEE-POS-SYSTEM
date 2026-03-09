@@ -61,7 +61,10 @@ export async function safeFetch(path: string, init?: globalThis.RequestInit): Pr
   let lastError: unknown = null;
   const attempted: string[] = [];
   const htmlResponses: string[] = [];
-  const authToken = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+  const authToken =
+    typeof window !== "undefined"
+      ? localStorage.getItem("token") || localStorage.getItem("auth_token")
+      : null;
 
   for (const base of bases) {
     const url = buildUrl(path, base);
@@ -85,7 +88,12 @@ export async function safeFetch(path: string, init?: globalThis.RequestInit): Pr
       const contentType = response.headers.get("content-type")?.toLowerCase() || "";
 
       if (response.status === 401 && typeof window !== "undefined") {
+        localStorage.removeItem("token");
         localStorage.removeItem("auth_token");
+        localStorage.removeItem("user");
+        if (!window.location.pathname.startsWith("/login")) {
+          window.location.href = "/login";
+        }
       }
 
       // If this base points to a frontend/dev server route, we may get HTML.
@@ -239,6 +247,7 @@ export async function loginAdmin(email: string, password: string): Promise<Login
   }
 
   const payload = (await response.json()) as LoginResponse;
+  localStorage.setItem("token", payload.token);
   localStorage.setItem("auth_token", payload.token);
   return payload;
 }
@@ -248,6 +257,7 @@ export async function logoutAdmin(): Promise<void> {
     method: "POST",
   });
 
+  localStorage.removeItem("token");
   localStorage.removeItem("auth_token");
 
   if (!response.ok) {
@@ -660,6 +670,15 @@ export interface IncomeApiItem {
 export interface IncomeSummary {
   total_income: number;
   transactions: number;
+}
+
+export interface ReceiptApiItem {
+  receiptId: string;
+  orderId: string;
+  table: string;
+  total: number;
+  paymentMethod: string;
+  paidAt: string | null;
 }
 
 // Categories
@@ -1173,6 +1192,92 @@ export async function fetchIncomeTransactions(params: {
   }
 
   return response.json();
+}
+
+function normalizeReceiptItem(input: unknown): ReceiptApiItem | null {
+  if (!input || typeof input !== "object") {
+    return null;
+  }
+
+  const row = input as Record<string, unknown>;
+  const receiptId = String(row.receiptId ?? row.receipt_id ?? "").trim();
+  const orderId = String(row.orderId ?? row.order_id ?? "").trim();
+  const table = String(row.table ?? row.customer ?? "Walk-in").trim() || "Walk-in";
+  const paymentMethod = String(row.paymentMethod ?? row.payment_method ?? "KHQR").trim();
+  const total = Number(row.total ?? row.amount ?? 0);
+  const paidAtRaw = row.paidAt ?? row.paid_at ?? null;
+  const paidAt = paidAtRaw ? String(paidAtRaw) : null;
+
+  if (!receiptId && !orderId) {
+    return null;
+  }
+
+  return {
+    receiptId: receiptId || orderId,
+    orderId: orderId || receiptId,
+    table,
+    total: Number.isFinite(total) ? total : 0,
+    paymentMethod,
+    paidAt,
+  };
+}
+
+export async function fetchReceipts(): Promise<ReceiptApiItem[]> {
+  // Primary source
+  try {
+    const response = await safeFetch("/receipts");
+    if (response.ok) {
+      const payload = await response.json();
+      const source = Array.isArray(payload)
+        ? payload
+        : payload && Array.isArray(payload.receipts)
+          ? payload.receipts
+          : payload && Array.isArray(payload.data)
+            ? payload.data
+            : [];
+
+      const normalized = source
+        .map(normalizeReceiptItem)
+        .filter((row): row is ReceiptApiItem => row !== null);
+
+      if (normalized.length > 0) {
+        return normalized;
+      }
+    }
+  } catch {
+    // Fallback below
+  }
+
+  // Fallback source: completed orders history
+  const historyResponse = await safeFetch("/orders/history?status=completed");
+  if (!historyResponse.ok) {
+    throw await readApiError(historyResponse, "Failed to fetch receipts");
+  }
+
+  const historyPayload = await historyResponse.json();
+  const historyRows = Array.isArray(historyPayload)
+    ? historyPayload
+    : Array.isArray(historyPayload?.data)
+      ? historyPayload.data
+      : [];
+
+  const mapped = historyRows.map((order: any) => {
+    const orderId = Number(order?.id ?? 0);
+    const queueNumber = Number(order?.queue_number ?? orderId);
+    const paymentType = String(order?.payment_type ?? "").toLowerCase();
+    const paymentMethod = paymentType === "cash" ? "Cash" : "KHQR";
+
+    return {
+      receiptId: `RCP-${String(orderId).padStart(5, "0")}`,
+      orderId: `ORD-${String(queueNumber).padStart(5, "0")}`,
+      table: String(order?.table?.name ?? "Walk-in"),
+      total: Number(order?.total_price ?? 0),
+      paymentMethod,
+      paidAt: order?.updated_at ?? order?.created_at ?? null,
+    } as ReceiptApiItem;
+  });
+
+  return mapped.filter((row) => row.total > 0);
 }
 
 export async function createExpense(payload: {

@@ -282,7 +282,15 @@ export const fetchOrderHistory = async () => {
 };
 
 export const fetchReceipt = async (id) => {
-  return apiRequest(`/receipts/${id}`);
+  const payload = await apiRequest('/receipts');
+  const rows = payload?.receipts || payload?.data || payload || [];
+  if (!id) return rows;
+  return rows.find((item) => item.receiptId === id || item.orderId === id) || null;
+};
+
+export const fetchReceipts = async () => {
+  const payload = await apiRequest('/receipts');
+  return payload?.receipts || payload?.data || payload || [];
 };
 
 export const fetchPurchases = async () => {

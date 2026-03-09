@@ -12,14 +12,23 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
   ->withMiddleware(function (Middleware $middleware) {
-
-    $middleware->alias([
-        'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
-        'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
-        'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
+    $aliases = [
         'admin.api' => \App\Http\Middleware\AdminApiTokenMiddleware::class,
         'staff.api' => \App\Http\Middleware\StaffApiTokenMiddleware::class,
-    ]);
+    ];
+
+    // Register Spatie permission middleware only if the package is installed.
+    if (class_exists(\Spatie\Permission\Middleware\RoleMiddleware::class)) {
+        $aliases['role'] = \Spatie\Permission\Middleware\RoleMiddleware::class;
+    }
+    if (class_exists(\Spatie\Permission\Middleware\PermissionMiddleware::class)) {
+        $aliases['permission'] = \Spatie\Permission\Middleware\PermissionMiddleware::class;
+    }
+    if (class_exists(\Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class)) {
+        $aliases['role_or_permission'] = \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class;
+    }
+
+    $middleware->alias($aliases);
 
 })
   

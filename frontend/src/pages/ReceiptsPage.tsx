@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Banknote, FileText, QrCode, Search } from "lucide-react";
+import { Banknote, FileText, QrCode, RefreshCw, Search } from "lucide-react";
 import { Card, CardContent } from "../components/ui/card";
 import { Input } from "../components/ui/input";
+import { Button } from "../components/ui/button";
 import {
   Select,
   SelectContent,
@@ -17,7 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "../components/ui/table";
-import { fetchOrderHistory, LiveOrder } from "../services/api";
+import { fetchReceipts, ReceiptApiItem } from "../services/api";
 
 type PaymentMethod = "cash" | "khqr";
 
@@ -29,6 +30,7 @@ interface ReceiptRow {
   amount: number;
   paymentMethod: PaymentMethod;
   status: "paid";
+  paidAtSort: number;
 }
 
 function formatCurrency(amount: number): string {
@@ -39,24 +41,30 @@ function formatCurrency(amount: number): string {
 }
 
 export default function ReceiptsPage() {
-  const [orders, setOrders] = useState<LiveOrder[]>([]);
+  const [orders, setOrders] = useState<ReceiptApiItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [paymentFilter, setPaymentFilter] = useState<"all" | PaymentMethod>("all");
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  const loadReceiptOrders = useCallback(async () => {
-    setLoading(true);
+  const loadReceiptOrders = useCallback(async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+    }
     try {
       setError(null);
-      const response = await fetchOrderHistory();
-      setOrders(response.data);
+      const response = await fetchReceipts();
+      setOrders(response);
+      setLastUpdated(new Date());
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to load receipts";
       setError(message);
       setOrders([]);
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -66,27 +74,26 @@ export default function ReceiptsPage() {
 
   const receiptRows = useMemo<ReceiptRow[]>(() => {
     return orders
-      .filter(
-        (order) =>
-          order.status === "completed" &&
-          order.items.length > 0 &&
-          Number(order.total_price) > 0,
-      )
+      .filter((order) => Number(order.total) > 0)
       .map((order) => ({
-        id: `REC-${order.id}`,
-        orderId: `ORD-${order.queue_number}`,
-        dateTime: new Date(order.created_at).toLocaleString("en-US", {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        customer: order.table?.name || "Walk-in",
-        amount: Number(order.total_price),
-        paymentMethod: order.payment_type?.toLowerCase() === "cash" ? "cash" : "khqr",
+        id: order.receiptId,
+        orderId: order.orderId,
+        dateTime: order.paidAt
+          ? new Date(order.paidAt).toLocaleString("en-US", {
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : "-",
+        customer: order.table || "Walk-in",
+        amount: Number(order.total),
+        paymentMethod: order.paymentMethod?.toLowerCase() === "cash" ? "cash" : "khqr",
         status: "paid",
-      }));
+        paidAtSort: order.paidAt ? new Date(order.paidAt).getTime() : 0,
+      }))
+      .sort((a, b) => b.paidAtSort - a.paidAtSort);
   }, [orders]);
 
   const filteredReceipts = useMemo(() => {
@@ -99,7 +106,8 @@ export default function ReceiptsPage() {
         query.length === 0 ||
         receipt.id.toLowerCase().includes(query) ||
         receipt.orderId.toLowerCase().includes(query) ||
-        receipt.customer.toLowerCase().includes(query);
+        receipt.customer.toLowerCase().includes(query) ||
+        receipt.paymentMethod.toLowerCase().includes(query);
 
       return matchesPayment && matchesSearch;
     });
@@ -157,7 +165,14 @@ export default function ReceiptsPage() {
             </div>
           )}
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <h2 className="text-lg font-semibold text-[#4B2E2B]">Receipt Archive</h2>
+            <div>
+              <h2 className="text-lg font-semibold text-[#4B2E2B]">Receipt Archive</h2>
+              {lastUpdated ? (
+                <p className="mt-1 text-xs text-[#7C5D58]">
+                  Last updated: {lastUpdated.toLocaleString("en-US")}
+                </p>
+              ) : null}
+            </div>
             <div className="flex flex-col gap-3 md:flex-row">
               <div className="relative w-full md:w-72">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7C5D58]" />
@@ -183,6 +198,15 @@ export default function ReceiptsPage() {
                   <SelectItem value="khqr">KHQR</SelectItem>
                 </SelectContent>
               </Select>
+              <Button
+                type="button"
+                variant="outline"
+                className="border-[#EAD6C0] text-[#4B2E2B]"
+                onClick={() => loadReceiptOrders(true)}
+              >
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Refresh
+              </Button>
             </div>
           </div>
 
@@ -215,14 +239,16 @@ export default function ReceiptsPage() {
                       colSpan={7}
                       className="py-8 text-center text-sm text-[#7C5D58]"
                     >
-                      No paid orders yet
+                      {searchQuery.trim() || paymentFilter !== "all"
+                        ? "No receipts match your current filters"
+                        : "No paid orders yet"}
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredReceipts.map((receipt) => (
                     <TableRow key={receipt.id}>
-                      <TableCell className="font-semibold">#{receipt.id}</TableCell>
-                      <TableCell>#{receipt.orderId}</TableCell>
+                      <TableCell className="font-semibold">{receipt.id}</TableCell>
+                      <TableCell>{receipt.orderId}</TableCell>
                       <TableCell>{receipt.dateTime}</TableCell>
                       <TableCell>{receipt.customer}</TableCell>
                       <TableCell>

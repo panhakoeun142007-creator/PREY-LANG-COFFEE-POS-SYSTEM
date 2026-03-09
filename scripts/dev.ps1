@@ -13,7 +13,7 @@ if (-not (Test-Path (Join-Path $frontendPath "package.json"))) {
 }
 
 $backendCommand = "Set-Location '$backendPath'; php artisan serve --host=127.0.0.1 --port=8000"
-$frontendCommand = "Set-Location '$frontendPath'; npm run dev"
+$frontendCommand = "Set-Location '$frontendPath'; npm.cmd run dev"
 
 Start-Process powershell -ArgumentList "-NoExit", "-Command", $backendCommand
 Start-Process powershell -ArgumentList "-NoExit", "-Command", $frontendCommand
