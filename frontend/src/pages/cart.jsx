@@ -22,10 +22,17 @@ function Cart({
       </div>
 
       {cartItems.length === 0 ? (
-        <div className="empty-cart">
-          <p>Your cart is empty.</p>
-          <button className="back-btn" onClick={onBackToMenu}>
-            Keep browsing the menu 
+        <div className="cart-list">
+          <div className="empty-cart-message" style={{ textAlign: "center", padding: "40px 20px" }}>
+            <p style={{ fontSize: "1rem", color: "var(--text-secondary)", marginBottom: "30px" }}>Your cart is empty</p>
+          </div>
+
+          <div className="cart-summary">
+            <p>Items: {totalItems}</p>
+            <p>Total: ${subtotal.toFixed(2)}</p>
+          </div>
+          <button className="buy-btn" onClick={onBuyNow} disabled>
+            Buy Now
           </button>
         </div>
       ) : (

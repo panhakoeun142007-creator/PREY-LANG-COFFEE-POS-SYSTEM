@@ -220,8 +220,13 @@
   transition: background 0.2s ease;
 }
 
-.buy-btn:hover {
+.buy-btn:hover:not(:disabled) {
   filter: brightness(0.94);
+}
+
+.buy-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .empty-cart {

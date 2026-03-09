@@ -943,6 +943,7 @@ function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", o
   const handleAddToCart = (product) => {
     const productKey = getProductKey(product);
     const selectedSize = selectedSizes[productKey] ?? "M";
+    // Just add to cart and show count - NO navigation to cart page
     onAddToCart?.({ product, selectedSize, productKey });
   };
 

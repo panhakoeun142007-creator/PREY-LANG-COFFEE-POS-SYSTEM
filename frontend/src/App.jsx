@@ -7,7 +7,21 @@ import QRpayment from "./pages/QRpayment";
 import Paymantule from "./pages/paymantule";
 import Wait from "./pages/wait";
 import Ready from "./pages/ready";
+import ConfirmDialog from "./components/ConfirmDialog";
 import { getCartTotal } from "./utils/pricing";
+
+const RAW_API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "").trim();
+const API_BASE_URL = RAW_API_BASE_URL.replace(/\/$/, "");
+const PROD_FALLBACK_API_BASE_URL = "http://127.0.0.1:8000";
+const getApiBaseUrl = () => {
+  if (API_BASE_URL) {
+    return API_BASE_URL;
+  }
+  if (import.meta.env.DEV) {
+    return PROD_FALLBACK_API_BASE_URL;
+  }
+  return PROD_FALLBACK_API_BASE_URL;
+};
 
 const APP_STATE_STORAGE_KEY = "prey-lang-pos:app-state:v1";
 
@@ -58,10 +72,25 @@ function App() {
     return savedTheme === "dark" ? "dark" : "light";
   });
 
+  const [confirmDialog, setConfirmDialog] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: null,
+    onCancel: null,
+  });
+
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("theme", theme);
   }, [theme]);
+
+  // Reset to menu page when cart becomes empty, but allow cart page to show empty state
+  useEffect(() => {
+    if (cartItems.length === 0 && currentPage !== "menu" && currentPage !== "cart") {
+      setCurrentPage("menu");
+    }
+  }, [cartItems.length, currentPage]);
 
   useEffect(() => {
     const safePage = cartItems.length === 0 && currentPage !== "menu" ? "menu" : currentPage;
@@ -77,46 +106,73 @@ function App() {
     );
   }, [cartItems, currentPage, detailTarget, qrOrderNumber]);
 
-  const effectivePage = cartItems.length === 0 && currentPage !== "menu" ? "menu" : currentPage;
+  const effectivePage = cartItems.length === 0 && currentPage !== "menu" && currentPage !== "cart" ? "menu" : currentPage;
   const effectiveDetailTarget = effectivePage === currentPage ? detailTarget : null;
 
   const handleAddToCart = ({ product, selectedSize, productKey }) => {
-    setCartItems((prev) => {
-      const existingIndex = prev.findIndex(
-        (item) => item.productKey === productKey && item.selectedSize === selectedSize
-      );
+    const existingIndex = cartItems.findIndex(
+      (item) => item.productKey === productKey && item.selectedSize === selectedSize
+    );
 
-      if (existingIndex === -1) {
-        return [
-          ...prev,
-          {
-            ...product,
-            productKey,
-            selectedSize,
-            sugarLevel: "100%",
-            milkOption: "Whole",
-            extras: {
-              extraShot: false,
-              whippedCream: false,
-              cinnamonSprinkles: false,
-            },
-            quantity: 1,
+    if (existingIndex === -1) {
+      const confirmed = window.confirm(`${product.name} (Size: ${selectedSize}) - Add to cart?`);
+      if (!confirmed) return;
+      
+      setCartItems((prev) => [
+        ...prev,
+        {
+          ...product,
+          productKey,
+          selectedSize,
+          sugarLevel: "100%",
+          milkOption: "Whole",
+          extras: {
+            extraShot: false,
+            whippedCream: false,
+            cinnamonSprinkles: false,
           },
-        ];
-      }
-
-      return prev.map((item, index) =>
-        index === existingIndex ? { ...item, quantity: item.quantity + 1 } : item
+          quantity: 1,
+        },
+      ]);
+    } else {
+      const confirmed = window.confirm(`${product.name} (Size: ${selectedSize}) - Increase quantity?`);
+      if (!confirmed) return;
+      
+      setCartItems((prev) =>
+        prev.map((item, index) =>
+          index === existingIndex ? { ...item, quantity: item.quantity + 1 } : item
+        )
       );
-    });
+    }
   };
 
   const updateCartItemQuantity = (productKey, selectedSize, change) => {
+    const item = cartItems.find(
+      (item) => item.productKey === productKey && item.selectedSize === selectedSize
+    );
+    if (!item) return;
+
+    const newQuantity = Math.max(item.quantity + change, 0);
+    let message = "";
+    
+    if (newQuantity === 0 && change < 0) {
+      message = `${item.name} (Size: ${selectedSize}) - Remove from cart?`;
+    } else if (change > 0) {
+      message = `${item.name} (Size: ${selectedSize}) - Increase quantity?`;
+    } else if (change < 0) {
+      message = `${item.name} (Size: ${selectedSize}) - Decrease quantity?`;
+    }
+
+    if (message) {
+      const confirmed = window.confirm(message);
+      if (!confirmed) return;
+    }
+
     setCartItems((prev) =>
       prev
         .map((item) =>
           item.productKey === productKey && item.selectedSize === selectedSize
-            ? { ...item, quantity: Math.max(item.quantity + change, 0) }
+            ? { ...item, quantity: newQuantity }
             : item
         )
         .filter((item) => item.quantity > 0)
@@ -124,6 +180,14 @@ function App() {
   };
 
   const removeCartItem = (productKey, selectedSize) => {
+    const itemToRemove = cartItems.find(
+      (item) => item.productKey === productKey && item.selectedSize === selectedSize
+    );
+    if (!itemToRemove) return;
+
+    const confirmed = window.confirm(`${itemToRemove.name} (Size: ${selectedSize}) - Remove from cart?`);
+    if (!confirmed) return;
+
     setCartItems((prev) =>
       prev.filter(
         (item) => !(item.productKey === productKey && item.selectedSize === selectedSize)
@@ -232,7 +296,7 @@ function App() {
         price: item.price || 0
       }));
 
-      const response = await fetch('/api/orders', {
+      const response = await fetch(`${getApiBaseUrl()}/api/orders`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -307,7 +371,10 @@ function App() {
         <Customer
           cartItems={cartItems}
           onAddToCart={handleAddToCart}
-          onCartClick={() => setCurrentPage("cart")}
+          onCartClick={() => {
+            // Always navigate to cart, showing empty state or items
+            setCurrentPage("cart");
+          }}
           theme={theme}
           onToggleTheme={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
         />
