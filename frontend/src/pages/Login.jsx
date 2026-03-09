@@ -12,7 +12,7 @@ export default function Login() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const auth = useContext(AuthContext);
+  const { login: authLogin } = useContext(AuthContext);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -21,7 +21,7 @@ export default function Login() {
 
     try {
       console.log('Attempting login with:', identifier.trim());
-      
+
       const data = await authService.login({
         email: identifier.trim(),
         password,
@@ -32,18 +32,18 @@ export default function Login() {
       // Handle response - API returns {token, user} format
       const token = data?.token || data?.access_token;
       const userData = data?.user;
-      
+
       console.log('Token:', token);
       console.log('User:', userData);
-      
+
       if (token && userData) {
         // Successful login
         console.log('Login successful, redirecting...');
-        // Store token first
+        // Store token and user in localStorage
         localStorage.setItem('token', token);
         localStorage.setItem('user', JSON.stringify(userData));
-        // Force full page redirect to admin
-        window.location.replace('/');
+        // Use the auth context login function - App.jsx handles role-based routing
+        authLogin(token, userData);
         return;
       } else {
         console.log('No token or user in response');
