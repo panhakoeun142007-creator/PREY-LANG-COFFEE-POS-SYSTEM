@@ -145,13 +145,13 @@ function AuthProvider({ children }) {
     }
   }, [fetchUserData, userFetched]);
 
-  const login = (token, userData) => {
+  const login = (token, userData, redirectPath = '/') => {
     localStorage.setItem("token", token);
     localStorage.setItem("user", JSON.stringify(userData));
     setIsAuthenticated(true);
     setUser(userData);
     setUserFetched(true);
-    navigate("/", { replace: true });
+    navigate(redirectPath, { replace: true });
   };
 
   const logout = () => {
@@ -193,8 +193,8 @@ function StaffRoutes() {
           <Route path="live-orders" element={withSuspense(<LiveOrders />)} />
           <Route path="order-history" element={withSuspense(<OrderHistory />)} />
           <Route path="receipts" element={withSuspense(<ReceiptsPage />)} />
-          <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
+        <Route path="*" element={<Navigate to="/live-orders" replace />} />
       </Routes>
     </CategoryProvider>
   );
@@ -219,8 +219,8 @@ function AdminRoutes() {
           <Route path="analytics" element={withSuspense(<SalesAnalytics />)} />
           <Route path="finance" element={withSuspense(<IncomePage />)} />
           <Route path="settings" element={withSuspense(<SettingsPage />)} />
-          <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </CategoryProvider>
   );

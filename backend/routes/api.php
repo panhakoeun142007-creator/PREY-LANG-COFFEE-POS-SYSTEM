@@ -64,6 +64,9 @@ Route::middleware('admin.api')->group(function () {
 
 // Staff and Admin routes (both can access)
 Route::middleware('staff.api')->group(function () {
+    Route::get('/user/me', [UserController::class, 'me']);
+    Route::get('/staff/me', [StaffController::class, 'me']);
+    Route::post('/staff/me', [StaffController::class, 'updateMyProfile']);
     Route::get('/dashboard', [DashboardController::class, 'index']);
     Route::get('/dashboard/notifications', [DashboardController::class, 'notifications']);
     Route::get('/notifications', [DashboardController::class, 'notifications']);

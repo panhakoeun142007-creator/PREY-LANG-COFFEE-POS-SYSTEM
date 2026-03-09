@@ -6,12 +6,20 @@ use App\Http\Controllers\Controller;
 use App\Models\Category;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class CategoryController extends Controller
 {
+    /**
+     * Cache TTL for categories (5 minutes).
+     */
+    private const CACHE_TTL = 300;
+
     public function index(): JsonResponse
     {
-        $categories = Category::withCount('products')->get();
+        $categories = Cache::remember('categories_list', self::CACHE_TTL, function () {
+            return Category::withCount('products')->get();
+        });
         return response()->json($categories);
     }
 
@@ -25,6 +33,10 @@ class CategoryController extends Controller
         ]);
 
         $category = Category::create($validated);
+        
+        // Clear category cache
+        Cache::forget('categories_list');
+        
         return response()->json($category, 201);
     }
 
@@ -44,12 +56,20 @@ class CategoryController extends Controller
         ]);
 
         $category->update($validated);
+        
+        // Clear category cache
+        Cache::forget('categories_list');
+        
         return response()->json($category);
     }
 
     public function destroy(Category $category): JsonResponse
     {
         $category->delete();
+        
+        // Clear category cache
+        Cache::forget('categories_list');
+        
         return response()->json(['message' => 'Category deleted successfully']);
     }
 }

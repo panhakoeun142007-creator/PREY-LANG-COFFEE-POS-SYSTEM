@@ -5,7 +5,6 @@ import { authService } from '../services/authService';
 import '../style/index.css';
 
 export default function Login() {
-  const [loginType, setLoginType] = useState('staff');
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -39,11 +38,13 @@ export default function Login() {
       if (token && userData) {
         // Successful login
         console.log('Login successful, redirecting...');
-        // Store token first
-        localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify(userData));
-        // Force full page redirect to admin
-        window.location.replace('/');
+        
+        // Determine redirect path based on role
+        const userRole = userData.role || 'staff';
+        const redirectPath = userRole === 'admin' ? '/' : '/live-orders';
+        
+        // Update auth context state and redirect
+        auth.login(token, userData, redirectPath);
         return;
       } else {
         console.log('No token or user in response');
@@ -89,40 +90,21 @@ export default function Login() {
             </section>
 
             <section className="login-ref-form-wrap">
-              <div className="login-ref-role-switch" role="tablist" aria-label="Role switch">
-                <button
-                  type="button"
-                  className={`login-ref-role-btn ${loginType === 'staff' ? 'active' : ''}`}
-                  onClick={() => setLoginType('staff')}
-                >
-                  Staff
-                </button>
-                <button
-                  type="button"
-                  className={`login-ref-role-btn ${loginType === 'admin' ? 'active' : ''}`}
-                  onClick={() => setLoginType('admin')}
-                >
-                  Admin
-                </button>
-              </div>
-
               <h2 className="login-title">
-                {loginType === 'admin' ? 'Sign in as Admin' : 'Sign in as Staff'}
+                Login Admin & Staff
               </h2>
 
               <p className="login-description">
-                {loginType === 'admin'
-                  ? 'Use your admin email and password to access settings, reports, and management tools.'
-                  : 'Use your staff ID or email and password to start billing and handle customer orders.'}
+                Use your email and password to access the POS system.
               </p>
 
               <form className="login-form" onSubmit={handleSubmit}>
                 <div className="form-group">
-                  <label htmlFor="identifier">{loginType === 'admin' ? 'Admin Email' : 'Staff ID or Email'}</label>
+                  <label htmlFor="identifier">Email</label>
                   <input
                     type="text"
                     id="identifier"
-                    placeholder={loginType === 'admin' ? 'Enter admin email' : 'Enter your staff ID or email'}
+                    placeholder="Enter your email"
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
                     required
@@ -182,7 +164,7 @@ export default function Login() {
                 </div>
 
                 <button type="submit" className="login-btn" disabled={isLoading}>
-                  {isLoading ? 'SIGNING IN...' : `SIGN IN ${loginType === 'admin' ? 'TO DASHBOARD' : 'TO POS PORTAL'}`}
+                  {isLoading ? 'SIGNING IN...' : 'SIGN IN'}
                 </button>
               </form>
 

@@ -605,28 +605,42 @@ export default function AppLayout() {
                 </div>
                 <div className={`pt-4 space-y-3 ${isDarkMode ? "border-t border-slate-700" : "border-t border-[#EAD6C0]"}`}>
                   <div>
-                    <label className={`text-xs ${isDarkMode ? "text-slate-400" : "text-[#7C5D58]"}`}>Name</label>
+                    <label className={`text-xs ${isDarkMode ? "text-slate-400" : "text-[#7C5D58]"}`}>
+                      Name {currentUser?.role === 'staff' && <span className="text-xs text-amber-500">(Read only for staff)</span>}
+                    </label>
                     <input
                       type="text"
                       value={accountName}
+                      disabled={currentUser?.role === 'staff'}
                       onChange={(event) => setAccountName(event.target.value)}
                       className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${
-                        isDarkMode
-                          ? "border-slate-600 bg-slate-800 text-slate-100 focus:border-slate-400"
-                          : "border-[#EAD6C0] text-[#4B2E2B] focus:border-[#B28A6E]"
+                        currentUser?.role === 'staff'
+                          ? isDarkMode
+                            ? "border-slate-700 bg-slate-800/50 text-slate-500 cursor-not-allowed"
+                            : "border-[#EAD6C0] bg-gray-50 text-gray-500 cursor-not-allowed"
+                          : isDarkMode
+                            ? "border-slate-600 bg-slate-800 text-slate-100 focus:border-slate-400"
+                            : "border-[#EAD6C0] text-[#4B2E2B] focus:border-[#B28A6E]"
                       }`}
                     />
                   </div>
                   <div>
-                    <label className={`text-xs ${isDarkMode ? "text-slate-400" : "text-[#7C5D58]"}`}>Email</label>
+                    <label className={`text-xs ${isDarkMode ? "text-slate-400" : "text-[#7C5D58]"}`}>
+                      Email {currentUser?.role === 'staff' && <span className="text-xs text-amber-500">(Read only for staff)</span>}
+                    </label>
                     <input
                       type="email"
                       value={accountEmail}
+                      disabled={currentUser?.role === 'staff'}
                       onChange={(event) => setAccountEmail(event.target.value)}
                       className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${
-                        isDarkMode
-                          ? "border-slate-600 bg-slate-800 text-slate-100 focus:border-slate-400"
-                          : "border-[#EAD6C0] text-[#4B2E2B] focus:border-[#B28A6E]"
+                        currentUser?.role === 'staff'
+                          ? isDarkMode
+                            ? "border-slate-700 bg-slate-800/50 text-slate-500 cursor-not-allowed"
+                            : "border-[#EAD6C0] bg-gray-50 text-gray-500 cursor-not-allowed"
+                          : isDarkMode
+                            ? "border-slate-600 bg-slate-800 text-slate-100 focus:border-slate-400"
+                            : "border-[#EAD6C0] text-[#4B2E2B] focus:border-[#B28A6E]"
                       }`}
                     />
                   </div>

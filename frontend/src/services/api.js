@@ -37,7 +37,13 @@ export async function apiRequest(path, options = {}) {
 
 // Additional API functions that are imported by other components
 export const fetchCurrentUser = async () => {
-  return apiRequest('/user');
+  // Get stored user to determine role
+  const storedUser = localStorage.getItem('user');
+  const userRole = storedUser ? JSON.parse(storedUser).role : 'admin';
+  
+  // Fetch from correct endpoint based on role from MySQL database
+  const endpoint = userRole === 'staff' ? '/staff/me' : '/user/me';
+  return apiRequest(endpoint);
 };
 
 export const fetchNotifications = async () => {
@@ -49,25 +55,42 @@ export const logoutAdmin = async () => {
 };
 
 export const updateCurrentUser = async (data) => {
+  // Get stored user to determine role
+  const storedUser = localStorage.getItem('user');
+  const userData = storedUser ? JSON.parse(storedUser) : null;
+  const userRole = userData?.role || 'admin';
+  
   // Use FormData for file uploads
   const formData = new FormData();
   
-  // Only append fields that are provided
-  if (data.name !== undefined) {
-    formData.append('name', data.name);
+  // For admin users, allow name and email updates
+  // For staff users, only allow profile_image update (name and email are locked)
+  if (userRole === 'admin') {
+    if (data.name !== undefined) {
+      formData.append('name', data.name);
+    }
+    if (data.email !== undefined) {
+      formData.append('email', data.email);
+    }
   }
-  if (data.email !== undefined) {
-    formData.append('email', data.email);
-  }
+  // Staff can only update profile image, not name or email
   if (data.profile_image) {
     formData.append('profile_image', data.profile_image);
   }
   
-  console.log('Updating user with data:', { name: data.name, email: data.email, hasImage: !!data.profile_image });
+  console.log('Updating user with data:', { 
+    name: data.name, 
+    email: data.email, 
+    hasImage: !!data.profile_image,
+    role: userRole
+  });
   
   // Get token from localStorage
   const token = localStorage.getItem('token');
-  const response = await fetch(`${API_BASE_URL}/user/me`, {
+  
+  // Use correct endpoint based on role
+  const endpoint = userRole === 'staff' ? '/staff/me' : '/user/me';
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${token}`,
