@@ -1,4 +1,5 @@
 {
+<<<<<<< HEAD
   "compilerOptions": {
     "target": "ES2022",
     "experimentalDecorators": true,
@@ -26,4 +27,8 @@
     "allowImportingTsExtensions": true,
     "noEmit": true
   }
+=======
+  "files": [],
+  "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }]
+>>>>>>> feature/merge-develop/staff-dashboard
 }
