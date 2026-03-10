@@ -1,6 +1,5 @@
 <?php
 
-<<<<<<< HEAD
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\DashboardController;
@@ -13,32 +12,43 @@ use App\Http\Controllers\Api\OrderItemController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\PurchaseController;
 use App\Http\Controllers\Api\RecipeController;
+use App\Http\Controllers\Api\RecipeLogController;
 use App\Http\Controllers\Api\ReceiptController;
 use App\Http\Controllers\Api\SalesAnalyticsController;
 use App\Http\Controllers\Api\SettingController;
 use App\Http\Controllers\Api\StaffController;
 use App\Http\Controllers\Api\UserController;
-// use App\Http\Controllers\AuthController as OriginalAuthController;
 use App\Http\Controllers\ForgotPasswordController;
 use Illuminate\Support\Facades\Route;
 
+/*
+|--------------------------------------------------------------------------
+| API Routes
+|--------------------------------------------------------------------------
+*/
 
+// Health check
 Route::get('/health', function () {
     return response()->json(['status' => 'ok']);
 });
 
-// Original Auth Routes (from develop)
-// Route::post('/register', [OriginalAuthController::class, 'register']);
-// Route::post('/logout', [OriginalAuthController::class, 'logout']);
-// Route::post('/send-reset-link', [OriginalAuthController::class, 'sendResetLink']);
-// Route::post('/verify-code', [OriginalAuthController::class, 'verifyCode']);
+// Public routes - Login
+Route::post('/login', [AuthController::class, 'login']);
+
+// Public routes - Password reset
 Route::post('/forgot-password', [ForgotPasswordController::class, 'forgotPassword']);
 Route::post('/send-reset-link', [ForgotPasswordController::class, 'sendResetLink']);
 Route::post('/verify-code', [ForgotPasswordController::class, 'verifyCode']);
 Route::post('/reset-password', [ForgotPasswordController::class, 'resetPassword']);
 
-// Login - public route (no auth required)
-Route::post('/login', [AuthController::class, 'login']);
+// Recipe Logs (public)
+Route::get('/recipe-logs', [RecipeLogController::class, 'index']);
+Route::post('/recipe-logs', [RecipeLogController::class, 'store']);
+Route::delete('/recipe-logs/{id}', [RecipeLogController::class, 'destroy']);
+
+// Orders - public listing
+Route::get('/orders', [OrderController::class, 'index']);
+Route::patch('/orders/{id}/status', [OrderController::class, 'updateStatus']);
 
 // Admin-only routes
 Route::middleware('admin.api')->group(function () {
@@ -81,28 +91,8 @@ Route::middleware('staff.api')->group(function () {
     Route::get('/receipts', [ReceiptController::class, 'index']);
 });
 
-// Public routes (no auth required) with caching
+// Public routes with caching
 Route::middleware('api.cache')->group(function () {
     Route::get('/settings', [SettingController::class, 'show']);
     Route::put('/settings', [SettingController::class, 'update']);
 });
-=======
-use App\Http\Controllers\Api\OrderController;
-use App\Http\Controllers\Api\RecipeLogController;
-use Illuminate\Support\Facades\Route;
-
-/*
-|--------------------------------------------------------------------------
-| API Routes
-|--------------------------------------------------------------------------
-*/
-
-// Orders
-Route::get('/orders', [OrderController::class, 'index']);
-Route::patch('/orders/{id}/status', [OrderController::class, 'updateStatus']);
-
-// Recipe Logs
-Route::get('/recipe-logs', [RecipeLogController::class, 'index']);
-Route::post('/recipe-logs', [RecipeLogController::class, 'store']);
-Route::delete('/recipe-logs/{id}', [RecipeLogController::class, 'destroy']);
->>>>>>> feature/staff-dashboard-copy

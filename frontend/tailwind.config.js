@@ -1,14 +1,5 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-<<<<<<< HEAD
-  content: ["./index.html", "./src/**/*.{js,jsx,ts,tsx}"],
-  theme: {
-    extend: {
-      colors: {
-        primary: "#4B2E2B",
-        "background-light": "#FFF8F0",
-        accent: "#F5E6D3",
-=======
   // 1. Enable dark mode using the 'class' strategy
   darkMode: 'class',
 
@@ -21,24 +12,21 @@ export default {
   theme: {
     extend: {
       colors: {
-        // 3. Optional: Add your brand color here for easier use
-        // Now you can use 'bg-brand' or 'text-brand' in your components
+        // Custom brand colors
         brand: {
           DEFAULT: '#BD5E0A',
           dark: '#964B08',
         },
+        primary: "#4B2E2B",
+        "background-light": "#FFF8F0",
+        accent: "#F5E6D3",
         // Custom dark backgrounds for your POS look
         darkBg: {
-          900: '#1A110B', // The color you used in your logout modal
+          900: '#1A110B',
           800: '#2B1D14',
         }
->>>>>>> feature/staff-dashboard-copy
       },
     },
   },
   plugins: [],
-<<<<<<< HEAD
-};
-=======
 }
->>>>>>> feature/staff-dashboard-copy

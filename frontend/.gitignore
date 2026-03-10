@@ -1,4 +1,16 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+=======
+>>>>>>> feature/staff-dashboard-copy
 # Logs
 logs
 *.log
@@ -23,6 +35,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+<<<<<<< HEAD
 =======
 node_modules/
 build/
@@ -32,4 +45,7 @@ coverage/
 *.log
 .env*
 !.env.example
+>>>>>>> feature/staff-dashboard-copy
+=======
+>>>>>>> feature/merge-staff-dashboard
 >>>>>>> feature/staff-dashboard-copy
