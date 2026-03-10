@@ -2,19 +2,15 @@
 
 namespace App\Models;
 
-<<<<<<< HEAD
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-=======
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
-use Illuminate\Database\Eloquent\Model;
->>>>>>> feature/staff-dashboard-copy
+
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Order extends Model
 {
-<<<<<<< HEAD
     use HasFactory;
 
     /**
@@ -58,7 +54,6 @@ class Order extends Model
     {
         return $this->hasMany(OrderItem::class);
     }
-=======
     use HasUuids;
 
     protected $fillable = [
@@ -101,5 +96,4 @@ class Order extends Model
             'completedAt'   => $this->completed_at?->toIso8601String(),
         ];
     }
->>>>>>> feature/staff-dashboard-copy
 }
