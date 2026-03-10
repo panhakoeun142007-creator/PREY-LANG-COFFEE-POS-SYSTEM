@@ -1,0 +1,63 @@
+/* ============================= */
+/* GLOBAL APP STYLE */
+/* ============================= */
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: "Segoe UI", "Tahoma", sans-serif;
+}
+
+/* Dark mode body background */
+html.dark body {
+  background:
+    radial-gradient(circle at 18% 12%, #1a1512 0%, transparent 34%),
+    radial-gradient(circle at 85% 18%, #151f1d 0%, transparent 30%),
+    linear-gradient(180deg, #0f0b09 0%, #0d0a08 100%);
+}
+
+/* ============================= */
+/* RECEIPT PREVIEW / SCREEN MODE */
+/* ============================= */
+
+/* Show receipt on screen for preview */
+#physical-receipt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: white;
+  padding: 10px;
+  margin: 20px auto;
+  width: 300px; /* adjust for preview */
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+/* ============================= */
+/* PRINT MODE */
+/* ============================= */
+
+@media print {
+
+  @page {
+    size: 80mm auto; /* thermal receipt width */
+    margin: 0;
+  }
+
+  /* Hide everything except the receipt */
+  body > *:not(#physical-receipt) {
+    display: none !important;
+  }
+
+  #physical-receipt {
+    display: flex !important;
+    flex-direction: column;
+    align-items: center;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 80mm !important; 
+    padding: 12mm 5mm !important;
+    background: white !important;
+    color: black !important;
+  }
+}

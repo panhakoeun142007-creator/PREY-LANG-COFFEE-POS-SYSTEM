@@ -1,5 +1,6 @@
 <?php
 
+<<<<<<< HEAD
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\DashboardController;
@@ -85,3 +86,23 @@ Route::middleware('api.cache')->group(function () {
     Route::get('/settings', [SettingController::class, 'show']);
     Route::put('/settings', [SettingController::class, 'update']);
 });
+=======
+use App\Http\Controllers\Api\OrderController;
+use App\Http\Controllers\Api\RecipeLogController;
+use Illuminate\Support\Facades\Route;
+
+/*
+|--------------------------------------------------------------------------
+| API Routes
+|--------------------------------------------------------------------------
+*/
+
+// Orders
+Route::get('/orders', [OrderController::class, 'index']);
+Route::patch('/orders/{id}/status', [OrderController::class, 'updateStatus']);
+
+// Recipe Logs
+Route::get('/recipe-logs', [RecipeLogController::class, 'index']);
+Route::post('/recipe-logs', [RecipeLogController::class, 'store']);
+Route::delete('/recipe-logs/{id}', [RecipeLogController::class, 'destroy']);
+>>>>>>> feature/staff-dashboard-copy
