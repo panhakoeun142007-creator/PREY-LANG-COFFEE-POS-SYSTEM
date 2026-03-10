@@ -18,7 +18,9 @@ class CategoryController extends Controller
     public function index(): JsonResponse
     {
         $categories = Cache::remember('categories_list', self::CACHE_TTL, function () {
-            return Category::withCount('products')->get();
+            return Category::select(['id', 'name', 'description', 'quantity', 'is_active', 'created_at', 'updated_at'])
+                ->withCount('products')
+                ->get();
         });
         return response()->json($categories);
     }

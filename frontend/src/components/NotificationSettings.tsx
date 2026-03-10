@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { NotificationSettingsData } from "../services/api";
+import type { NotificationSettingsData } from "../types.d";
 import { Save } from "lucide-react";
 
 interface NotificationSettingsProps {

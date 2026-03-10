@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { FileText, QrCode, Store, UserRound } from "lucide-react";
-import type { ReceiptSettingsData } from "../services/api";
+import type { ReceiptSettingsData } from "../types.d";
 
 interface ReceiptSettingsProps {
   value: ReceiptSettingsData;

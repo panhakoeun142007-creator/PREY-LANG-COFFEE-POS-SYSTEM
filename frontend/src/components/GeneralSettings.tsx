@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { GeneralSettingsData } from "../services/api";
+import type { GeneralSettingsData } from "../types.d";
 
 interface GeneralSettingsProps {
   value: GeneralSettingsData;

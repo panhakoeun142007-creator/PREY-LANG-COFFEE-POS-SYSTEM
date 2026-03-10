@@ -45,10 +45,19 @@ return [
             'prefix' => '',
             'prefix_indexes' => true,
             'strict' => true,
-            'engine' => null,
+            'engine' => 'InnoDB',
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 defined('\PDO::MYSQL_ATTR_SSL_CA') ? \PDO::MYSQL_ATTR_SSL_CA : null => env('MYSQL_ATTR_SSL_CA'),
+                // Performance optimizations
+                defined('\PDO::MYSQL_ATTR_INIT_COMMAND') ? \PDO::MYSQL_ATTR_INIT_COMMAND : null => 'SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci; SET SESSION SQL_MODE="STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION";',
             ]) : [],
+            // Connection pool settings for better performance
+            'sticky' => true,
+            'pooling' => true,
+            'pool_size' => 10,
+            // Query cache settings
+            'use_batch_upsert' => true,
+            'secure_ssl' => false,
         ],
 
         'mariadb' => [

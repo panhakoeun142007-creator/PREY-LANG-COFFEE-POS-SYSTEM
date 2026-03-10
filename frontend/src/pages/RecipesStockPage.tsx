@@ -35,6 +35,7 @@ import {
   fetchCategories,
   fetchIngredients,
   fetchProducts,
+  fetchRecipeBoards,
   fetchRecipeBoard,
   IngredientApiItem,
   RecipeBoardRow,
@@ -79,11 +80,7 @@ export default function RecipesStockPage() {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetchRecipeBoard({
-        search: search.trim() || undefined,
-        category_id: categoryFilter === "all" ? undefined : Number(categoryFilter),
-        status: statusFilter,
-      });
+      const response = await fetchRecipeBoards();
       setRows(response.data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load recipes");
@@ -91,7 +88,7 @@ export default function RecipesStockPage() {
     } finally {
       setLoading(false);
     }
-  }, [search, categoryFilter, statusFilter]);
+  }, []);
 
   useEffect(() => {
     void loadLookups();
@@ -117,7 +114,7 @@ export default function RecipesStockPage() {
     try {
       const [categoriesResponse, productsResponse, ingredientsResponse] = await Promise.all([
         fetchCategories(),
-        fetchProducts({}),
+        fetchProducts(),
         fetchIngredients(),
       ]);
 
@@ -130,8 +127,30 @@ export default function RecipesStockPage() {
   }
 
   const filteredRows = useMemo(() => {
-    return rows;
-  }, [rows]);
+    let result = rows;
+    
+    // Apply search filter
+    if (search.trim()) {
+      const query = search.toLowerCase();
+      result = result.filter(row => 
+        row.product?.toLowerCase().includes(query)
+      );
+    }
+    
+    // Apply category filter
+    if (categoryFilter !== "all") {
+      result = result.filter(row => 
+        row.category_id === Number(categoryFilter)
+      );
+    }
+    
+    // Apply status filter
+    if (statusFilter !== "all") {
+      result = result.filter(row => row.status === statusFilter);
+    }
+    
+    return result;
+  }, [rows, search, categoryFilter, statusFilter]);
 
   function resetForm() {
     setFormProductId("");
@@ -228,7 +247,7 @@ export default function RecipesStockPage() {
   async function toggleStatus(row: RecipeBoardRow, checked: boolean | undefined) {
     try {
       const active = Boolean(checked);
-      await updateRecipeBoardStatus(row.product_id, active);
+      await updateRecipeBoardStatus(row.product_id, active ? 'active' : 'inactive');
       setRows((prev) =>
         prev.map((item) =>
           item.product_id === row.product_id
@@ -364,7 +383,7 @@ export default function RecipesStockPage() {
                       </span>
                     </TableCell>
                     <TableCell className="text-lg font-semibold text-[#111827]">
-                      {money.format(row.est_cost)}
+                      {row.est_cost !== undefined ? money.format(row.est_cost) : '-'}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-3">

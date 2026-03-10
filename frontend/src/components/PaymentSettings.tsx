@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ChevronDown } from "lucide-react";
-import type { PaymentSettingsData } from "../services/api";
+import type { PaymentSettingsData } from "../types.d";
 
 interface PaymentSettingsProps {
   value: PaymentSettingsData;
@@ -58,7 +58,7 @@ export default function PaymentSettings({ value, onSave, isSaving }: PaymentSett
             <div className="relative">
               <select
                 value={form.currency}
-                onChange={(e) => setForm((prev) => ({ ...prev, currency: e.target.value }))}
+                onChange={(e) => setForm((prev: PaymentSettingsData) => ({ ...prev, currency: e.target.value }))}
                 className="w-full bg-slate-50 border border-brand-border rounded-lg px-4 py-2.5 text-xs text-brand-text outline-none appearance-none focus:ring-1 focus:ring-brand-primary"
               >
                 <option value="USD">USD - United States Dollar ($)</option>
@@ -78,7 +78,7 @@ export default function PaymentSettings({ value, onSave, isSaving }: PaymentSett
                 max={100}
                 value={form.tax_rate}
                 onChange={(e) =>
-                  setForm((prev) => ({ ...prev, tax_rate: Number(e.target.value || 0) }))
+                  setForm((prev: PaymentSettingsData) => ({ ...prev, tax_rate: Number(e.target.value || 0) }))
                 }
                 className="w-full bg-slate-50 border border-brand-border rounded-lg px-4 py-2.5 text-xs text-brand-text outline-none focus:ring-1 focus:ring-brand-primary"
               />
@@ -102,28 +102,28 @@ export default function PaymentSettings({ value, onSave, isSaving }: PaymentSett
             <h3 className={`text-xs font-bold ${form.cash_enabled ? "text-brand-text" : "text-red-600"}`}>Cash Payment</h3>
             <Toggle
               checked={form.cash_enabled}
-              onChange={(next) => setForm((prev) => ({ ...prev, cash_enabled: next }))}
+              onChange={(next) => setForm((prev: PaymentSettingsData) => ({ ...prev, cash_enabled: next }))}
             />
           </div>
           <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
             <h3 className={`text-xs font-bold ${form.credit_card_enabled ? "text-brand-text" : "text-red-600"}`}>Credit Card</h3>
             <Toggle
               checked={form.credit_card_enabled}
-              onChange={(next) => setForm((prev) => ({ ...prev, credit_card_enabled: next }))}
+              onChange={(next) => setForm((prev: PaymentSettingsData) => ({ ...prev, credit_card_enabled: next }))}
             />
           </div>
           <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
             <h3 className={`text-xs font-bold ${form.aba_pay_enabled ? "text-brand-text" : "text-red-600"}`}>ABA Pay (KHQR)</h3>
             <Toggle
               checked={form.aba_pay_enabled}
-              onChange={(next) => setForm((prev) => ({ ...prev, aba_pay_enabled: next }))}
+              onChange={(next) => setForm((prev: PaymentSettingsData) => ({ ...prev, aba_pay_enabled: next }))}
             />
           </div>
           <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
             <h3 className={`text-xs font-bold ${form.wing_money_enabled ? "text-brand-text" : "text-red-600"}`}>Wing Money</h3>
             <Toggle
               checked={form.wing_money_enabled}
-              onChange={(next) => setForm((prev) => ({ ...prev, wing_money_enabled: next }))}
+              onChange={(next) => setForm((prev: PaymentSettingsData) => ({ ...prev, wing_money_enabled: next }))}
             />
           </div>
         </div>

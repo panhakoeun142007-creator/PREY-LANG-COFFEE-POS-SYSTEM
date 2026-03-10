@@ -31,7 +31,8 @@ class ProductController extends Controller
 
         // Try cache first
         $products = Cache::remember($cacheKey, self::CACHE_TTL, function () use ($request) {
-            $query = Product::with('category');
+            $query = Product::select(['id', 'category_id', 'name', 'sku', 'price_small', 'price_medium', 'price_large', 'image', 'is_available', 'created_at', 'updated_at'])
+                ->with('category:id,name,description,quantity,is_active');
 
             if ($request->has('category_id')) {
                 $query->where('category_id', $request->category_id);

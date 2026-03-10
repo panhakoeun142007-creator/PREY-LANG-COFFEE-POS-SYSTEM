@@ -281,7 +281,8 @@ class DashboardController extends Controller
         $yesterday = now()->subDay()->startOfDay();
 
         // Single query with conditional sum
-        $revenues = Order::whereInRaw('DATE(created_at)', [$today, $yesterday])
+        $revenues = Order::whereDate('created_at', $today)
+            ->orWhereDate('created_at', $yesterday)
             ->where('status', '!=', 'cancelled')
             ->selectRaw('DATE(created_at) as date, SUM(total_price) as revenue')
             ->groupBy('date')
@@ -310,7 +311,8 @@ class DashboardController extends Controller
         $yesterday = now()->subDay()->startOfDay();
 
         // Single query with conditional count
-        $counts = Order::whereInRaw('DATE(created_at)', [$today, $yesterday])
+        $counts = Order::whereDate('created_at', $today)
+            ->orWhereDate('created_at', $yesterday)
             ->where('status', '!=', 'cancelled')
             ->selectRaw('DATE(created_at) as date, COUNT(*) as orders')
             ->groupBy('date')
