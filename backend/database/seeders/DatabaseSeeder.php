@@ -2,12 +2,10 @@
 
 namespace Database\Seeders;
 
-<<<<<<< HEAD
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
-=======
 use App\Models\Staff;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
@@ -18,17 +16,14 @@ class DatabaseSeeder extends Seeder
 {
     use WithoutModelEvents;
 
->>>>>>> feature/merge-develop/staff-dashboard
     /**
      * Seed the application's database.
      */
     public function run(): void
     {
-<<<<<<< HEAD
         $this->call([
             OrderSeeder::class,
         ]);
-=======
         // Create admin user with proper role and is_active
         $admin = User::where('email', 'panha.koeun142007@gmail.com')->first();
 
@@ -74,6 +69,5 @@ class DatabaseSeeder extends Seeder
                 'is_active' => true,
             ]
         );
->>>>>>> feature/merge-develop/staff-dashboard
     }
 }
