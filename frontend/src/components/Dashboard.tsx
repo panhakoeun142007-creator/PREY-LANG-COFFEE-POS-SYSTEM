@@ -5,7 +5,12 @@ import {
   CheckCircle2, 
   AlertCircle,
   Plus,
-  ShoppingBag
+  ShoppingBag,
+  Bell,
+  X,
+  AlertTriangle,
+  Info,
+  Check
 } from 'lucide-react';
 import { motion } from 'framer-motion'; // Fixed import to match common usage
 import { Order, InventoryItem } from '../types';
@@ -17,6 +22,7 @@ interface DashboardProps {
 
 const Dashboard: React.FC<DashboardProps> = ({ orders, onViewDetails }) => {
   const [activeTab, setActiveTab] = useState<'Live' | 'Completed' | 'Cancelled'>('Live');
+  const [showNotifications, setShowNotifications] = useState(false);
 
   const activeOrdersCount = orders.filter(o => o.status !== 'Completed' && o.status !== 'Cancelled').length;
   const readyOrdersCount = orders.filter(o => o.status === 'Ready').length;
@@ -32,6 +38,33 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, onViewDetails }) => {
     { id: '1', name: 'Whole Milk (1L)', quantity: 2, unit: 'units', threshold: 5 },
     { id: '2', name: 'Espresso Beans (500g)', quantity: 1, unit: 'bag', threshold: 3 },
     { id: '3', name: 'Caramel Syrup', quantity: 3, unit: 'bottles', threshold: 5 },
+  ];
+
+  const mockNotifications = [
+    {
+      id: '1',
+      sender: 'Sophie Manager',
+      message: 'New bulk order received - Table 8 needs immediate attention',
+      time: '2 min ago',
+      type: 'urgent',
+      read: false
+    },
+    {
+      id: '2',
+      sender: 'Kitchen Staff',
+      message: 'Running low on croissants - only 3 left',
+      time: '5 min ago',
+      type: 'warning',
+      read: false
+    },
+    {
+      id: '3',
+      sender: 'System',
+      message: 'Order #1234 is ready for pickup',
+      time: '8 min ago',
+      type: 'success',
+      read: false
+    }
   ];
 
   return (
@@ -61,17 +94,109 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, onViewDetails }) => {
           </div>
         </div>
 
-        {/* Profile Div - Dark Mode Support */}
-        <div className="flex items-center gap-3 bg-white dark:bg-[#1A110B] p-2 pr-4 rounded-full border border-slate-100 dark:border-white/10 shadow-sm transition-colors">
-          <img 
-            src="https://picsum.photos/seed/user1/100/100" 
-            alt="User" 
-            className="w-10 h-10 rounded-full object-cover border border-slate-100 dark:border-white/10"
-            referrerPolicy="no-referrer"
-          />
-          <div>
-            <p className="text-sm font-bold leading-none dark:text-white transition-colors">Chanthy CHET</p>
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium uppercase tracking-wider">Barista</p>
+        {/* Profile and Notifications Div - Dark Mode Support */}
+        <div className="flex items-center gap-3 relative">
+          {/* Notification Bell */}
+          <button 
+            onClick={() => setShowNotifications(!showNotifications)}
+            className="relative p-2 bg-white dark:bg-[#1A110B] rounded-full border border-slate-100 dark:border-white/10 shadow-sm transition-colors hover:scale-105 active:scale-95"
+          >
+            <Bell size={20} className="text-slate-600 dark:text-slate-300" />
+            {/* Notification Badge */}
+            <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white dark:border-[#1A110B]">
+              {mockNotifications.filter(n => !n.read).length}
+            </span>
+          </button>
+
+          {/* Notifications Dropdown */}
+          {showNotifications && (
+            <motion.div
+              initial={{ opacity: 0, y: -10, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.95 }}
+              className="absolute right-0 top-16 w-96 bg-white dark:bg-[#1A110B] rounded-2xl border border-slate-100 dark:border-white/10 shadow-xl z-50 overflow-hidden"
+            >
+              {/* Dropdown Header */}
+              <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-white/5">
+                <h3 className="font-bold text-slate-900 dark:text-white">Notifications</h3>
+                <button 
+                  onClick={() => setShowNotifications(false)}
+                  className="p-1 hover:bg-slate-50 dark:hover:bg-white/5 rounded-lg transition-colors"
+                >
+                  <X size={16} className="text-slate-400 dark:text-slate-500" />
+                </button>
+              </div>
+
+              {/* Notifications List */}
+              <div className="max-h-96 overflow-y-auto">
+                {mockNotifications.map((notification) => (
+                  <div
+                    key={notification.id}
+                    className="p-4 border-b border-slate-50 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-start gap-3">
+                      {/* Icon based on type */}
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                        notification.type === 'urgent' ? 'bg-red-100 dark:bg-red-500/10' :
+                        notification.type === 'warning' ? 'bg-amber-100 dark:bg-amber-500/10' :
+                        'bg-emerald-100 dark:bg-emerald-500/10'
+                      }`}>
+                        {notification.type === 'urgent' ? (
+                          <AlertTriangle size={16} className="text-red-600 dark:text-red-400" />
+                        ) : notification.type === 'warning' ? (
+                          <AlertCircle size={16} className="text-amber-600 dark:text-amber-400" />
+                        ) : (
+                          <Check size={16} className="text-emerald-600 dark:text-emerald-400" />
+                        )}
+                      </div>
+
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-sm font-bold text-slate-900 dark:text-white">
+                            {notification.sender}
+                          </p>
+                          <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                            {notification.time}
+                          </span>
+                        </div>
+                        <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2">
+                          {notification.message}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {mockNotifications.length === 0 && (
+                  <div className="p-8 text-center">
+                    <Info size={24} className="text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+                    <p className="text-sm text-slate-400 dark:text-slate-500">No notifications</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Dropdown Footer */}
+              <div className="p-3 border-t border-slate-100 dark:border-white/5">
+                <button className="w-full text-center text-sm text-[#BD5E0A] font-bold hover:underline">
+                  Mark all as read
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Profile Div */}
+          <div className="flex items-center gap-3 bg-white dark:bg-[#1A110B] p-2 pr-4 rounded-full border border-slate-100 dark:border-white/10 shadow-sm transition-colors">
+            <img 
+              src="https://picsum.photos/seed/user1/100/100" 
+              alt="User" 
+              className="w-10 h-10 rounded-full object-cover border border-slate-100 dark:border-white/10"
+              referrerPolicy="no-referrer"
+            />
+            <div>
+              <p className="text-sm font-bold leading-none dark:text-white transition-colors">Chanthy CHET</p>
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium uppercase tracking-wider">Barista</p>
+            </div>
           </div>
         </div>
       </header>

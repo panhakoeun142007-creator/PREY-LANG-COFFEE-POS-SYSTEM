@@ -19,11 +19,14 @@ class Order extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'table_id',
+        'table_no',
         'status',
-        'total_price',
-        'payment_type',
-        'queue_number',
+        'items',
+        'time_elapsed',
+        'customer_name',
+        'total',
+        'payment_method',
+        'completed_at',
     ];
 
     /**
@@ -34,8 +37,9 @@ class Order extends Model
     protected function casts(): array
     {
         return [
-            'total_price' => 'decimal:2',
-            'queue_number' => 'integer',
+            'items' => 'array',
+            'total' => 'decimal:2',
+            'completed_at' => 'datetime',
         ];
     }
 
