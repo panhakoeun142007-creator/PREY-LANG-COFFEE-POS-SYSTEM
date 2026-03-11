@@ -45,7 +45,7 @@ class Staff extends Model
     {
         return [
             'password' => 'hashed',
-            'password_plain' => 'encrypted',
+            'password_plain' => 'string',
             'salary' => 'decimal:2',
             'is_active' => 'boolean',
         ];
