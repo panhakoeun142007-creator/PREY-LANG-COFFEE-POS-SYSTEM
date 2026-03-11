@@ -450,7 +450,7 @@ export const deleteExpense = async (id: number) => {
 };
 
 export const fetchIncomeTransactions = async () => {
-  return apiRequest('/expenses/income');
+  return apiRequest('/finance/income');
 };
 
 export const updateExpense = async (id: number, data: any) => {
