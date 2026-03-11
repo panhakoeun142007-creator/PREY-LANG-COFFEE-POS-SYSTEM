@@ -3,9 +3,12 @@ import { Order, OrderStatus, RecipeLog } from '../types';
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) || '/api';
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = localStorage.getItem('token');
+  
   const response = await fetch(`${API_BASE_URL}${path}`, {
     headers: {
       'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
       ...(init?.headers ?? {}),
     },
     ...init,
