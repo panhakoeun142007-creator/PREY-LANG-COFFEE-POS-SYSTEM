@@ -105,11 +105,11 @@ class RecipeController extends Controller
     public function boardUpdateStatus(Request $request, int $product): JsonResponse
     {
         $validated = $request->validate([
-            'is_active' => ['required', 'boolean'],
+            'status' => ['required', Rule::in(['active', 'inactive'])],
         ]);
 
         $record = Product::query()->findOrFail($product);
-        $record->update(['is_available' => $validated['is_active']]);
+        $record->update(['is_available' => $validated['status'] === 'active']);
 
         return response()->json([
             'product_id' => $record->id,

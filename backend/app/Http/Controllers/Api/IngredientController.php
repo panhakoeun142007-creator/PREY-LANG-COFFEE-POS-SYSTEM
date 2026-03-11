@@ -21,12 +21,19 @@ class IngredientController extends Controller
             $query->whereColumn('stock_qty', '<=', 'min_stock');
         }
 
-        $paginated = $query->paginate(20);
-        $paginated->setCollection(
-            $paginated->getCollection()->map(fn (Ingredient $ingredient) => $this->transformIngredient($ingredient))
-        );
+        // If paginate parameter is explicitly set to false or not provided, return all
+        if ($request->has('paginate') && $request->boolean('paginate') === false) {
+            $ingredients = $query->get();
+            return response()->json(
+                $ingredients->map(fn (Ingredient $ingredient) => $this->transformIngredient($ingredient))
+            );
+        }
 
-        return response()->json($paginated);
+        // Default: return all ingredients without pagination for simplicity
+        $ingredients = $query->get();
+        return response()->json(
+            $ingredients->map(fn (Ingredient $ingredient) => $this->transformIngredient($ingredient))
+        );
     }
 
     /**
