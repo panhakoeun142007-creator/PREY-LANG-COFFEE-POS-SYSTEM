@@ -2,13 +2,15 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Order extends Model
 {
+    use HasUuids;
     use HasFactory;
 
     /**
@@ -17,11 +19,14 @@ class Order extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'table_id',
+        'table_no',
         'status',
-        'total_price',
-        'payment_type',
-        'queue_number',
+        'items',
+        'time_elapsed',
+        'customer_name',
+        'total',
+        'payment_method',
+        'completed_at',
     ];
 
     /**
@@ -32,8 +37,9 @@ class Order extends Model
     protected function casts(): array
     {
         return [
-            'total_price' => 'decimal:2',
-            'queue_number' => 'integer',
+            'items' => 'array',
+            'total' => 'decimal:2',
+            'completed_at' => 'datetime',
         ];
     }
 
@@ -51,5 +57,13 @@ class Order extends Model
     public function items(): HasMany
     {
         return $this->hasMany(OrderItem::class);
+    }
+
+    /**
+     * Get recipe logs for the order.
+     */
+    public function recipeLogs(): HasMany
+    {
+        return $this->hasMany(RecipeLog::class);
     }
 }

@@ -3,13 +3,31 @@ import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+=======
+>>>>>>> feature/staff-dashboard-copy
+<<<<<<< HEAD
 import tseslint from 'typescript-eslint'
 =======
 >>>>>>> feature/customer-menu
+<<<<<<< HEAD
+=======
+>>>>>>> feature/staff-dashboard-copy
+=======
+>>>>>>> feature/merge-staff-dashboard
+>>>>>>> feature/staff-dashboard-copy
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
   globalIgnores(['dist']),
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+  {
+    files: ['**/*.{js,jsx}'],
+=======
+>>>>>>> feature/staff-dashboard-copy
 <<<<<<< HEAD
   tseslint.configs.recommended,
   {
@@ -18,6 +36,14 @@ export default defineConfig([
   {
     files: ['**/*.{js,jsx}'],
 >>>>>>> feature/customer-menu
+<<<<<<< HEAD
+=======
+  {
+    files: ['**/*.{js,jsx}'],
+>>>>>>> feature/staff-dashboard-copy
+=======
+>>>>>>> feature/merge-staff-dashboard
+>>>>>>> feature/staff-dashboard-copy
     extends: [
       js.configs.recommended,
       reactHooks.configs.flat.recommended,

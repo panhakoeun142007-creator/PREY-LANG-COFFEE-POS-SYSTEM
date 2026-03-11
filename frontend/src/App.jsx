@@ -6,8 +6,8 @@ import { CategoryProvider } from "./context/CategoryContext";
 // Auth Context
 const AuthContext = createContext({
   isAuthenticated: false,
-  login: () => {},
-  logout: () => {},
+  login: () => { },
+  logout: () => { },
   user: null,
 });
 
@@ -33,6 +33,7 @@ const VerifyCode = lazy(() => import("./pages/VerifyCode"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const VerifySuccessful = lazy(() => import("./pages/VerifySuccessful"));
 const SessionExpired = lazy(() => import("./pages/SessionExpired"));
+const StaffDashboardPage = lazy(() => import("./pages/StaffDashboardPage"));
 
 // API Base URL
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
@@ -117,13 +118,13 @@ function AuthProvider({ children }) {
   useEffect(() => {
     const token = localStorage.getItem("token");
     const userData = localStorage.getItem("user");
-    
+
     if (token && userData) {
       try {
         const parsedUser = JSON.parse(userData);
         setUser(parsedUser);
         setIsAuthenticated(true);
-        
+
         if (!userFetched) {
           fetchUserData(token).then(success => {
             if (!success) {
@@ -230,7 +231,7 @@ function AdminRoutes() {
 function AppRoutes() {
   const auth = useContext(AuthContext);
   const userRole = auth.user?.role || 'admin';
-  
+
   if (userRole === 'staff') {
     return <StaffRoutes />;
   }
@@ -247,7 +248,8 @@ export default function App() {
         <Route path="/reset-password" element={withSuspense(<ResetPassword />)} />
         <Route path="/verify-successful" element={withSuspense(<VerifySuccessful />)} />
         <Route path="/session-expired" element={withSuspense(<SessionExpired />)} />
-        
+        <Route path="/staff-dashboard" element={withSuspense(<StaffDashboardPage />)} />
+
         <Route
           path="/*"
           element={

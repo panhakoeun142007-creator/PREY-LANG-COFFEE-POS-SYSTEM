@@ -20,7 +20,7 @@ export default function Login() {
 
     try {
       console.log('Attempting login with:', identifier.trim());
-      
+
       const data = await authService.login({
         email: identifier.trim(),
         password,
@@ -31,18 +31,18 @@ export default function Login() {
       // Handle response - API returns {token, user} format
       const token = data?.token || data?.access_token;
       const userData = data?.user;
-      
+
       console.log('Token:', token);
       console.log('User:', userData);
-      
+
       if (token && userData) {
         // Successful login
         console.log('Login successful, redirecting...');
-        
+
         // Determine redirect path based on role
         const userRole = userData.role || 'staff';
-        const redirectPath = userRole === 'admin' ? '/' : '/live-orders';
-        
+        const redirectPath = userRole === 'admin' ? '/' : '/staff-dashboard';
+
         // Update auth context state and redirect
         auth.login(token, userData, redirectPath);
         return;

@@ -2,98 +2,112 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  :root {
+    --panel-bg: rgba(255, 255, 255, 0.82);
+    --surface-0: #fff8f0;
+    --surface-1: #ffffff;
+    --surface-2: #f8efe4;
+    --text-main: #4b2e2b;
+    --text-strong: #111827;
+    --muted-text: #7c5d58;
+    --border-soft: #ead6c0;
+    --ring: #4b2e2b;
+    --card-bg: var(--surface-1);
+    --card-border: var(--border-soft);
+    --card-text: var(--text-main);
+    --input-bg: var(--surface-1);
+    --input-border: #e5d2bb;
+    --input-text: var(--text-main);
+    --btn-primary-bg: #4b2e2b;
+    --btn-primary-hover: #6b4e4b;
+    --btn-primary-text: #ffffff;
+    --btn-outline-bg: #ffffff;
+    --btn-outline-border: #e5d2bb;
+    --btn-outline-text: #4b2e2b;
+    --btn-outline-hover: #f8efe4;
+-bg: #f    --btn-secondary5e6d3;
+    --btn-secondary-hover: #ead6c0;
+    --btn-secondary-text: #4b2e2b;
+    --btn-ghost-text: #4b2e2b;
+    --btn-ghost-hover: #f8efe4;
+    --btn-link-text: #4b2e2b;
+  }
+
+  html, body, #root {
+    min-height: 100vh;
+    width: 100%;
+  }
+
+  body {
+    @apply text-slate-900 font-sans antialiased;
+    min-height: 100vh;
+    margin: 0;
+    background-repeat: no-repeat;
+    background-size: cover;
+    background-attachment: fixed;
+    background:
+      radial-gradient(circle at 18% 12%, #fff7e8 0%, transparent 34%),
+      radial-gradient(circle at 85% 18%, #e8f0ef 0%, transparent 30%),
+      linear-gradient(180deg, #f6f1ea 0%, #f1ece5 100%);
+  }
+
+  /* Dark mode panel background */
+  :root.dark {
+    --panel-bg: rgba(30, 25, 20, 0.82);
+  }
+
+  html.dark body {
+    background:
+      radial-gradient(circle at 18% 12%, #1a1512 0%, transparent 34%),
+      radial-gradient(circle at 85% 18%, #151f1d 0%, transparent 30%),
+      linear-gradient(180deg, #0f0b09 0%, #0d0a08 100%);
+    color: #e2e8f0;
+    --surface-0: #0b1220;
+    --surface-1: #0f172a;
+    --surface-2: #111827;
+    --text-main: #e2e8f0;
+    --text-strong: #f8fafc;
+    --muted-text: #94a3b8;
+    --border-soft: #334155;
+    --ring: #93c5fd;
+    --card-bg: #0f172a;
+    --card-border: #334155;
+    --card-text: #e2e8f0;
+    --input-bg: #111827;
+    --input-border: #334155;
+    --input-text: #e2e8f0;
+    --btn-primary-bg: #4f46e5;
+    --btn-primary-hover: #6366f1;
+    --btn-primary-text: #ffffff;
+    --btn-outline-bg: #0f172a;
+    --btn-outline-border: #475569;
+    --btn-outline-text: #e2e8f0;
+    --btn-outline-hover: #1e293b;
+    --btn-secondary-bg: #1e293b;
+    --btn-secondary-hover: #334155;
+    --btn-secondary-text: #e2e8f0;
+    --btn-ghost-text: #e2e8f0;
+    --btn-ghost-hover: #1e293b;
+    --btn-link-text: #bfdbfe;
+  }
+
+  h1, h2, h3 {
+    font-family: var(--font-serif);
+  }
+
+  * {
+    font-family: "Segoe UI", "Tahoma", sans-serif;
+  }
+}
+
+.panel-shell {
+  @apply rounded-[28px] border border-white/70 shadow-xl backdrop-blur-sm;
+  background-color: var(--panel-bg);
+}
+
 * {
   box-sizing: border-box;
-}
-
-:root {
-  --surface-0: #fff8f0;
-  --surface-1: #ffffff;
-  --surface-2: #f8efe4;
-  --text-main: #4b2e2b;
-  --text-strong: #111827;
-  --muted-text: #7c5d58;
-  --border-soft: #ead6c0;
-  --ring: #4b2e2b;
-
-  --card-bg: var(--surface-1);
-  --card-border: var(--border-soft);
-  --card-text: var(--text-main);
-
-  --input-bg: var(--surface-1);
-  --input-border: #e5d2bb;
-  --input-text: var(--text-main);
-
-  --btn-primary-bg: #4b2e2b;
-  --btn-primary-hover: #6b4e4b;
-  --btn-primary-text: #ffffff;
-
-  --btn-outline-bg: #ffffff;
-  --btn-outline-border: #e5d2bb;
-  --btn-outline-text: #4b2e2b;
-  --btn-outline-hover: #f8efe4;
-
-  --btn-secondary-bg: #f5e6d3;
-  --btn-secondary-hover: #ead6c0;
-  --btn-secondary-text: #4b2e2b;
-
-  --btn-ghost-text: #4b2e2b;
-  --btn-ghost-hover: #f8efe4;
-  --btn-link-text: #4b2e2b;
-}
-
-body {
-  margin: 0;
-  min-width: 320px;
-  background: var(--surface-0);
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-  color: var(--text-main);
-}
-
-#root {
-  height: 100vh;
-}
-
-html.dark body {
-  background: radial-gradient(circle at top, #1e293b 0%, #0b1220 55%);
-  color: #e2e8f0;
-}
-
-html.dark {
-  color-scheme: dark;
-  --surface-0: #0b1220;
-  --surface-1: #0f172a;
-  --surface-2: #111827;
-  --text-main: #e2e8f0;
-  --text-strong: #f8fafc;
-  --muted-text: #94a3b8;
-  --border-soft: #334155;
-  --ring: #93c5fd;
-
-  --card-bg: #0f172a;
-  --card-border: #334155;
-  --card-text: #e2e8f0;
-
-  --input-bg: #111827;
-  --input-border: #334155;
-  --input-text: #e2e8f0;
-
-  --btn-primary-bg: #4f46e5;
-  --btn-primary-hover: #6366f1;
-  --btn-primary-text: #ffffff;
-
-  --btn-outline-bg: #0f172a;
-  --btn-outline-border: #475569;
-  --btn-outline-text: #e2e8f0;
-  --btn-outline-hover: #1e293b;
-
-  --btn-secondary-bg: #1e293b;
-  --btn-secondary-hover: #334155;
-  --btn-secondary-text: #e2e8f0;
-
-  --btn-ghost-text: #e2e8f0;
-  --btn-ghost-hover: #1e293b;
-  --btn-link-text: #bfdbfe;
 }
 
 html.dark .bg-white {
