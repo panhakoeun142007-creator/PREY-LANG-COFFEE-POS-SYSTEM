@@ -8,6 +8,7 @@ import {
   Moon,
   Sun,
   AlertCircle,
+  Settings,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import LogoImage from '../assets/coffee.png';
@@ -18,6 +19,7 @@ interface SidebarProps {
   onLogoutClick: () => void;
   isDark: boolean;
   onThemeToggle: () => void;
+  shopName?: string;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -26,6 +28,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onLogoutClick,
   isDark,
   onThemeToggle,
+  shopName = 'Prey Lang',
 }) => {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
@@ -34,6 +37,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'orders', label: 'Orders', icon: ShoppingBag },
     { id: 'recipe', label: 'Recipe', icon: BookOpen },
     { id: 'history', label: 'Order History', icon: History },
+    { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
   return (
@@ -48,7 +52,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             <img src={LogoImage} alt="Logo" className="w-full h-full object-contain p-1" />
           </motion.div>
           <div className="flex flex-col">
-            <h1 className="font-black text-xl tracking-tight leading-none mb-1 text-white">Prey Lang</h1>
+            <h1 className="font-black text-xl tracking-tight leading-none mb-1 text-white">{shopName}</h1>
             <p className="text-[10px] uppercase tracking-[0.2em] font-black text-orange-200">POS System</p>
           </div>
         </div>

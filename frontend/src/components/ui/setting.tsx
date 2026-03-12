@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "react-hot-toast";
 import GeneralSettings from "../GeneralSettings";
 import NotificationSettings from "../NotificationSettings";
 import PaymentSettings from "../PaymentSettings";
@@ -15,6 +16,10 @@ import {
 } from "../../services/api";
 
 type TabType = "General" | "Notifications" | "Payment" | "Receipt";
+
+interface SettingsPageProps {
+  onSettingsSaved?: () => void;
+}
 
 const tabs: TabType[] = ["General", "Notifications", "Payment", "Receipt"];
 
@@ -58,7 +63,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   },
 };
 
-export default function SettingsPage() {
+export default function SettingsPage({ onSettingsSaved }: SettingsPageProps) {
   const [activeTab, setActiveTab] = useState<TabType>("General");
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -98,6 +103,8 @@ export default function SettingsPage() {
       setError(null);
       const payload = await updateSettings({ general: data });
       setSettings(payload);
+      onSettingsSaved?.();
+      toast.success("General settings saved successfully!");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save general settings");
     } finally {
@@ -111,6 +118,8 @@ export default function SettingsPage() {
       setError(null);
       const payload = await updateSettings({ notifications: data });
       setSettings(payload);
+      onSettingsSaved?.();
+      toast.success("Notification settings saved successfully!");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save notification settings");
     } finally {
@@ -124,6 +133,8 @@ export default function SettingsPage() {
       setError(null);
       const payload = await updateSettings({ payment: data });
       setSettings(payload);
+      onSettingsSaved?.();
+      toast.success("Payment settings saved successfully!");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save payment settings");
     } finally {
@@ -137,6 +148,8 @@ export default function SettingsPage() {
       setError(null);
       const payload = await updateSettings({ receipt: data });
       setSettings(payload);
+      onSettingsSaved?.();
+      toast.success("Receipt settings saved successfully!");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save receipt settings");
     } finally {
@@ -189,6 +202,11 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
+      <div className="mb-8">
+        <h1 className="text-3xl font-black tracking-tight mb-2 text-[#4B2E2B] dark:text-white">Settings</h1>
+        <p className="text-sm text-[#8E706B] dark:text-slate-400">Manage your shop settings, notifications, payment options, and receipts.</p>
+      </div>
+
       <section className="rounded-2xl border border-[#EAD6C0] bg-white p-2 shadow-sm">
         <div className="flex flex-wrap gap-2">
           {tabs.map((tab) => (

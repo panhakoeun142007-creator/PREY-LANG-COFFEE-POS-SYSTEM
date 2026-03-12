@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Setting;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class SettingController extends Controller
 {
@@ -123,6 +124,9 @@ class SettingController extends Controller
         $next = array_replace_recursive($current, $validated);
 
         $setting->update(['value' => $next]);
+
+        // Clear the cache for settings to ensure fresh data is returned
+        Cache::forget('api_cache_' . md5('/api/settings'));
 
         return response()->json($next);
     }

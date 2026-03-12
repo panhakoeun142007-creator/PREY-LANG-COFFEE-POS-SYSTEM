@@ -14,14 +14,9 @@ declare module '*.js' {
 // Settings Types
 export interface GeneralSettingsData {
   shop_name: string;
-  shop_logo: string;
-  shop_description: string;
   address: string;
   phone: string;
   email: string;
-  operating_hours: string;
-  facebook_url: string;
-  instagram_url: string;
 }
 
 export interface NotificationSettingsData {

@@ -5,8 +5,10 @@ import Dashboard from './components/Dashboard';
 import Orders from './components/Orders';
 import OrderHistory from './components/OrderHistory';
 import RecipeView from './components/RecipeView';
+import SettingsPage from './components/ui/setting';
 import { Order, RecipeLog } from './types';
 import { deleteRecipeLog, getOrders, getRecipeLogs, updateOrderStatus as updateOrderStatusApi } from './lib/api';
+import { fetchSettings } from './services/api';
 import { buildOrderDisplayIdMap } from './lib/orderDisplayId';
 
 export default function App() {
@@ -23,6 +25,7 @@ export default function App() {
   const [isLoadingRecipes, setIsLoadingRecipes] = useState(true);
   const [recipeError, setRecipeError] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [shopName, setShopName] = useState('Prey Lang');
   const orderDisplayIdMap = buildOrderDisplayIdMap(orders.map((order) => order.id));
 
   const loadOrders = useCallback(async () => {
@@ -52,6 +55,20 @@ export default function App() {
     }
   }, []);
 
+  const loadShopName = useCallback(async () => {
+    try {
+      console.log('Loading shop name from settings...');
+      const settings = await fetchSettings();
+      console.log('Settings loaded:', settings);
+      if (settings?.general?.shop_name) {
+        setShopName(settings.general.shop_name);
+        console.log('Shop name updated to:', settings.general.shop_name);
+      }
+    } catch (error) {
+      console.error('Failed to load shop name:', error);
+    }
+  }, []);
+
   useEffect(() => {
     // Apply dark class to document root for Tailwind dark mode
     if (isDark) {
@@ -64,7 +81,8 @@ export default function App() {
   useEffect(() => {
     loadOrders();
     loadRecipeLogs();
-  }, [loadOrders, loadRecipeLogs]);
+    loadShopName();
+  }, [loadOrders, loadRecipeLogs, loadShopName]);
 
   useEffect(() => {
     if (activeTab === 'recipe') {
@@ -124,6 +142,8 @@ export default function App() {
             onDeleteLog={handleDeleteRecipeLog}
           />
         );
+      case 'settings':
+        return <SettingsPage onSettingsSaved={loadShopName} />;
       default:
         return isLoadingOrders
           ? <p className="text-slate-500 dark:text-slate-400 font-bold">Loading orders...</p>
@@ -149,6 +169,7 @@ export default function App() {
         onLogoutClick={() => toast.error('Logout disabled for this version')}
         isDark={isDark}
         onThemeToggle={handleThemeToggle}
+        shopName={shopName}
       />
 
       <div className={`flex-1 ml-72 min-h-screen ${isDark ? 'dark' : ''}`}>
