@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -17,6 +17,7 @@ import {
   PeakHourDataPoint,
   SalesTrendDataPoint,
 } from "../services/api";
+import { useSettings } from "../context/SettingsContext";
 
 const monthlyTrendMockData: SalesTrendDataPoint[] = [
   { month: "Jan", sales: 9800, orders: 248 },
@@ -54,13 +55,17 @@ const tooltipStyle = {
   borderRadius: "12px",
 };
 
-const money = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  minimumFractionDigits: 0,
-});
-
 export default function SalesAnalytics() {
+  const { currency } = useSettings();
+  const money = useMemo(
+    () =>
+      new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency,
+        minimumFractionDigits: 0,
+      }),
+    [currency],
+  );
   const [monthlyTrendData, setMonthlyTrendData] = useState<SalesTrendDataPoint[]>(monthlyTrendMockData);
   const [peakHoursData, setPeakHoursData] = useState<PeakHourDataPoint[]>(peakHoursMockData);
   const [monthlyPerformanceData, setMonthlyPerformanceData] =

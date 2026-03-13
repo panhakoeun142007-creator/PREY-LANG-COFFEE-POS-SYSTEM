@@ -6,70 +6,17 @@ use App\Http\Controllers\Controller;
 use App\Models\Setting;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use App\Support\AppSettings;
 use Illuminate\Support\Facades\Cache;
 
 class SettingController extends Controller
 {
-    private const SETTINGS_KEY = 'app_settings';
-
-    /**
-     * Default settings payload returned when no record exists yet.
-     *
-     * @return array<string, mixed>
-     */
-    private function defaultSettings(): array
-    {
-        return [
-            'general' => [
-                'shop_name' => 'Prey Lang Coffee Roastery',
-                'address' => '123 Samdach Sihanouk Blvd, Phnom Penh, Cambodia',
-                'phone' => '+855 23 123 456',
-                'email' => 'hello@preylangcoffee.com',
-            ],
-            'notifications' => [
-                'new_orders_push' => true,
-                'new_orders_email' => false,
-                'new_orders_sound' => true,
-                'ready_for_pickup' => true,
-                'cancelled_orders' => true,
-                'low_stock_warning' => true,
-                'out_of_stock' => true,
-                'daily_summary' => true,
-                'weekly_performance' => true,
-            ],
-            'payment' => [
-                'currency' => 'USD',
-                'tax_rate' => 10,
-                'cash_enabled' => true,
-                'credit_card_enabled' => true,
-                'aba_pay_enabled' => true,
-                'wing_money_enabled' => false,
-            ],
-            'receipt' => [
-                'shop_name' => 'Prey Lang Coffee',
-                'address' => 'St. 214, Phnom Penh, Cambodia',
-                'phone' => '+855 12 345 678',
-                'tax_id' => '',
-                'footer_message' => 'Thank you for visiting! We hope you enjoyed your organic coffee. Save this receipt for a 5% discount on your next visit.',
-                'show_logo' => true,
-                'show_qr_payment' => true,
-                'show_order_number' => true,
-                'show_customer_name' => false,
-            ],
-        ];
-    }
-
     /**
      * Return full application settings.
      */
     public function show(): JsonResponse
     {
-        $setting = Setting::firstOrCreate(
-            ['key' => self::SETTINGS_KEY],
-            ['value' => $this->defaultSettings()]
-        );
-
-        return response()->json($this->mergeWithDefaults($setting->value ?? []));
+        return response()->json(AppSettings::getMerged());
     }
 
     /**
@@ -102,6 +49,7 @@ class SettingController extends Controller
             'payment.credit_card_enabled' => ['sometimes', 'boolean'],
             'payment.aba_pay_enabled' => ['sometimes', 'boolean'],
             'payment.wing_money_enabled' => ['sometimes', 'boolean'],
+            'payment.khqr_enabled' => ['sometimes', 'boolean'],
 
             'receipt' => ['sometimes', 'array'],
             'receipt.shop_name' => ['sometimes', 'string', 'max:150'],
@@ -116,29 +64,20 @@ class SettingController extends Controller
         ]);
 
         $setting = Setting::firstOrCreate(
-            ['key' => self::SETTINGS_KEY],
-            ['value' => $this->defaultSettings()]
+            ['key' => AppSettings::SETTINGS_KEY],
+            ['value' => AppSettings::defaults()]
         );
 
-        $current = $this->mergeWithDefaults($setting->value ?? []);
+        $currentValue = is_array($setting->value) ? $setting->value : [];
+        $current = AppSettings::mergeWithDefaults($currentValue);
         $next = array_replace_recursive($current, $validated);
 
         $setting->update(['value' => $next]);
 
         // Clear the cache for settings to ensure fresh data is returned
-        Cache::forget('api_cache_' . md5('/api/settings'));
+        Cache::forget('api_cache_' . md5('api/settings'));
+        AppSettings::forgetCache();
 
         return response()->json($next);
-    }
-
-    /**
-     * Ensure all required sections/keys always exist.
-     *
-     * @param array<string, mixed> $value
-     * @return array<string, mixed>
-     */
-    private function mergeWithDefaults(array $value): array
-    {
-        return array_replace_recursive($this->defaultSettings(), $value);
     }
 }

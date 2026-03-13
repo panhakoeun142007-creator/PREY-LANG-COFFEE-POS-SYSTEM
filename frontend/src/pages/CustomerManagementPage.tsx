@@ -27,6 +27,7 @@ import {
   StaffApiItem,
   updateStaff,
 } from "../services/api";
+import { useSettings } from "../context/SettingsContext";
 
 type StatusFilter = "all" | "active" | "inactive";
 
@@ -48,12 +49,16 @@ const initialForm: StaffFormState = {
   profile_image: null,
 };
 
-const money = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-});
-
 export default function StaffManagementPage() {
+  const { currency } = useSettings();
+  const money = useMemo(
+    () =>
+      new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency,
+      }),
+    [currency],
+  );
   const [staffs, setStaffs] = useState<StaffApiItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   Clock,
   RefreshCw,
@@ -15,6 +15,7 @@ import {
   AlertCircle,
 } from "lucide-react"
 import { fetchLiveOrders, updateOrderStatus, LiveOrder } from "../services/api"
+import { useSettings } from "../context/SettingsContext"
 import { StatusBadge } from "../components/StatusBadge"
 import { Button } from "../components/ui/button"
 import { Card, CardContent } from "../components/ui/card"
@@ -73,6 +74,15 @@ function formatTimeInStatus(status: string, updatedAt: string): string {
 }
 
 export default function LiveOrders() {
+  const { currency } = useSettings()
+  const money = useMemo(
+    () =>
+      new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency,
+      }),
+    [currency],
+  )
   const [orders, setOrders] = useState<LiveOrder[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -328,7 +338,7 @@ export default function LiveOrders() {
                       <TableCell>{formatTimeAgo(order.created_at)}</TableCell>
                       <TableCell>{order.items.length} items</TableCell>
                       <TableCell className="font-medium">
-                        ${Number(order.total_price).toFixed(2)}
+                        {money.format(Number(order.total_price))}
                       </TableCell>
                       <TableCell>
                         <StatusBadge status={order.status} />
@@ -457,7 +467,7 @@ export default function LiveOrders() {
                         </div>
                       </div>
                       <span className="font-medium text-[#4B2E2B]">
-                        ${(item.price * item.qty).toFixed(2)}
+                        {money.format(item.price * item.qty)}
                       </span>
                     </div>
                   ))}
@@ -468,12 +478,12 @@ export default function LiveOrders() {
               <div className="rounded-lg bg-[#F5E6D3]/50 p-4">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-[#7C5D58]">Subtotal</span>
-                  <span className="font-medium text-[#4B2E2B]">${Number(selectedOrder.total_price).toFixed(2)}</span>
+                  <span className="font-medium text-[#4B2E2B]">{money.format(Number(selectedOrder.total_price))}</span>
                 </div>
                 <div className="mt-2 flex items-center justify-between border-t border-[#EAD6C0] pt-2">
                   <span className="font-semibold text-[#4B2E2B]">Total</span>
                   <span className="text-xl font-bold text-[#4B2E2B]">
-                    ${Number(selectedOrder.total_price).toFixed(2)}
+                    {money.format(Number(selectedOrder.total_price))}
                   </span>
                 </div>
               </div>

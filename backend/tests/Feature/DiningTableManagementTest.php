@@ -3,7 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\DiningTable;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
 class DiningTableManagementTest extends TestCase
@@ -12,7 +14,17 @@ class DiningTableManagementTest extends TestCase
 
     public function test_create_table_accepts_active_status_and_qr_code_alias(): void
     {
-        $response = $this->postJson('/api/tables', [
+        $admin = User::factory()->create([
+            'role' => 'admin',
+            'is_active' => true,
+        ]);
+
+        $token = 'test-admin-token';
+        Cache::put("api_auth_token:{$token}", $admin->id, now()->addHours(1));
+
+        $response = $this
+            ->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/tables', [
             'name' => 'Table 1',
             'capacity' => 4,
             'status' => 'active',
@@ -36,6 +48,14 @@ class DiningTableManagementTest extends TestCase
 
     public function test_update_table_accepts_active_status_and_qr_code_alias(): void
     {
+        $admin = User::factory()->create([
+            'role' => 'admin',
+            'is_active' => true,
+        ]);
+
+        $token = 'test-admin-token';
+        Cache::put("api_auth_token:{$token}", $admin->id, now()->addHours(1));
+
         $table = DiningTable::create([
             'name' => 'Table 2',
             'seats' => 2,
@@ -44,7 +64,9 @@ class DiningTableManagementTest extends TestCase
             'qr_code' => 'QR-OLD-2',
         ]);
 
-        $response = $this->putJson("/api/tables/{$table->id}", [
+        $response = $this
+            ->withHeader('Authorization', "Bearer {$token}")
+            ->putJson("/api/tables/{$table->id}", [
             'status' => 'inactive',
             'qrCode' => 'QR-NEW-2',
         ]);

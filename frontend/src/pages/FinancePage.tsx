@@ -27,15 +27,9 @@ import {
   fetchDashboardData,
   fetchExpenses,
 } from "../services/api";
+import { useSettings } from "../context/SettingsContext";
 
 const expenseCategories: ExpenseCategory[] = ["ingredients", "utilities", "salary", "rent", "other"];
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(amount);
-}
 
 function toNumber(value: string): number {
   const parsed = Number(value);
@@ -48,6 +42,15 @@ function parseCurrencyLabel(value: string): number {
 }
 
 export default function FinancePage() {
+  const { currency } = useSettings();
+  const money = useMemo(
+    () =>
+      new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency,
+      }),
+    [currency],
+  );
   const [expenses, setExpenses] = useState<ExpenseApiItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -147,19 +150,19 @@ export default function FinancePage() {
         <Card>
           <CardContent className="p-5">
             <p className="text-sm text-[#7C5D58]">Revenue Today</p>
-            <p className="mt-1 text-2xl font-semibold text-[#4B2E2B]">{formatCurrency(revenueToday)}</p>
+            <p className="mt-1 text-2xl font-semibold text-[#4B2E2B]">{money.format(revenueToday)}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-5">
             <p className="text-sm text-[#7C5D58]">Monthly Profit</p>
-            <p className="mt-1 text-2xl font-semibold text-[#4B2E2B]">{formatCurrency(monthlyProfit)}</p>
+            <p className="mt-1 text-2xl font-semibold text-[#4B2E2B]">{money.format(monthlyProfit)}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-5">
             <p className="text-sm text-[#7C5D58]">Listed Expenses Total</p>
-            <p className="mt-1 text-2xl font-semibold text-[#4B2E2B]">{formatCurrency(listedExpensesTotal)}</p>
+            <p className="mt-1 text-2xl font-semibold text-[#4B2E2B]">{money.format(listedExpensesTotal)}</p>
           </CardContent>
         </Card>
       </section>
@@ -267,7 +270,7 @@ export default function FinancePage() {
                       <TableCell className="font-medium">{expense.title}</TableCell>
                       <TableCell>{expense.note || "-"}</TableCell>
                       <TableCell className="text-right font-semibold">
-                        {formatCurrency(Number(expense.amount))}
+                        {money.format(Number(expense.amount))}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button

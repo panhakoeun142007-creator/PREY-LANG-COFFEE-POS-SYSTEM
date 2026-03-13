@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Support\AppSettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -47,10 +48,16 @@ class OrderController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
+        $enabledPaymentTypes = array_keys(AppSettings::enabledPaymentTypes());
+        if (count($enabledPaymentTypes) === 0) {
+            // Fallback for misconfigured settings
+            $enabledPaymentTypes = ['cash'];
+        }
+
         $validated = $request->validate([
             'table_id' => ['required', 'exists:dining_tables,id'],
             'status' => ['sometimes', Rule::in(['pending', 'preparing', 'ready', 'completed', 'cancelled'])],
-            'payment_type' => ['required', Rule::in(['cash', 'khqr'])],
+            'payment_type' => ['required', Rule::in($enabledPaymentTypes)],
             'queue_number' => ['nullable', 'integer', 'min:1'],
             'total_price' => ['nullable', 'numeric', 'min:0'],
             'items' => ['required', 'array', 'min:1'],
@@ -99,8 +106,13 @@ class OrderController extends Controller
                 ]);
             }
 
+            $settings = AppSettings::getMerged();
+            $taxRate = (float) (($settings['payment']['tax_rate'] ?? 0));
+            $taxAmount = round($total * ($taxRate / 100), 2);
+            $computedTotal = round($total + $taxAmount, 2);
+
             $order->update([
-                'total_price' => $validated['total_price'] ?? $total,
+                'total_price' => $validated['total_price'] ?? $computedTotal,
             ]);
 
             return $order->fresh()->load(['table', 'items.product']);
@@ -122,10 +134,15 @@ class OrderController extends Controller
      */
     public function update(Request $request, Order $order): JsonResponse
     {
+        $enabledPaymentTypes = array_keys(AppSettings::enabledPaymentTypes());
+        if (count($enabledPaymentTypes) === 0) {
+            $enabledPaymentTypes = ['cash'];
+        }
+
         $validated = $request->validate([
             'table_id' => ['sometimes', 'required', 'exists:dining_tables,id'],
             'status' => ['sometimes', Rule::in(['pending', 'preparing', 'ready', 'completed', 'cancelled'])],
-            'payment_type' => ['sometimes', 'required', Rule::in(['cash', 'khqr'])],
+            'payment_type' => ['sometimes', 'required', Rule::in($enabledPaymentTypes)],
             'queue_number' => ['sometimes', 'nullable', 'integer', 'min:1'],
             'total_price' => ['sometimes', 'required', 'numeric', 'min:0'],
         ]);

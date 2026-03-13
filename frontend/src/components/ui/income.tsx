@@ -18,6 +18,7 @@ import {
   fetchIncomeTransactions,
   updateExpense,
 } from "../../services/api";
+import { useSettings } from "../../context/SettingsContext";
 
 // Constants
 const EXPENSE_CATEGORIES = ["ingredients", "utilities", "salary", "rent", "other"] as const;
@@ -46,13 +47,6 @@ interface IncomeApiItem {
 }
 
 // Utility functions
-const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(amount);
-};
-
 const formatDate = (value: string): string => {
   const parsed = new Date(value);
   if (!Number.isNaN(parsed.getTime())) {
@@ -80,14 +74,14 @@ const formatPaymentType = (value?: string): string => {
 };
 
 // Memoized row components
-const IncomeRow = memo(({ income }: { income: IncomeApiItem }) => (
+const IncomeRow = memo(({ income, money }: { income: IncomeApiItem; money: Intl.NumberFormat }) => (
   <tr className="border-b border-[#F7EBDD] text-sm">
     <td className="py-3 text-[#6E4F4A]">{formatDate(income.date)}</td>
     <td className="py-3 font-medium text-[#4B2E2B]">{income.order_code}</td>
     <td className="py-3 text-[#6E4F4A]">{income.table}</td>
     <td className="py-3 text-[#6E4F4A]">{formatPaymentType(income.payment_type)}</td>
     <td className="py-3 text-right font-semibold text-emerald-700">
-      {formatCurrency(Number(income.amount))}
+      {money.format(Number(income.amount))}
     </td>
   </tr>
 ));
@@ -96,10 +90,12 @@ const ExpenseRow = memo(({
   expense,
   onEdit,
   onDelete,
+  money,
 }: {
   expense: ExpenseApiItem;
   onEdit: (expense: ExpenseApiItem) => void;
   onDelete: (id: number) => void;
+  money: Intl.NumberFormat;
 }) => (
   <tr className="border-b border-[#F7EBDD] text-sm">
     <td className="py-3 text-[#6E4F4A]">{formatDate(expense.date)}</td>
@@ -107,7 +103,7 @@ const ExpenseRow = memo(({
     <td className="py-3 font-medium text-[#4B2E2B]">{expense.title}</td>
     <td className="py-3 text-[#6E4F4A]">{expense.note || "-"}</td>
     <td className="py-3 text-right font-semibold text-rose-700">
-      {formatCurrency(Number(expense.amount))}
+      {money.format(Number(expense.amount))}
     </td>
     <td className="py-3 text-right">
       <button
@@ -161,6 +157,15 @@ function useDebounce<T>(value: T, delay: number): T {
 }
 
 export default function IncomePage() {
+  const { currency } = useSettings();
+  const money = useMemo(
+    () =>
+      new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency,
+      }),
+    [currency],
+  );
   // State
   const [incomes, setIncomes] = useState<IncomeApiItem[]>([]);
   const [expenses, setExpenses] = useState<ExpenseApiItem[]>([]);
@@ -421,17 +426,17 @@ export default function IncomePage() {
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-2xl border border-[#EAD6C0] bg-white p-5 shadow-sm">
           <p className="text-sm text-[#7C5D58]">Total Income</p>
-          <p className="mt-2 text-3xl font-semibold text-[#4B2E2B]">{formatCurrency(totalIncome)}</p>
+          <p className="mt-2 text-3xl font-semibold text-[#4B2E2B]">{money.format(totalIncome)}</p>
           <p className="mt-2 text-sm font-medium text-emerald-600">Completed orders</p>
         </div>
         <div className="rounded-2xl border border-[#EAD6C0] bg-white p-5 shadow-sm">
           <p className="text-sm text-[#7C5D58]">Total Expenses</p>
-          <p className="mt-2 text-3xl font-semibold text-[#4B2E2B]">{formatCurrency(totalExpenses)}</p>
+          <p className="mt-2 text-3xl font-semibold text-[#4B2E2B]">{money.format(totalExpenses)}</p>
           <p className="mt-2 text-sm font-medium text-rose-600">Recorded expenses</p>
         </div>
         <div className="rounded-2xl border border-[#EAD6C0] bg-white p-5 shadow-sm">
           <p className="text-sm text-[#7C5D58]">Net Profit</p>
-          <p className="mt-2 text-3xl font-semibold text-[#4B2E2B]">{formatCurrency(netProfit)}</p>
+          <p className="mt-2 text-3xl font-semibold text-[#4B2E2B]">{money.format(netProfit)}</p>
           <p
             className={`mt-2 text-sm font-medium ${netProfit >= 0 ? "text-emerald-600" : "text-rose-600"}`}
           >
@@ -599,7 +604,7 @@ export default function IncomePage() {
                 </tr>
               ) : (
                 filteredIncome.map((income) => (
-                  <IncomeRow key={income.id} income={income} />
+                  <IncomeRow key={income.id} income={income} money={money} />
                 ))
               )}
             </tbody>
@@ -636,6 +641,7 @@ export default function IncomePage() {
                     expense={expense}
                     onEdit={handleEditExpense}
                     onDelete={handleDeleteExpense}
+                    money={money}
                   />
                 ))
               )}

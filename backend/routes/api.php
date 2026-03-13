@@ -56,9 +56,10 @@ Route::middleware('admin.api')->group(function () {
     Route::get('/user', [UserController::class, 'me']);
     Route::get('/user/me', [UserController::class, 'me']);
     Route::post('/user/me', [UserController::class, 'updateMe']);
+    Route::put('/settings', [SettingController::class, 'update']);
     Route::apiResource('staffs', StaffController::class);
-    Route::apiResource('categories', CategoryController::class);
-    Route::apiResource('products', ProductController::class);
+    Route::apiResource('categories', CategoryController::class)->except(['index', 'show']);
+    Route::apiResource('products', ProductController::class)->except(['index', 'show']);
     Route::apiResource('tables', DiningTableController::class);
     Route::apiResource('ingredients', IngredientController::class);
     Route::apiResource('recipes', RecipeController::class);
@@ -89,10 +90,11 @@ Route::middleware('staff.api')->group(function () {
     Route::apiResource('orders', OrderController::class);
     Route::apiResource('order-items', OrderItemController::class);
     Route::get('/receipts', [ReceiptController::class, 'index']);
+    Route::get('/settings', [SettingController::class, 'show'])->middleware('api.cache');
 });
 
 // Public routes with caching
 Route::middleware('api.cache')->group(function () {
-    Route::get('/settings', [SettingController::class, 'show']);
-    Route::put('/settings', [SettingController::class, 'update']);
+    Route::get('/categories', [CategoryController::class, 'index']);
+    Route::get('/products', [ProductController::class, 'index']);
 });

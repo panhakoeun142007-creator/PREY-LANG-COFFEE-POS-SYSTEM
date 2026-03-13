@@ -36,6 +36,7 @@ import {
   fetchCategories,
 } from "../services/api";
 import { useCategoryContext } from "../context/CategoryContext";
+import { CATEGORY_UPDATE_EVENT } from "../context/CategoryContext";
 
 // Form interface matching API
 interface ProductFormData {
@@ -46,7 +47,7 @@ interface ProductFormData {
   price_large: string;
   sku: string;
   image: string;
-  is_active: boolean;
+  is_available: boolean;
 }
 
 const initialFormData: ProductFormData = {
@@ -57,7 +58,7 @@ const initialFormData: ProductFormData = {
   price_large: "",
   sku: "",
   image: "",
-  is_active: true,
+  is_available: true,
 };
 
 // Memoized product row component
@@ -154,8 +155,8 @@ export default function Products() {
       if (productsResult?.data) {
         setProducts(productsResult.data);
       }
-      if (categoriesResult?.data) {
-        setCategories(categoriesResult.data);
+      if (Array.isArray(categoriesResult)) {
+        setCategories(categoriesResult.map((item) => ({ id: item.id, name: item.name })));
       }
       setError(null);
     } catch (err) {
@@ -168,6 +169,17 @@ export default function Products() {
 
   useEffect(() => {
     loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    const handleCategoryUpdate = () => {
+      void loadData();
+    };
+
+    window.addEventListener(CATEGORY_UPDATE_EVENT, handleCategoryUpdate);
+    return () => {
+      window.removeEventListener(CATEGORY_UPDATE_EVENT, handleCategoryUpdate);
+    };
   }, [loadData]);
 
   // Memoized filtered products
@@ -192,7 +204,7 @@ export default function Products() {
         price_large: formData.price_large ? Number(formData.price_large) : null,
         sku: formData.sku || null,
         image: formData.image || null,
-        is_active: formData.is_active,
+        is_available: formData.is_available,
       });
       setProducts((prev) => [newProduct, ...prev]);
       setFormData(initialFormData);
@@ -217,7 +229,7 @@ export default function Products() {
         price_large: formData.price_large ? Number(formData.price_large) : null,
         sku: formData.sku || null,
         image: formData.image || null,
-        is_active: formData.is_active,
+        is_available: formData.is_available,
       });
       setProducts((prev) =>
         prev.map((p) => (p.id === editingProduct.id ? { ...p, ...updated } : p))
@@ -251,11 +263,11 @@ export default function Products() {
     try {
       const newStatus = !(product.is_available ?? product.is_active);
       const updated = await updateProduct(product.id, {
-        is_active: newStatus,
+        is_available: newStatus,
       });
       setProducts((prev) =>
         prev.map((p) =>
-          p.id === product.id ? { ...p, is_available: newStatus, is_active: newStatus } : p
+          p.id === product.id ? { ...p, ...updated } : p
         )
       );
       setSuccess(`Product ${newStatus ? 'available' : 'unavailable'} successfully!`);
@@ -276,7 +288,7 @@ export default function Products() {
       price_large: String(product.price_large || ""),
       sku: product.sku || "",
       image: product.image || "",
-      is_active: product.is_active,
+      is_available: product.is_available ?? product.is_active,
     });
   };
 
@@ -475,8 +487,8 @@ export default function Products() {
             </div>
             <div className="flex items-center gap-2">
               <Switch
-                checked={formData.is_active}
-                onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, is_active: !!checked }))}
+                checked={formData.is_available}
+                onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, is_available: !!checked }))}
               />
               <span className="text-sm text-[#4B2E2B]">Active</span>
             </div>
@@ -592,8 +604,8 @@ export default function Products() {
             </div>
             <div className="flex items-center gap-2">
               <Switch
-                checked={formData.is_active}
-                onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, is_active: !!checked }))}
+                checked={formData.is_available}
+                onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, is_available: !!checked }))}
               />
               <span className="text-sm text-[#4B2E2B]">Active</span>
             </div>

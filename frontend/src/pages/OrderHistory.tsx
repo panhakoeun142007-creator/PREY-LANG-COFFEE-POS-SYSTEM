@@ -30,6 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select"
+import { useSettings } from "../context/SettingsContext"
 import {
   Dialog,
   DialogContent,
@@ -41,6 +42,7 @@ import {
 const KHR_PER_USD = 4100
 
 export default function OrderHistory() {
+  const { currency } = useSettings()
   const [orders, setOrders] = useState<LiveOrder[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -162,7 +164,7 @@ export default function OrderHistory() {
   const formatCurrency = (amount: unknown) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
-      currency: "USD",
+      currency,
     }).format(toNumber(amount))
   }
 

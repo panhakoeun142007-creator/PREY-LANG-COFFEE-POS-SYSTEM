@@ -2,6 +2,7 @@ import { Bell, ChevronLeft, ChevronRight, LogOut, Menu, Moon, Settings, Sun, Use
 import { useEffect, useMemo, useState, createContext, useContext } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { navGroups, pageTitleByPath } from "../data/mockData";
+import { useSettings } from "../context/SettingsContext";
 import {
   fetchCurrentUser,
   fetchNotifications,
@@ -38,6 +39,7 @@ function getNotificationIcon(type: string) {
 export default function AppLayout() {
   // We'll just use local state and localStorage - no need for AuthContext
   const [collapsed, setCollapsed] = useState(false);
+  const { settings } = useSettings();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -156,6 +158,7 @@ export default function AppLayout() {
   }, [userRole]);
 
   const pageTitle = pageTitleByPath[location.pathname] ?? "Dashboard";
+  const shopName = settings?.general?.shop_name ?? "PREY LANG";
   const dateText = useMemo(
     () =>
       new Date().toLocaleDateString("en-US", {
@@ -271,8 +274,8 @@ export default function AppLayout() {
           />
           {!collapsed && (
             <div className="leading-tight">
-              <p className="text-sm font-bold tracking-wide">PREY LANG</p>
-              <p className="text-xs text-white/80">COFFEE</p>
+              <p className="text-sm font-bold tracking-wide">{shopName}</p>
+              <p className="text-xs text-white/80">Dashboard</p>
             </div>
           )}
         </div>

@@ -44,6 +44,7 @@ import {
   updateRecipeBoardStatus,
 } from "../services/api";
 import { CATEGORY_UPDATE_EVENT } from "../context/CategoryContext";
+import { useSettings } from "../context/SettingsContext";
 
 type RecipeStatus = "all" | "active" | "inactive";
 
@@ -52,12 +53,16 @@ type IngredientFormRow = {
   amount: string;
 };
 
-const money = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-});
-
 export default function RecipesStockPage() {
+  const { currency } = useSettings();
+  const money = useMemo(
+    () =>
+      new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency,
+      }),
+    [currency],
+  );
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<RecipeStatus>("all");

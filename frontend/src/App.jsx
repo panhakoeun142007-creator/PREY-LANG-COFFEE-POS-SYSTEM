@@ -2,6 +2,7 @@ import { lazy, Suspense, useState, useEffect, createContext, useContext, useCall
 import { Navigate, Route, Routes, useNavigate, useLocation } from "react-router-dom";
 import AppLayout from "./components/AppLayout";
 import { CategoryProvider } from "./context/CategoryContext";
+import { SettingsProvider } from "./context/SettingsContext";
 
 // Auth Context
 const AuthContext = createContext({
@@ -59,7 +60,7 @@ function ProtectedRoute({ children }) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  return children;
+  return <SettingsProvider>{children}</SettingsProvider>;
 }
 
 // Role-based Route Protection

@@ -492,6 +492,7 @@ export interface PaymentSettingsData {
   credit_card_enabled: boolean;
   aba_pay_enabled: boolean;
   wing_money_enabled: boolean;
+  khqr_enabled: boolean;
 }
 
 export interface ReceiptSettingsData {

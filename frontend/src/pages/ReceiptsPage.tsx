@@ -18,8 +18,9 @@ import {
   TableRow,
 } from "../components/ui/table";
 import { fetchOrderHistory, LiveOrder } from "../services/api";
+import { useSettings } from "../context/SettingsContext";
 
-type PaymentMethod = "cash" | "khqr";
+type PaymentMethod = "cash" | "credit_card" | "aba_pay" | "wing_money" | "khqr";
 
 interface ReceiptRow {
   id: string;
@@ -31,19 +32,32 @@ interface ReceiptRow {
   status: "paid";
 }
 
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(amount);
-}
-
 export default function ReceiptsPage() {
+  const { currency, settings } = useSettings();
+  const money = useMemo(
+    () =>
+      new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency,
+      }),
+    [currency],
+  );
   const [orders, setOrders] = useState<LiveOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [paymentFilter, setPaymentFilter] = useState<"all" | PaymentMethod>("all");
+
+  const availablePayments = useMemo<PaymentMethod[]>(() => {
+    const payment = settings?.payment;
+    const next: PaymentMethod[] = [];
+    if (payment?.cash_enabled) next.push("cash");
+    if (payment?.credit_card_enabled) next.push("credit_card");
+    if (payment?.aba_pay_enabled) next.push("aba_pay");
+    if (payment?.wing_money_enabled) next.push("wing_money");
+    if (payment?.khqr_enabled) next.push("khqr");
+    return next.length > 0 ? next : ["cash", "khqr"];
+  }, [settings]);
 
   const loadReceiptOrders = useCallback(async () => {
     setLoading(true);
@@ -84,7 +98,14 @@ export default function ReceiptsPage() {
         }),
         customer: order.table?.name || "Walk-in",
         amount: Number(order.total_price),
-        paymentMethod: order.payment_type?.toLowerCase() === "cash" ? "cash" : "khqr",
+        paymentMethod: ((): PaymentMethod => {
+          const raw = order.payment_type?.toLowerCase();
+          if (raw === "cash") return "cash";
+          if (raw === "credit_card") return "credit_card";
+          if (raw === "aba_pay") return "aba_pay";
+          if (raw === "wing_money") return "wing_money";
+          return "khqr";
+        })(),
         status: "paid",
       }));
   }, [orders]);
@@ -129,7 +150,7 @@ export default function ReceiptsPage() {
             <div>
               <p className="text-sm text-[#7C5D58]">Total Collected</p>
               <p className="text-2xl font-semibold text-[#4B2E2B]">
-                {formatCurrency(totalCollected)}
+                {money.format(totalCollected)}
               </p>
             </div>
             <Banknote className="h-8 w-8 text-[#7C5D58]" />
@@ -179,8 +200,11 @@ export default function ReceiptsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Payments</SelectItem>
-                  <SelectItem value="cash">Cash</SelectItem>
-                  <SelectItem value="khqr">KHQR</SelectItem>
+                  {availablePayments.includes("cash") ? <SelectItem value="cash">Cash</SelectItem> : null}
+                  {availablePayments.includes("khqr") ? <SelectItem value="khqr">KHQR</SelectItem> : null}
+                  {availablePayments.includes("credit_card") ? <SelectItem value="credit_card">Credit Card</SelectItem> : null}
+                  {availablePayments.includes("aba_pay") ? <SelectItem value="aba_pay">ABA Pay</SelectItem> : null}
+                  {availablePayments.includes("wing_money") ? <SelectItem value="wing_money">Wing Money</SelectItem> : null}
                 </SelectContent>
               </Select>
             </div>
@@ -236,7 +260,7 @@ export default function ReceiptsPage() {
                         </span>
                       </TableCell>
                       <TableCell className="text-right font-medium">
-                        {formatCurrency(receipt.amount)}
+                        {money.format(receipt.amount)}
                       </TableCell>
                       <TableCell>
                         <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold uppercase text-emerald-700">

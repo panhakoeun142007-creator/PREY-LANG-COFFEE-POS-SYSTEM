@@ -14,8 +14,6 @@ class ApiCacheMiddleware
      */
     protected array $cacheableRoutes = [
         'api/settings',
-        'api/categories',
-        'api/products',
     ];
 
     /**
@@ -39,8 +37,8 @@ class ApiCacheMiddleware
             return $next($request);
         }
 
-        // Build cache key from full URL
-        $cacheKey = 'api_cache_' . md5($request->fullUrl());
+        // Build cache key from path + query string (host-independent, easier to invalidate)
+        $cacheKey = $this->buildCacheKey($request);
 
         // Try to get cached response
         if (Cache::has($cacheKey)) {
@@ -65,6 +63,17 @@ class ApiCacheMiddleware
         }
 
         return $response;
+    }
+
+    private function buildCacheKey(Request $request): string
+    {
+        $base = $request->path();
+        $query = $request->getQueryString();
+        if (is_string($query) && $query !== '') {
+            $base .= '?' . $query;
+        }
+
+        return 'api_cache_' . md5($base);
     }
 
     /**

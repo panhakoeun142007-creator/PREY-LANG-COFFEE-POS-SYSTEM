@@ -113,10 +113,17 @@ export default function PaymentSettings({ value, onSave, isSaving }: PaymentSett
             />
           </div>
           <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
-            <h3 className={`text-xs font-bold ${form.aba_pay_enabled ? "text-brand-text" : "text-red-600"}`}>ABA Pay (KHQR)</h3>
+            <h3 className={`text-xs font-bold ${form.aba_pay_enabled ? "text-brand-text" : "text-red-600"}`}>ABA Pay</h3>
             <Toggle
               checked={form.aba_pay_enabled}
               onChange={(next) => setForm((prev: PaymentSettingsData) => ({ ...prev, aba_pay_enabled: next }))}
+            />
+          </div>
+          <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+            <h3 className={`text-xs font-bold ${form.khqr_enabled ? "text-brand-text" : "text-red-600"}`}>KHQR (QR Payment)</h3>
+            <Toggle
+              checked={form.khqr_enabled}
+              onChange={(next) => setForm((prev: PaymentSettingsData) => ({ ...prev, khqr_enabled: next }))}
             />
           </div>
           <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">

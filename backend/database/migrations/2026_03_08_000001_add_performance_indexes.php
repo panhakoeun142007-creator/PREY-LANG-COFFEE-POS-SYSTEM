@@ -12,6 +12,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
+
         // Get existing indexes to avoid duplicates
         $existingIndexes = $this->getExistingIndexes();
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "react-hot-toast";
 import GeneralSettings from "../GeneralSettings";
@@ -6,14 +6,13 @@ import NotificationSettings from "../NotificationSettings";
 import PaymentSettings from "../PaymentSettings";
 import ReceiptSettings from "../ReceiptSettings";
 import {
-  AppSettings,
-  fetchSettings,
   updateSettings,
   GeneralSettingsData,
   NotificationSettingsData,
   PaymentSettingsData,
   ReceiptSettingsData,
 } from "../../services/api";
+import { useSettings } from "../../context/SettingsContext";
 
 type TabType = "General" | "Notifications" | "Payment" | "Receipt";
 
@@ -23,79 +22,13 @@ interface SettingsPageProps {
 
 const tabs: TabType[] = ["General", "Notifications", "Payment", "Receipt"];
 
-const DEFAULT_SETTINGS: AppSettings = {
-  general: {
-    shop_name: "Prey Lang Coffee Roastery",
-    address: "123 Samdach Sihanouk Blvd, Phnom Penh, Cambodia",
-    phone: "+855 23 123 456",
-    email: "hello@preylangcoffee.com",
-  },
-  notifications: {
-    new_orders_push: true,
-    new_orders_email: false,
-    new_orders_sound: true,
-    ready_for_pickup: true,
-    cancelled_orders: true,
-    low_stock_warning: true,
-    out_of_stock: true,
-    daily_summary: true,
-    weekly_performance: true,
-  },
-  payment: {
-    currency: "USD",
-    tax_rate: 10,
-    cash_enabled: true,
-    credit_card_enabled: true,
-    aba_pay_enabled: true,
-    wing_money_enabled: false,
-  },
-  receipt: {
-    shop_name: "Prey Lang Coffee",
-    address: "St. 214, Phnom Penh, Cambodia",
-    phone: "+855 12 345 678",
-    tax_id: "",
-    footer_message:
-      "Thank you for visiting! We hope you enjoyed your organic coffee. Save this receipt for a 5% discount on your next visit.",
-    show_logo: true,
-    show_qr_payment: true,
-    show_order_number: true,
-    show_customer_name: false,
-  },
-};
-
 export default function SettingsPage({ onSettingsSaved }: SettingsPageProps) {
   const [activeTab, setActiveTab] = useState<TabType>("General");
-  const [settings, setSettings] = useState<AppSettings | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { settings, isLoading, error: loadError, setSettings, refreshSettings } = useSettings();
   const [error, setError] = useState<string | null>(null);
   const [savingTab, setSavingTab] = useState<TabType | null>(null);
 
-  useEffect(() => {
-    void loadSettings();
-  }, []);
-
-  async function loadSettings() {
-    try {
-      setLoading(true);
-      setError(null);
-      const payload = await Promise.race([
-        fetchSettings(),
-        new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error("Settings request timed out")), 8000);
-        }),
-      ]);
-      setSettings(payload);
-    } catch (err) {
-      setSettings(DEFAULT_SETTINGS);
-      setError(
-        err instanceof Error
-          ? `${err.message}. Showing local defaults.`
-          : "Failed to load settings. Showing local defaults.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
+  const mergedError = useMemo(() => error ?? loadError, [error, loadError]);
 
   async function saveGeneral(data: GeneralSettingsData) {
     try {
@@ -104,6 +37,7 @@ export default function SettingsPage({ onSettingsSaved }: SettingsPageProps) {
       const payload = await updateSettings({ general: data });
       setSettings(payload);
       onSettingsSaved?.();
+      await refreshSettings();
       toast.success("General settings saved successfully!");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save general settings");
@@ -119,6 +53,7 @@ export default function SettingsPage({ onSettingsSaved }: SettingsPageProps) {
       const payload = await updateSettings({ notifications: data });
       setSettings(payload);
       onSettingsSaved?.();
+      await refreshSettings();
       toast.success("Notification settings saved successfully!");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save notification settings");
@@ -134,6 +69,7 @@ export default function SettingsPage({ onSettingsSaved }: SettingsPageProps) {
       const payload = await updateSettings({ payment: data });
       setSettings(payload);
       onSettingsSaved?.();
+      await refreshSettings();
       toast.success("Payment settings saved successfully!");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save payment settings");
@@ -149,6 +85,7 @@ export default function SettingsPage({ onSettingsSaved }: SettingsPageProps) {
       const payload = await updateSettings({ receipt: data });
       setSettings(payload);
       onSettingsSaved?.();
+      await refreshSettings();
       toast.success("Receipt settings saved successfully!");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save receipt settings");
@@ -158,10 +95,6 @@ export default function SettingsPage({ onSettingsSaved }: SettingsPageProps) {
   }
 
   function renderContent() {
-    if (!settings) {
-      return null;
-    }
-
     switch (activeTab) {
       case "General":
         return (
@@ -231,19 +164,19 @@ export default function SettingsPage({ onSettingsSaved }: SettingsPageProps) {
         </div>
       </section>
 
-      {error ? (
+      {mergedError ? (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          {error}
+          {mergedError}
         </div>
       ) : null}
 
-      {loading ? (
+      {isLoading ? (
         <div className="rounded-2xl border border-[#EAD6C0] bg-white p-6 text-sm text-[#7C5D58] shadow-sm">
           Loading settings...
         </div>
       ) : null}
 
-      {!loading && settings ? (
+      {!isLoading && settings ? (
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
