@@ -8,14 +8,16 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('recipe_logs')) {
+            return;
+        }
+
         Schema::create('recipe_logs', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->uuid('order_id');
+            $table->foreignId('order_id')->constrained('orders')->cascadeOnDelete();
             $table->string('table_no');
             $table->string('name');
             $table->timestamps();
-
-            $table->foreign('order_id')->references('id')->on('orders')->cascadeOnDelete();
         });
     }
 

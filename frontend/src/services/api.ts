@@ -1,14 +1,34 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
 
-// Type definitions for API responses
+export interface PaginatedResponse<T> {
+  data: T[];
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+  // Laravel pagination extras (optional)
+  from?: number | null;
+  to?: number | null;
+}
+
 export interface Category {
   id: number;
   name: string;
   description: string | null;
   quantity: number;
   is_active: boolean;
+  products_count?: number;
   created_at?: string;
   updated_at?: string;
+}
+
+export interface CategoryApiItem {
+  id: number;
+  name: string;
+  description: string | null;
+  quantity: number;
+  is_active: boolean;
+  products_count?: number;
 }
 
 export interface DashboardData {
@@ -51,73 +71,14 @@ export interface ApiProduct {
   category_name?: string;
   sku: string | null;
   image: string | null;
-  price_small: number | null;
-  price_medium: number | null;
-  price_large: number | null;
-  is_active: boolean;
+  price_small: number | string | null;
+  price_medium: number | string | null;
+  price_large: number | string | null;
   is_available?: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface PaginatedResponse<T> {
-  data: T[];
-  current_page: number;
-  last_page: number;
-  per_page: number;
-  total: number;
-}
-
-export interface LiveOrder {
-  id: number;
-  order_number: string;
-  table_id: number;
-  table_name?: string;
-  customer_name: string | null;
-  status: 'pending' | 'preparing' | 'ready' | 'completed' | 'cancelled';
-  total_amount: number;
-  subtotal: number;
-  tax_amount: number;
-  discount_amount: number;
-  payment_method: string | null;
-  payment_status: 'pending' | 'paid' | 'refunded';
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-  items?: Array<{
-    id: number;
-    product_name: string;
-    quantity: number;
-    unit_price: number;
-    subtotal: number;
-    notes: string | null;
-  }>;
-}
-
-export interface OrderHistoryParams {
-  page?: number;
-  limit?: number;
-  status?: string;
-  date_from?: string;
-  date_to?: string;
-  search?: string;
-}
-
-export interface OrderHistorySummary {
-  total_orders: number;
-  total_revenue: number;
-  average_order_value: number;
-  completed_orders: number;
-  cancelled_orders: number;
-}
-
-export interface PaginatedOrderHistoryResponse {
-  data: LiveOrder[];
-  summary: OrderHistorySummary;
-  current_page: number;
-  last_page: number;
-  per_page: number;
-  total: number;
+  is_active?: boolean;
+  created_at?: string;
+  updated_at?: string;
+  category?: { id: number; name: string };
 }
 
 export interface ApiIngredient {
@@ -129,52 +90,16 @@ export interface ApiIngredient {
   stock_qty: number;
   min_stock: number;
   unit_cost: number | null;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface Notification {
-  id: number;
-  type: string;
-  message: string;
-  read: boolean;
-  created_at: string;
-}
-
-export interface CurrentUser {
-  id: number;
-  name: string;
-  email: string;
-  role: string;
-  profile_image_url?: string;
+  is_active?: boolean;
   created_at?: string;
   updated_at?: string;
 }
 
-export interface CategoryApiItem {
-  id: number;
-  name: string;
-  description: string | null;
-  quantity: number;
-  is_active: boolean;
-}
+export type IngredientApiItem = ApiIngredient & {
+  category?: string | null;
+};
 
-export type RecipeSize = 'small' | 'medium' | 'large';
-
-export interface IngredientApiItem {
-  id: number;
-  name: string;
-  category_id: number | null;
-  category_name?: string;
-  unit: string;
-  stock_qty: number;
-  min_stock: number;
-  unit_cost: number | null;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
+export type RecipeSize = "small" | "medium" | "large";
 
 export interface RecipeBoardRow {
   id: number | string;
@@ -191,279 +116,127 @@ export interface RecipeBoardRow {
   }>;
   ingredients_count?: number;
   est_cost?: number;
-  status: 'active' | 'inactive';
+  status: "active" | "inactive";
   is_active?: boolean;
   created_at?: string;
   updated_at?: string;
 }
 
-export async function apiRequest(path: string, options: RequestInit = {}): Promise<any> {
-  const token = localStorage.getItem('token');
-  
-  const headers: Record<string, string> = { 
-    'Content-Type': 'application/json',
-    ...(token && { 'Authorization': `Bearer ${token}` }),
-    ...((options.headers as Record<string, string>) || {})
-  };
-
-  try {
-    const response = await fetch(`${API_BASE_URL}${path}`, {
-      headers,
-      ...options,
-    });
-
-    let payload = null;
-    try {
-      payload = await response.json();
-    } catch (error) {
-      payload = null;
-    }
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        if (window.location.pathname !== '/login') {
-          window.location.href = '/login';
-        }
-      }
-      throw new Error(payload?.message || `Request failed: ${response.status}`);
-    }
-
-    return payload;
-  } catch (error) {
-    if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-      throw new Error('Cannot connect to API server. Please check your network connection.');
-    }
-    throw error;
-  }
+export interface ApiTable {
+  id: number;
+  name: string;
+  capacity: number;
+  status: string; // 'active' | 'inactive' (plus any legacy statuses)
+  qrCode?: string;
+  seats?: number;
+  is_active: boolean;
+  qr_code?: string | null;
+  db_status?: string;
 }
 
-export const fetchCurrentUser = async () => {
-  const storedUser = localStorage.getItem('user');
-  const userRole = storedUser ? JSON.parse(storedUser).role : 'admin';
-  const endpoint = userRole === 'staff' ? '/staff/me' : '/user/me';
-  return apiRequest(endpoint);
+export interface Notification {
+  id: number;
+  type: string;
+  message: string;
+  read: boolean;
+  created_at: string;
+}
+
+export interface CurrentUser {
+  id: number;
+  name: string;
+  email: string;
+  role: "admin" | "staff" | string;
+  profile_image_url?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface StaffApiItem {
+  id: number;
+  name: string;
+  email: string;
+  salary: number;
+  is_active: boolean;
+  role?: "staff";
+  initials?: string;
+  profile_image_url?: string | null;
+  password_plain?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ApiOrderItem {
+  id: number;
+  order_id: number;
+  product_id: number;
+  size: RecipeSize | string | null;
+  qty: number;
+  price: number | string;
+  created_at?: string;
+  updated_at?: string;
+  product?: ApiProduct;
+}
+
+export interface ApiOrder {
+  id: number;
+  table_id: number | null;
+  status: "pending" | "preparing" | "ready" | "completed" | "cancelled";
+  total_price: number | string;
+  payment_type: string | null;
+  queue_number: number | null;
+  created_at: string;
+  updated_at: string;
+  table?: ApiTable | { id: number; name: string } | null;
+  items: ApiOrderItem[];
+}
+
+export type LiveOrder = ApiOrder;
+
+export interface OrderHistoryParams {
+  page?: number;
+  status?: string;
+  date_from?: string;
+  date_to?: string;
+  payment_type?: string;
+  search?: string;
+  sort_by?: string;
+  sort_order?: "asc" | "desc" | string;
+}
+
+export interface OrderHistorySummary {
+  completed_count: number;
+  cancelled_count: number;
+  total_revenue: number;
+}
+
+export type PaginatedOrderHistoryResponse = PaginatedResponse<LiveOrder> & {
+  summary?: OrderHistorySummary;
 };
 
-export const fetchNotifications = async () => {
-  return apiRequest('/notifications');
-};
+export type ExpenseCategory = "ingredients" | "utilities" | "salary" | "rent" | "other";
 
-export const logoutAdmin = async () => {
-  return apiRequest('/logout', { method: 'POST' });
-};
+export interface ExpenseApiItem {
+  id: number;
+  title: string;
+  amount: number;
+  category: ExpenseCategory;
+  date: string;
+  note?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
 
-export const updateCurrentUser = async (data: any) => {
-  const storedUser = localStorage.getItem('user');
-  const userData = storedUser ? JSON.parse(storedUser) : null;
-  const userRole = userData?.role || 'admin';
-  
-  const formData = new FormData();
-  
-  if (userRole === 'admin') {
-    if (data.name !== undefined) {
-      formData.append('name', data.name);
-    }
-    if (data.email !== undefined) {
-      formData.append('email', data.email);
-    }
-  }
-  if (data.profile_image) {
-    formData.append('profile_image', data.profile_image);
-  }
-  
-  const token = localStorage.getItem('token');
-  const endpoint = userRole === 'staff' ? '/staff/me' : '/user/me';
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-    body: formData,
-  });
-  
-  if (!response.ok) {
-    if (response.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
-    }
-    const payload = await response.json().catch(() => null);
-    throw new Error(payload?.message || `Request failed: ${response.status}`);
-  }
-  
-  const result = await response.json();
-  return result;
-};
+export interface SalesTrendDataPoint {
+  month: string;
+  sales: number;
+  orders: number;
+}
 
-export const fetchCategories = async () => {
-  return apiRequest('/categories');
-};
-
-export const updateCategory = async (id: number, data: any) => {
-  return apiRequest(`/categories/${id}`, { method: 'PUT', body: JSON.stringify(data) });
-};
-
-export const deleteCategory = async (id: number) => {
-  return apiRequest(`/categories/${id}`, { method: 'DELETE' });
-};
-
-export const createCategory = async (data: any) => {
-  return apiRequest('/categories', { method: 'POST', body: JSON.stringify(data) });
-};
-
-export const fetchProducts = async () => {
-  return apiRequest('/products');
-};
-
-export const createProduct = async (data: any) => {
-  return apiRequest('/products', { method: 'POST', body: JSON.stringify(data) });
-};
-
-export const updateProduct = async (id: number, data: any) => {
-  return apiRequest(`/products/${id}`, { method: 'PUT', body: JSON.stringify(data) });
-};
-
-export const deleteProduct = async (id: number) => {
-  return apiRequest(`/products/${id}`, { method: 'DELETE' });
-};
-
-export const fetchOrders = async () => {
-  return apiRequest('/orders');
-};
-
-export const createOrder = async (data: any) => {
-  return apiRequest('/orders', { method: 'POST', body: JSON.stringify(data) });
-};
-
-export const updateOrder = async (id: number, data: any) => {
-  return apiRequest(`/orders/${id}`, { method: 'PUT', body: JSON.stringify(data) });
-};
-
-export const fetchTables = async () => {
-  return apiRequest('/tables');
-};
-
-export const createTable = async (data: any) => {
-  return apiRequest('/tables', { method: 'POST', body: JSON.stringify(data) });
-};
-
-export const updateTable = async (id: number, data: any) => {
-  return apiRequest(`/tables/${id}`, { method: 'PUT', body: JSON.stringify(data) });
-};
-
-export const deleteTable = async (id: number) => {
-  return apiRequest(`/tables/${id}`, { method: 'DELETE' });
-};
-
-export const fetchStaff = async () => {
-  return apiRequest('/staffs');
-};
-
-export const createStaff = async (data: any) => {
-  return apiRequest('/staffs', { method: 'POST', body: JSON.stringify(data) });
-};
-
-export const updateStaff = async (id: number, data: any) => {
-  return apiRequest(`/staffs/${id}`, { method: 'PUT', body: JSON.stringify(data) });
-};
-
-export const deleteStaff = async (id: number) => {
-  return apiRequest(`/staffs/${id}`, { method: 'DELETE' });
-};
-
-export const fetchIngredients = async () => {
-  return apiRequest('/ingredients');
-};
-
-export const createIngredient = async (data: any) => {
-  return apiRequest('/ingredients', { method: 'POST', body: JSON.stringify(data) });
-};
-
-export const updateIngredient = async (id: number, data: any) => {
-  return apiRequest(`/ingredients/${id}`, { method: 'PUT', body: JSON.stringify(data) });
-};
-
-export const deleteIngredient = async (id: number) => {
-  return apiRequest(`/ingredients/${id}`, { method: 'DELETE' });
-};
-
-export const fetchExpenses = async () => {
-  return apiRequest('/expenses');
-};
-
-export const createExpense = async (data: any) => {
-  return apiRequest('/expenses', { method: 'POST', body: JSON.stringify(data) });
-};
-
-export const fetchRecipes = async () => {
-  return apiRequest('/recipes');
-};
-
-export const createRecipe = async (data: any) => {
-  return apiRequest('/recipes', { method: 'POST', body: JSON.stringify(data) });
-};
-
-export const updateRecipe = async (id: number, data: any) => {
-  return apiRequest(`/recipes/${id}`, { method: 'PUT', body: JSON.stringify(data) });
-};
-
-export const fetchAnalytics = async () => {
-  return apiRequest('/analytics');
-};
-
-export const fetchSalesAnalytics = async () => {
-  return apiRequest('/sales-analytics');
-};
-
-export const fetchSalesAnalyticsData = async () => {
-  return apiRequest('/sales-analytics');
-};
-
-export const createRecipeBoard = async (data: any) => {
-  return apiRequest('/recipes-board', { method: 'POST', body: JSON.stringify(data) });
-};
-
-export const deleteRecipeBoard = async (id: number, size: string) => {
-  return apiRequest(`/recipes-board/${id}/${size}`, { method: 'DELETE' });
-};
-
-export const fetchRecipeBoards = async () => {
-  return apiRequest('/recipes-board');
-};
-
-export const updateRecipeBoard = async (id: number, data: any) => {
-  return apiRequest(`/recipes-board/${id}`, { method: 'PUT', body: JSON.stringify(data) });
-};
-
-export const fetchRecipeBoard = async (id: number) => {
-  return apiRequest(`/recipes/${id}`);
-};
-
-export const updateRecipeBoardStatus = async (id: number, status: string) => {
-  return apiRequest(`/recipes-board/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
-};
-
-export const deleteExpense = async (id: number) => {
-  return apiRequest(`/expenses/${id}`, { method: 'DELETE' });
-};
-
-export const fetchIncomeTransactions = async () => {
-  return apiRequest('/finance/income');
-};
-
-export const updateExpense = async (id: number, data: any) => {
-  return apiRequest(`/expenses/${id}`, { method: 'PUT', body: JSON.stringify(data) });
-};
-
-export const fetchSettings = async () => {
-  return apiRequest('/settings');
-};
-
-export const updateSettings = async (data: any) => {
-  return apiRequest('/settings', { method: 'PUT', body: JSON.stringify(data) });
-};
+export interface PeakHourDataPoint {
+  hour: string;
+  orders: number;
+}
 
 // Settings Types
 export interface GeneralSettingsData {
@@ -512,36 +285,238 @@ export interface AppSettings {
   notifications: NotificationSettingsData;
   payment: PaymentSettingsData;
   receipt: ReceiptSettingsData;
+}
+
+function withQuery(path: string, params?: Record<string, unknown>): string {
+  if (!params) return path;
+  const sp = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null) continue;
+    if (typeof value === "string" && value.trim() === "") continue;
+    sp.set(key, String(value));
+  }
+  const qs = sp.toString();
+  return qs ? `${path}?${qs}` : path;
+}
+
+export async function safeFetch(path: string, options: RequestInit = {}): Promise<Response> {
+  const token = localStorage.getItem("token");
+  const headers = new Headers(options.headers || {});
+
+  if (token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  const body = options.body as unknown;
+  const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
+  if (!isFormData && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  return fetch(`${API_BASE_URL}${path}`, {
+    ...options,
+    headers,
+  });
+}
+
+export async function apiRequest<T = any>(path: string, options: RequestInit = {}): Promise<T> {
+  const response = await safeFetch(path, options);
+
+  let payload: any = null;
+  try {
+    payload = await response.json();
+  } catch {
+    payload = null;
+  }
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      if (window.location.pathname !== "/login") {
+        window.location.href = "/login";
+      }
+    }
+
+    throw new Error(payload?.message || `Request failed: ${response.status}`);
+  }
+
+  return payload as T;
+}
+
+function toFormData(data: Record<string, unknown>): FormData {
+  const fd = new FormData();
+  for (const [key, value] of Object.entries(data)) {
+    if (value === undefined || value === null) continue;
+    if (value instanceof File) {
+      fd.append(key, value);
+      continue;
+    }
+    fd.append(key, String(value));
+  }
+  return fd;
+}
+
+export const fetchCurrentUser = async (): Promise<CurrentUser> => {
+  const storedUser = localStorage.getItem("user");
+  const userRole = storedUser ? (JSON.parse(storedUser).role as string) : "admin";
+  const endpoint = userRole === "staff" ? "/staff/me" : "/user/me";
+  return apiRequest(endpoint);
 };
 
-export const fetchDashboardData = async () => {
-  return apiRequest('/dashboard');
+export const fetchNotifications = async (): Promise<{ notifications: Notification[] }> => {
+  return apiRequest("/notifications");
 };
 
-export const fetchStaffs = async () => {
-  return apiRequest('/staffs');
+export const logoutAdmin = async (): Promise<any> => {
+  return apiRequest("/logout", { method: "POST" });
 };
 
-export const fetchLiveOrders = async () => {
-  return apiRequest('/orders/live');
+export const updateCurrentUser = async (data: {
+  name?: string;
+  email?: string;
+  profile_image?: File | null;
+}): Promise<CurrentUser> => {
+  const storedUser = localStorage.getItem("user");
+  const userData = storedUser ? JSON.parse(storedUser) : null;
+  const userRole = (userData?.role as string) || "admin";
+
+  const fd = new FormData();
+  if (userRole === "admin") {
+    if (data.name !== undefined) fd.append("name", data.name);
+    if (data.email !== undefined) fd.append("email", data.email);
+  }
+  if (data.profile_image) {
+    fd.append("profile_image", data.profile_image);
+  }
+
+  const endpoint = userRole === "staff" ? "/staff/me" : "/user/me";
+  const response = await safeFetch(endpoint, { method: "POST", body: fd });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    throw new Error(payload?.message || `Request failed: ${response.status}`);
+  }
+  return (await response.json()) as CurrentUser;
 };
 
-export const updateOrderStatus = async (id: number, status: string) => {
-  return apiRequest(`/orders/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) });
+export const fetchCategories = async (): Promise<CategoryApiItem[]> => apiRequest("/categories");
+export const createCategory = async (data: any): Promise<CategoryApiItem> =>
+  apiRequest("/categories", { method: "POST", body: JSON.stringify(data) });
+export const updateCategory = async (id: number, data: any): Promise<CategoryApiItem> =>
+  apiRequest(`/categories/${id}`, { method: "PUT", body: JSON.stringify(data) });
+export const deleteCategory = async (id: number): Promise<any> =>
+  apiRequest(`/categories/${id}`, { method: "DELETE" });
+
+export const fetchProducts = async (): Promise<PaginatedResponse<ApiProduct>> => apiRequest("/products");
+export const createProduct = async (data: any): Promise<ApiProduct> =>
+  apiRequest("/products", { method: "POST", body: JSON.stringify(data) });
+export const updateProduct = async (id: number, data: any): Promise<ApiProduct> =>
+  apiRequest(`/products/${id}`, { method: "PUT", body: JSON.stringify(data) });
+export const deleteProduct = async (id: number): Promise<any> =>
+  apiRequest(`/products/${id}`, { method: "DELETE" });
+
+export const fetchIngredients = async (): Promise<IngredientApiItem[]> => apiRequest("/ingredients");
+export const createIngredient = async (data: any): Promise<IngredientApiItem> =>
+  apiRequest("/ingredients", { method: "POST", body: JSON.stringify(data) });
+export const updateIngredient = async (id: number, data: any): Promise<IngredientApiItem> =>
+  apiRequest(`/ingredients/${id}`, { method: "PUT", body: JSON.stringify(data) });
+export const deleteIngredient = async (id: number): Promise<any> =>
+  apiRequest(`/ingredients/${id}`, { method: "DELETE" });
+
+export const fetchTables = async (): Promise<PaginatedResponse<ApiTable>> => apiRequest("/tables");
+export const createTable = async (data: any): Promise<ApiTable> =>
+  apiRequest("/tables", { method: "POST", body: JSON.stringify(data) });
+export const updateTable = async (id: number, data: any): Promise<ApiTable> =>
+  apiRequest(`/tables/${id}`, { method: "PUT", body: JSON.stringify(data) });
+export const deleteTable = async (id: number): Promise<any> =>
+  apiRequest(`/tables/${id}`, { method: "DELETE" });
+
+export const fetchStaffs = async (params: {
+  page?: number;
+  search?: string;
+  is_active?: boolean;
+} = {}): Promise<PaginatedResponse<StaffApiItem>> => apiRequest(withQuery("/staffs", params));
+
+export const createStaff = async (data: {
+  name: string;
+  email: string;
+  password: string;
+  salary: number;
+  is_active?: boolean;
+  profile_image?: File | null;
+}): Promise<StaffApiItem> => {
+  if (data.profile_image) {
+    const fd = toFormData(data as unknown as Record<string, unknown>);
+    return apiRequest("/staffs", { method: "POST", body: fd });
+  }
+  return apiRequest("/staffs", { method: "POST", body: JSON.stringify(data) });
 };
 
-export const fetchOrderHistory = async () => {
-  return apiRequest('/orders/history');
+export const updateStaff = async (
+  id: number,
+  data: {
+    name?: string;
+    email?: string;
+    password?: string;
+    salary?: number;
+    is_active?: boolean;
+    profile_image?: File | null;
+  },
+): Promise<StaffApiItem> => {
+  if (data.profile_image) {
+    const fd = toFormData({ ...data, _method: "PUT" } as unknown as Record<string, unknown>);
+    // Use POST + _method override to ensure Laravel matches the PUT route with multipart/form-data.
+    return apiRequest(`/staffs/${id}`, { method: "POST", body: fd });
+  }
+  return apiRequest(`/staffs/${id}`, { method: "PUT", body: JSON.stringify(data) });
 };
 
-export const fetchReceipt = async (id: number) => {
-  return apiRequest(`/receipts/${id}`);
-};
+export const deleteStaff = async (id: number): Promise<any> =>
+  apiRequest(`/staffs/${id}`, { method: "DELETE" });
 
-export const fetchPurchases = async () => {
-  return apiRequest('/purchases');
-};
+export const fetchOrders = async (): Promise<PaginatedResponse<ApiOrder>> => apiRequest("/orders");
+export const createOrder = async (data: any): Promise<ApiOrder> =>
+  apiRequest("/orders", { method: "POST", body: JSON.stringify(data) });
+export const updateOrder = async (id: number, data: any): Promise<ApiOrder> =>
+  apiRequest(`/orders/${id}`, { method: "PUT", body: JSON.stringify(data) });
 
-export const createPurchase = async (data: any) => {
-  return apiRequest('/purchases', { method: 'POST', body: JSON.stringify(data) });
-};
+export const fetchLiveOrders = async (): Promise<LiveOrder[]> => apiRequest("/orders/live");
+export const updateOrderStatus = async (id: number, status: string): Promise<LiveOrder> =>
+  apiRequest(`/orders/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) });
+
+export const fetchOrderHistory = async (params: OrderHistoryParams = {}): Promise<PaginatedOrderHistoryResponse> =>
+  apiRequest(withQuery("/orders/history", params));
+
+export const fetchSettings = async (): Promise<AppSettings> => apiRequest("/settings");
+export const updateSettings = async (data: Partial<AppSettings>): Promise<AppSettings> =>
+  apiRequest("/settings", { method: "PUT", body: JSON.stringify(data) });
+
+export const fetchDashboardData = async (): Promise<DashboardData> => apiRequest("/dashboard");
+export const fetchSalesAnalyticsData = async (): Promise<{
+  monthlyTrendData: SalesTrendDataPoint[];
+  peakHoursData: PeakHourDataPoint[];
+  monthlyPerformanceData: SalesTrendDataPoint[];
+}> => apiRequest("/sales-analytics");
+
+export const fetchExpenses = async (params: { category?: ExpenseCategory; page?: number } = {}): Promise<PaginatedResponse<ExpenseApiItem>> =>
+  apiRequest(withQuery("/expenses", params));
+export const createExpense = async (data: any): Promise<ExpenseApiItem> =>
+  apiRequest("/expenses", { method: "POST", body: JSON.stringify(data) });
+export const updateExpense = async (id: number, data: any): Promise<ExpenseApiItem> =>
+  apiRequest(`/expenses/${id}`, { method: "PUT", body: JSON.stringify(data) });
+export const deleteExpense = async (id: number): Promise<any> =>
+  apiRequest(`/expenses/${id}`, { method: "DELETE" });
+
+export const fetchIncomeTransactions = async (params: Record<string, unknown> = {}): Promise<any> =>
+  apiRequest(withQuery("/finance/income", params));
+
+export const fetchRecipeBoards = async (): Promise<PaginatedResponse<RecipeBoardRow>> => apiRequest("/recipes-board");
+export const fetchRecipeBoard = async (id: number): Promise<any> => apiRequest(`/recipes/${id}`);
+export const createRecipeBoard = async (data: any): Promise<any> =>
+  apiRequest("/recipes-board", { method: "POST", body: JSON.stringify(data) });
+export const updateRecipeBoard = async (id: number, data: any): Promise<any> =>
+  apiRequest(`/recipes-board/${id}`, { method: "PUT", body: JSON.stringify(data) });
+export const updateRecipeBoardStatus = async (id: number, status: string): Promise<any> =>
+  apiRequest(`/recipes-board/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) });
+export const deleteRecipeBoard = async (id: number, size: string): Promise<any> =>
+  apiRequest(`/recipes-board/${id}/${size}`, { method: "DELETE" });
