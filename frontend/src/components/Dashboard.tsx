@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   TrendingUp, 
   Clock, 
@@ -10,7 +10,17 @@ import {
   X,
   AlertTriangle,
   Info,
-  Check
+  Check,
+  User,
+  Settings,
+  LogOut,
+  Crown,
+  Mail,
+  Phone,
+  Calendar,
+  Award,
+  Camera,
+  Edit
 } from 'lucide-react';
 import { motion } from 'framer-motion'; // Fixed import to match common usage
 import { Order, InventoryItem } from '../types';
@@ -23,6 +33,29 @@ interface DashboardProps {
 const Dashboard: React.FC<DashboardProps> = ({ orders, onViewDetails }) => {
   const [activeTab, setActiveTab] = useState<'Live' | 'Completed' | 'Cancelled'>('Live');
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const [profilePicture, setProfilePicture] = useState(() => {
+    // Load profile picture from localStorage on initial load
+    const savedProfile = localStorage.getItem('userProfilePicture');
+    return savedProfile || 'https://picsum.photos/seed/user1/100/100';
+  });
+  const [staffName, setStaffName] = useState(() => {
+    // Load staff name from localStorage on initial load
+    const savedName = localStorage.getItem('userStaffName');
+    return savedName || 'Chanthy CHET';
+  });
+  const [staffEmail, setStaffEmail] = useState(() => {
+    // Load staff email from localStorage on initial load
+    const savedEmail = localStorage.getItem('userStaffEmail');
+    return savedEmail || 'chanthy.chet@preylang.coffee';
+  });
+  const [adminData, setAdminData] = useState({
+    name: 'Sophie Manager',
+    email: 'sophie.manager@preylang.coffee',
+    profilePicture: 'https://picsum.photos/seed/admin1/100/100'
+  });
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [tempName, setTempName] = useState('');
 
   const activeOrdersCount = orders.filter(o => o.status !== 'Completed' && o.status !== 'Cancelled').length;
   const readyOrdersCount = orders.filter(o => o.status === 'Ready').length;
@@ -66,6 +99,93 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, onViewDetails }) => {
       read: false
     }
   ];
+
+  const handleProfilePictureChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        setProfilePicture(result);
+        // Save to localStorage for persistence
+        localStorage.setItem('userProfilePicture', result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleNameEdit = () => {
+    setTempName(staffName);
+    setIsEditingName(true);
+  };
+
+  const handleNameSave = () => {
+    if (tempName.trim()) {
+      const newName = tempName.trim();
+      setStaffName(newName);
+      // Save to localStorage for persistence
+      localStorage.setItem('userStaffName', newName);
+      setIsEditingName(false);
+    }
+  };
+
+  const handleNameCancel = () => {
+    setIsEditingName(false);
+    setTempName('');
+  };
+
+  // Fetch staff and admin data from MySQL on component mount
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        // Get current staff data
+        const staffResponse = await fetch('/api/staff/me', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (staffResponse.ok) {
+          const staffData = await staffResponse.json();
+          setStaffName(staffData.name || 'Chanthy CHET');
+          setStaffEmail(staffData.email || 'chanthy.chet@preylang.coffee');
+          
+          // Update localStorage
+          localStorage.setItem('userStaffName', staffData.name || 'Chanthy CHET');
+          localStorage.setItem('userStaffEmail', staffData.email || 'chanthy.chet@preylang.coffee');
+          
+          // Update profile picture if exists in database
+          if (staffData.profile_image_url) {
+            setProfilePicture(staffData.profile_image_url);
+            localStorage.setItem('userProfilePicture', staffData.profile_image_url);
+          }
+        }
+
+        // Get admin data
+        const adminResponse = await fetch('/api/user/me', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (adminResponse.ok) {
+          const adminUserData = await adminResponse.json();
+          setAdminData({
+            name: adminUserData.name || 'Sophie Manager',
+            email: adminUserData.email || 'sophie.manager@preylang.coffee',
+            profilePicture: adminUserData.profile_image_url || 'https://picsum.photos/seed/admin1/100/100'
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+        // Keep using localStorage data as fallback
+      }
+    };
+
+    fetchUserData();
+  }, []);
 
   return (
     <motion.div 
@@ -185,19 +305,175 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, onViewDetails }) => {
             </motion.div>
           )}
 
-          {/* Profile Div */}
-          <div className="flex items-center gap-3 bg-white dark:bg-[#1A110B] p-2 pr-4 rounded-full border border-slate-100 dark:border-white/10 shadow-sm transition-colors">
+          {/* Profile Div - Dark Mode Support */}
+          <button
+            onClick={() => setShowProfile(!showProfile)}
+            className="flex items-center gap-3 bg-white dark:bg-[#1A110B] p-2 pr-4 rounded-full border border-slate-100 dark:border-white/10 shadow-sm transition-colors hover:scale-105 active:scale-95"
+          >
             <img 
-              src="https://picsum.photos/seed/user1/100/100" 
+              src={profilePicture} 
               alt="User" 
               className="w-10 h-10 rounded-full object-cover border border-slate-100 dark:border-white/10"
               referrerPolicy="no-referrer"
             />
             <div>
-              <p className="text-sm font-bold leading-none dark:text-white transition-colors">Chanthy CHET</p>
+              <p className="text-sm font-bold leading-none dark:text-white transition-colors">{staffName}</p>
               <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium uppercase tracking-wider">Barista</p>
             </div>
-          </div>
+          </button>
+
+          {/* Profile Dropdown */}
+          {showProfile && (
+            <motion.div
+              initial={{ opacity: 0, y: -10, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.95 }}
+              className="absolute right-0 top-16 w-80 bg-white dark:bg-[#1A110B] rounded-2xl border border-slate-100 dark:border-white/10 shadow-xl z-50 overflow-hidden"
+            >
+              {/* Dropdown Header with Close Button */}
+              <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-white/5">
+                <h3 className="font-bold text-slate-900 dark:text-white">Profile</h3>
+                <button 
+                  onClick={() => setShowProfile(false)}
+                  className="p-1 hover:bg-slate-50 dark:hover:bg-white/5 rounded-lg transition-colors"
+                >
+                  <X size={16} className="text-slate-400 dark:text-slate-500" />
+                </button>
+              </div>
+
+              {/* Current Staff Profile */}
+              <div className="p-6 border-b border-slate-100 dark:border-white/5">
+                {/* Profile Picture with Change Button */}
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="relative group">
+                    <img 
+                      src={profilePicture} 
+                      alt="Staff" 
+                      className="w-16 h-16 rounded-full object-cover border-2 border-slate-100 dark:border-white/10"
+                      referrerPolicy="no-referrer"
+                    />
+                    {/* Change Profile Picture Button */}
+                    <label className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                      <Camera size={20} className="text-white" />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleProfilePictureChange}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                  <div className="flex-1">
+                    {/* Editable Name Section */}
+                    <div className="flex items-center gap-2 mb-1">
+                      {isEditingName ? (
+                        <div className="flex items-center gap-2 flex-1">
+                          <input
+                            type="text"
+                            value={tempName}
+                            onChange={(e) => setTempName(e.target.value)}
+                            className="flex-1 px-2 py-1 text-lg font-bold bg-white dark:bg-[#1A110B] border border-slate-200 dark:border-white/10 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#BD5E0A]"
+                            placeholder="Enter name"
+                            autoFocus
+                          />
+                          <button
+                            onClick={handleNameSave}
+                            className="p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 rounded-lg transition-colors"
+                          >
+                            <Check size={16} />
+                          </button>
+                          <button
+                            onClick={handleNameCancel}
+                            className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-bold text-lg text-slate-900 dark:text-white">{staffName}</h3>
+                          <button
+                            onClick={handleNameEdit}
+                            className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 rounded-lg transition-colors"
+                          >
+                            <Edit size={14} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Barista Staff</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Award size={12} className="text-amber-500" />
+                      <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">Senior Barista</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Staff Details */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-400">
+                    <Mail size={14} />
+                    <span>{staffEmail}</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-400">
+                    <Phone size={14} />
+                    <span>+855 12 345 678</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-400">
+                    <Calendar size={14} />
+                    <span>Joined: March 2024</span>
+                  </div>
+                </div>
+
+                {/* Change Profile Picture Button (Mobile/Desktop fallback) */}
+                <div className="mt-4">
+                  <label className="flex items-center justify-center gap-2 w-full px-4 py-2 text-sm font-medium text-[#BD5E0A] bg-amber-50 dark:bg-amber-500/10 hover:bg-amber-100 dark:hover:bg-amber-500/20 rounded-xl transition-colors cursor-pointer">
+                    <Camera size={16} />
+                    <span>Change Profile Picture</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleProfilePictureChange}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {/* Admin Profile Section */}
+              <div className="p-4 bg-slate-50 dark:bg-white/5 border-b border-slate-100 dark:border-white/5">
+                <div className="flex items-center gap-2 mb-3">
+                  <Crown size={16} className="text-amber-500" />
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">Administrator</h4>
+                </div>
+                
+                <div className="flex items-center gap-3 p-3 bg-white dark:bg-[#1A110B] rounded-xl border border-slate-100 dark:border-white/10">
+                  <img 
+                    src={adminData.profilePicture} 
+                    alt="Admin" 
+                    className="w-12 h-12 rounded-full object-cover border border-slate-100 dark:border-white/10"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-slate-900 dark:text-white">{adminData.name}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{adminData.email}</p>
+                    <div className="flex items-center gap-1 mt-1">
+                      <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
+                      <span className="text-xs text-emerald-600 dark:text-emerald-400">Online</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="p-4 space-y-2">
+                <button className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl transition-colors">
+                  <LogOut size={16} />
+                  <span>Logout</span>
+                </button>
+              </div>
+            </motion.div>
+          )}
         </div>
       </header>
 
