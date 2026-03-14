@@ -123,7 +123,7 @@ const ProductRow = memo(function ProductRow({
         </div>
       </TableCell>
       <TableCell className="text-[#6E4F4A]">
-        {product.category_name || "Uncategorized"}
+        {product.category?.name || product.category_name || "Uncategorized"}
       </TableCell>
       <TableCell className="text-[#6E4F4A]">{getPrice()}</TableCell>
       <TableCell>
@@ -216,6 +216,7 @@ export default function Products() {
     return products.filter(
       (p) =>
         p.name?.toLowerCase().includes(term) ||
+        p.category?.name?.toLowerCase().includes(term) ||
         p.category_name?.toLowerCase().includes(term) ||
         p.sku?.toLowerCase().includes(term)
     );
