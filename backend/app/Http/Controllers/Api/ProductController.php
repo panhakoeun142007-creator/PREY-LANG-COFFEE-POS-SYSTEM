@@ -16,7 +16,7 @@ class ProductController extends Controller
      * Cache TTL for products (5 minutes).
      */
     private const CACHE_TTL = 300;
-
+          
     /**
      * Allowed image MIME types.
      */
