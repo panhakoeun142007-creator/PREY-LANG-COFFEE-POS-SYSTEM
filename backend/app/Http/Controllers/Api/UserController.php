@@ -6,7 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class UserController extends Controller
@@ -35,6 +38,8 @@ class UserController extends Controller
             return $this->unauthorizedResponse();
         }
 
+        $validated = [];
+
         // Allow partial updates - only validate fields that are provided
         $rules = [];
         if ($request->has('name')) {
@@ -51,6 +56,9 @@ class UserController extends Controller
         if ($request->hasFile('profile_image')) {
             $rules['profile_image'] = ['nullable', 'image', 'max:10240'];
         }
+        if ($request->has('remove_profile_image')) {
+            $rules['remove_profile_image'] = ['boolean'];
+        }
 
         // Only validate if there are rules (at least one field provided)
         if (!empty($rules)) {
@@ -65,16 +73,54 @@ class UserController extends Controller
             $user->email = $request->input('email');
         }
 
+        $existingProfileImage = (string) ($user->getOriginal('profile_image') ?? '');
+
+        if (($validated['remove_profile_image'] ?? false) === true) {
+            if ($existingProfileImage !== '' && !str_starts_with($existingProfileImage, 'data:')) {
+                Storage::disk('public')->delete($existingProfileImage);
+            }
+            $user->profile_image = null;
+        }
+
         if ($request->hasFile('profile_image')) {
             try {
                 $file = $request->file('profile_image');
-                $mime = $file->getMimeType() ?: 'application/octet-stream';
-                $imageData = file_get_contents($file->getRealPath());
-                if ($imageData !== false) {
-                    $user->profile_image = 'data:' . $mime . ';base64,' . base64_encode($imageData);
+                if ($file) {
+                    // Validate file type
+                    $allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+                    if (!in_array($file->getClientMimeType(), $allowedMimes)) {
+                        return response()->json([
+                            'message' => 'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.',
+                        ], 422);
+                    }
+
+                    $extension = $file->extension() ?: $file->guessExtension() ?: 'jpg';
+                    $filename = Str::uuid()->toString() . '.' . $extension;
+                    $path = $file->storePubliclyAs("profile-images/users/{$user->id}", $filename, 'public');
+
+                    if ($path) {
+                        if ($existingProfileImage !== '' && !str_starts_with($existingProfileImage, 'data:')) {
+                            Storage::disk('public')->delete($existingProfileImage);
+                        }
+                        $user->profile_image = $path;
+                    } else {
+                        Log::error('Failed to store profile image', [
+                            'user_id' => $user->id,
+                            'file' => $filename,
+                        ]);
+                        return response()->json([
+                            'message' => 'Failed to store profile image. Please try again.',
+                        ], 500);
+                    }
                 }
             } catch (\Exception $e) {
-                // Silently fail - don't update profile image if there's an error
+                Log::error('Profile image upload error', [
+                    'user_id' => $user->id,
+                    'error' => $e->getMessage(),
+                ]);
+                return response()->json([
+                    'message' => 'An error occurred while uploading the profile image: ' . $e->getMessage(),
+                ], 500);
             }
         }
 
@@ -97,14 +143,25 @@ class UserController extends Controller
 
     private function resolveCurrentUser(): ?User
     {
-        $hasAdminColumns = Schema::hasColumn('users', 'role') && Schema::hasColumn('users', 'is_active');
-
-        /** @var User|null $user */
+        // Always try to get user from the bearer token first
+        $token = request()->bearerToken();
+        if ($token) {
+            // Try to find user by access token
+            $tokenModel = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+            if ($tokenModel && $tokenModel->tokenable) {
+                return $tokenModel->tokenable;
+            }
+        }
+        
+        // Fallback: try to get authenticated user from session guard
         $user = request()->user();
-        if ($user && (!$hasAdminColumns || ($user->is_active && $user->role === 'admin'))) {
+        if ($user) {
             return $user;
         }
-
+        
+        // Final fallback: get first admin user
+        $hasAdminColumns = Schema::hasColumn('users', 'role') && Schema::hasColumn('users', 'is_active');
+        
         if (!$hasAdminColumns) {
             return User::query()->orderBy('id')->first();
         }
@@ -116,7 +173,7 @@ class UserController extends Controller
     {
         $imageUrl = null;
         if ($user->profile_image) {
-            if (str_starts_with($user->profile_image, 'data:image')) {
+            if (str_starts_with($user->profile_image, 'data:')) {
                 $imageUrl = $user->profile_image;
             } else {
                 $base = request()->getSchemeAndHttpHost();

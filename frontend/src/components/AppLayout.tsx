@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, createContext, useContext } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { navGroups, pageTitleByPath } from "../data/mockData";
 import { useSettings } from "../context/SettingsContext";
+import { persistUserToLocalStorage } from "../utils/userStorage";
 import {
   fetchCurrentUser,
   fetchNotifications,
@@ -51,6 +52,7 @@ export default function AppLayout() {
   const [accountEmail, setAccountEmail] = useState("");
   const [accountImageFile, setAccountImageFile] = useState<File | null>(null);
   const [accountImagePreview, setAccountImagePreview] = useState<string | null>(null);
+  const [accountRemoveImage, setAccountRemoveImage] = useState(false);
   const [accountSaving, setAccountSaving] = useState(false);
   const [accountError, setAccountError] = useState<string | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -89,8 +91,8 @@ export default function AppLayout() {
         setAccountName(user.name);
         setAccountEmail(user.email);
         setAccountImagePreview(user.profile_image_url ?? null);
-        // Update localStorage with fresh data from database
-        localStorage.setItem('user', JSON.stringify(user));
+        // Update localStorage with fresh data (without storing large base64 data URLs)
+        persistUserToLocalStorage(user);
       } catch (err) {
         console.error("Failed to load user:", err);
         setCurrentUser(null);
@@ -183,6 +185,7 @@ export default function AppLayout() {
     setAccountEmail(currentUser?.email ?? "admin@preylang.com");
     setAccountImagePreview(currentUser?.profile_image_url ?? null);
     setAccountImageFile(null);
+    setAccountRemoveImage(false);
     setAccountError(null);
     setShowAccountModal(true);
   }
@@ -190,6 +193,7 @@ export default function AppLayout() {
   function closeAccountModal() {
     setShowAccountModal(false);
     setAccountImageFile(null);
+    setAccountRemoveImage(false);
     setAccountError(null);
   }
 
@@ -198,13 +202,16 @@ export default function AppLayout() {
     const email = accountEmail.trim();
 
     // Build update data - only include fields that have values
-    const updateData: { name?: string; email?: string; profile_image?: File } = {};
+    const updateData: { name?: string; email?: string; profile_image?: File; remove_profile_image?: boolean } = {};
     
-    if (name) {
+    if (name && name !== (currentUser?.name ?? "")) {
       updateData.name = name;
     }
-    if (email) {
+    if (email && email !== (currentUser?.email ?? "")) {
       updateData.email = email;
+    }
+    if (accountRemoveImage) {
+      updateData.remove_profile_image = true;
     }
     if (accountImageFile) {
       updateData.profile_image = accountImageFile;
@@ -219,11 +226,13 @@ export default function AppLayout() {
     try {
       setAccountSaving(true);
       setAccountError(null);
-      const updated = await updateCurrentUser(updateData as any);
+      await updateCurrentUser(updateData as any);
+      // Re-fetch from database to ensure refresh shows the saved data.
+      const updated = await fetchCurrentUser();
       setCurrentUser(updated);
-      // Update localStorage with the latest user data
-      localStorage.setItem('user', JSON.stringify(updated));
+      persistUserToLocalStorage(updated);
       setAccountImageFile(null);
+      setAccountRemoveImage(false);
       setAccountImagePreview(updated.profile_image_url ?? null);
       setShowAccountModal(false);
     } catch (err) {
@@ -592,6 +601,7 @@ export default function AppLayout() {
                       onChange={(event) => {
                         const file = event.target.files?.[0] ?? null;
                         setAccountImageFile(file);
+                        setAccountRemoveImage(false);
                         if (file) {
                           setAccountImagePreview(URL.createObjectURL(file));
                         } else {
@@ -604,6 +614,20 @@ export default function AppLayout() {
                           : "text-[#7C5D58] file:bg-[#F5E6D3] file:text-[#4B2E2B]"
                       }`}
                     />
+                    {currentUser?.profile_image_url && !accountImageFile && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAccountRemoveImage(true);
+                          setAccountImagePreview(null);
+                        }}
+                        className={`mt-2 text-xs font-medium underline ${
+                          isDarkMode ? "text-slate-300 hover:text-slate-100" : "text-[#4B2E2B] hover:text-[#6B4E4B]"
+                        }`}
+                      >
+                        Remove photo
+                      </button>
+                    )}
                   </div>
                 </div>
                 <div className={`pt-4 space-y-3 ${isDarkMode ? "border-t border-slate-700" : "border-t border-[#EAD6C0]"}`}>

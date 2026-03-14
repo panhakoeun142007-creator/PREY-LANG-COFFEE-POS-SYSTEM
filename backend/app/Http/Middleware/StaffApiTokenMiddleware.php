@@ -62,7 +62,8 @@ class StaffApiTokenMiddleware
                 return response()->json(['message' => 'Forbidden'], 403);
             }
 
-            // Don't set auth for API requests - just continue
+            // Set the authenticated user
+            Auth::setUser($user);
             return $next($request);
         }
 
@@ -75,7 +76,8 @@ class StaffApiTokenMiddleware
                 return response()->json(['message' => 'Forbidden'], 403);
             }
 
-            // Don't set auth for API requests - just continue
+            // Set the authenticated staff
+            Auth::setUser($staff);
             return $next($request);
         }
 

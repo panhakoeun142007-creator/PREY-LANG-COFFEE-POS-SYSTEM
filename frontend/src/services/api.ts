@@ -1,4 +1,19 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
+function resolveApiBaseUrl(): string {
+  const backendUrlRaw = (import.meta.env.VITE_BACKEND_URL as string | undefined) || "http://127.0.0.1:8000";
+  const backendUrl = backendUrlRaw.replace(/\/+$/, "");
+
+  const apiUrlRaw =
+    (import.meta.env.VITE_API_URL as string | undefined) ||
+    (import.meta.env.VITE_API_BASE_URL as string | undefined) ||
+    `${backendUrl}/api`;
+
+  if (apiUrlRaw.startsWith("/")) {
+    return `${backendUrl}${apiUrlRaw}`;
+  }
+  return apiUrlRaw.replace(/\/+$/, "");
+}
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 export interface PaginatedResponse<T> {
   data: T[];
@@ -69,11 +84,14 @@ export interface ApiProduct {
   name: string;
   category_id: number;
   category_name?: string;
+  description?: string | null;
   sku: string | null;
   image: string | null;
   price_small: number | string | null;
   price_medium: number | string | null;
   price_large: number | string | null;
+  cost?: number | string | null;
+  supplier_id?: number | null;
   is_available?: boolean;
   is_active?: boolean;
   created_at?: string;
@@ -303,6 +321,10 @@ export async function safeFetch(path: string, options: RequestInit = {}): Promis
   const token = localStorage.getItem("token");
   const headers = new Headers(options.headers || {});
 
+  if (!headers.has("Accept")) {
+    headers.set("Accept", "application/json");
+  }
+
   if (token && !headers.has("Authorization")) {
     headers.set("Authorization", `Bearer ${token}`);
   }
@@ -322,12 +344,16 @@ export async function safeFetch(path: string, options: RequestInit = {}): Promis
 export async function apiRequest<T = any>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await safeFetch(path, options);
 
-  let payload: any = null;
-  try {
-    payload = await response.json();
-  } catch {
-    payload = null;
+  async function readPayload(): Promise<any> {
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("application/json") || contentType.includes("+json")) {
+      return response.json();
+    }
+    const text = await response.text().catch(() => "");
+    return text;
   }
+
+  const payload = await readPayload().catch(() => null);
 
   if (!response.ok) {
     if (response.status === 401) {
@@ -338,7 +364,17 @@ export async function apiRequest<T = any>(path: string, options: RequestInit = {
       }
     }
 
-    throw new Error(payload?.message || `Request failed: ${response.status}`);
+    if (typeof payload === "string" && payload.trim().startsWith("<!doctype")) {
+      throw new Error(`API returned HTML (check VITE_API_URL). Status: ${response.status}`);
+    }
+    throw new Error((payload as any)?.message || `Request failed: ${response.status}`);
+  }
+
+  if (typeof payload === "string") {
+    if (payload.trim().startsWith("<!doctype")) {
+      throw new Error("API returned HTML (check VITE_API_URL).");
+    }
+    throw new Error("API did not return JSON.");
   }
 
   return payload as T;
@@ -376,15 +412,19 @@ export const updateCurrentUser = async (data: {
   name?: string;
   email?: string;
   profile_image?: File | null;
+  remove_profile_image?: boolean;
 }): Promise<CurrentUser> => {
   const storedUser = localStorage.getItem("user");
   const userData = storedUser ? JSON.parse(storedUser) : null;
   const userRole = (userData?.role as string) || "admin";
 
   const fd = new FormData();
-  if (userRole === "admin") {
+  if (userRole !== "staff") {
     if (data.name !== undefined) fd.append("name", data.name);
     if (data.email !== undefined) fd.append("email", data.email);
+  }
+  if (data.remove_profile_image) {
+    fd.append("remove_profile_image", "1");
   }
   if (data.profile_image) {
     fd.append("profile_image", data.profile_image);
@@ -396,7 +436,17 @@ export const updateCurrentUser = async (data: {
     const payload = await response.json().catch(() => null);
     throw new Error(payload?.message || `Request failed: ${response.status}`);
   }
-  return (await response.json()) as CurrentUser;
+
+  const contentType = response.headers.get("content-type") || "";
+  if (contentType.includes("application/json") || contentType.includes("+json")) {
+    return (await response.json()) as CurrentUser;
+  }
+
+  const text = await response.text().catch(() => "");
+  if (text.trim().startsWith("<!doctype")) {
+    throw new Error("API returned HTML (check VITE_API_URL).");
+  }
+  throw new Error("API did not return JSON.");
 };
 
 export const fetchCategories = async (): Promise<CategoryApiItem[]> => apiRequest("/categories");
@@ -408,10 +458,53 @@ export const deleteCategory = async (id: number): Promise<any> =>
   apiRequest(`/categories/${id}`, { method: "DELETE" });
 
 export const fetchProducts = async (): Promise<PaginatedResponse<ApiProduct>> => apiRequest("/products");
-export const createProduct = async (data: any): Promise<ApiProduct> =>
-  apiRequest("/products", { method: "POST", body: JSON.stringify(data) });
-export const updateProduct = async (id: number, data: any): Promise<ApiProduct> =>
-  apiRequest(`/products/${id}`, { method: "PUT", body: JSON.stringify(data) });
+
+export const createProduct = async (data: any): Promise<ApiProduct> => {
+  // Check if there's a file to upload
+  if (data.imageFile instanceof File) {
+    const fd = new FormData();
+    fd.append('name', data.name);
+    fd.append('category_id', String(data.category_id));
+    fd.append('price_small', String(data.price_small || 0));
+    fd.append('price_medium', String(data.price_medium || 0));
+    fd.append('price_large', String(data.price_large || 0));
+    if (data.description) fd.append('description', data.description);
+    if (data.sku) fd.append('sku', data.sku);
+    if (data.cost) fd.append('cost', String(data.cost));
+    if (data.supplier_id) fd.append('supplier_id', String(data.supplier_id));
+    if (data.image_url) fd.append('image_url', data.image_url);
+    if (data.imageFile) fd.append('image_file', data.imageFile);
+    if (data.is_available !== undefined) fd.append('is_available', String(data.is_available));
+    
+    return apiRequest("/products", { method: "POST", body: fd });
+  }
+  
+  // Regular JSON request
+  return apiRequest("/products", { method: "POST", body: JSON.stringify(data) });
+};
+
+export const updateProduct = async (id: number, data: any): Promise<ApiProduct> => {
+  // Check if there's a file to upload
+  if (data.imageFile instanceof File) {
+    const fd = new FormData();
+    // Laravel expects PUT for updates, so we add _method to spoof PUT
+    fd.append('_method', 'PUT');
+    if (data.name !== undefined) fd.append('name', data.name);
+    if (data.category_id !== undefined) fd.append('category_id', String(data.category_id));
+    if (data.price_small !== undefined) fd.append('price_small', String(data.price_small));
+    if (data.price_medium !== undefined) fd.append('price_medium', String(data.price_medium));
+    if (data.price_large !== undefined) fd.append('price_large', String(data.price_large));
+    if (data.image_url !== undefined) fd.append('image_url', data.image_url || '');
+    if (data.image) fd.append('image', data.image || '');
+    if (data.imageFile) fd.append('image_file', data.imageFile);
+    if (data.is_available !== undefined) fd.append('is_available', String(data.is_available));
+    
+    return apiRequest(`/products/${id}`, { method: "POST", body: fd });
+  }
+  
+  // Regular JSON request
+  return apiRequest(`/products/${id}`, { method: "PUT", body: JSON.stringify(data) });
+};
 export const deleteProduct = async (id: number): Promise<any> =>
   apiRequest(`/products/${id}`, { method: "DELETE" });
 

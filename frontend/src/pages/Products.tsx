@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState, memo } from "react";
-import { Loader2, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState, memo, useRef } from "react";
+import { Loader2, Pencil, Plus, Search, Trash2, Upload, X, Image as ImageIcon, Link } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import {
@@ -45,8 +45,9 @@ interface ProductFormData {
   price_small: string;
   price_medium: string;
   price_large: string;
-  sku: string;
   image: string;
+  image_url: string;
+  imageFile: File | null;
   is_available: boolean;
 }
 
@@ -56,9 +57,22 @@ const initialFormData: ProductFormData = {
   price_small: "",
   price_medium: "",
   price_large: "",
-  sku: "",
   image: "",
+  image_url: "",
+  imageFile: null,
   is_available: true,
+};
+
+// Get image URL - handles both local uploads and external URLs
+const getImageUrl = (image: string | null | undefined): string => {
+  if (!image) return "";
+  // If it's already a full URL, return it
+  if (image.startsWith("http://") || image.startsWith("https://")) {
+    return image;
+  }
+  // If it's a local storage path, prepend the backend URL
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:8000";
+  return `${backendUrl}/storage/${image}`;
 };
 
 // Memoized product row component
@@ -80,17 +94,27 @@ const ProductRow = memo(function ProductRow({
     return "$0.00";
   };
 
+  const imageUrl = getImageUrl(product.image);
+
   return (
     <TableRow className="border-b border-[#E5E7EB] hover:bg-[#F9FAFB]">
       <TableCell className="font-medium text-[#4B2E2B]">
         <div className="flex items-center gap-3">
-          {product.image && (
+          {imageUrl ? (
             <img
-              src={product.image}
+              src={imageUrl}
               alt={product.name}
               className="h-10 w-10 rounded-lg object-cover"
               loading="lazy"
+              onError={(e) => {
+                // Hide broken images
+                (e.target as HTMLImageElement).style.display = 'none';
+              }}
             />
+          ) : (
+            <div className="h-10 w-10 rounded-lg bg-[#EAD6C0] flex items-center justify-center">
+              <ImageIcon className="h-5 w-5 text-[#7C5D58]" />
+            </div>
           )}
           <div>
             <div className="font-medium">{product.name}</div>
@@ -142,6 +166,9 @@ export default function Products() {
   const [formData, setFormData] = useState<ProductFormData>(initialFormData);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [imageInputMode, setImageInputMode] = useState<'upload' | 'url'>('upload');
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { refreshCategories } = useCategoryContext();
 
   // Fetch data with useCallback for performance
@@ -194,43 +221,116 @@ export default function Products() {
     );
   }, [products, searchTerm]);
 
+  // Handle drag and drop
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      const file = files[0];
+      if (file.type.startsWith('image/')) {
+        setFormData((prev) => ({ ...prev, imageFile: file }));
+      } else {
+        setError("Please drop an image file (JPEG, PNG, GIF, WebP, SVG)");
+        setTimeout(() => setError(null), 3000);
+      }
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      setFormData((prev) => ({ ...prev, imageFile: files[0] }));
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setFormData((prev) => ({ ...prev, image: "", image_url: "", imageFile: null }));
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   const handleAddProduct = async () => {
+    // Debug logging
+    console.log("Adding product with form data:", formData);
+    console.log("Form valid:", !!formData.name, !!formData.category_id);
+    
     try {
-      const newProduct = await createProduct({
+      const productData: Record<string, unknown> = {
         name: formData.name,
         category_id: Number(formData.category_id),
         price_small: formData.price_small ? Number(formData.price_small) : 0,
         price_medium: formData.price_medium ? Number(formData.price_medium) : 0,
         price_large: formData.price_large ? Number(formData.price_large) : 0,
-        sku: formData.sku || null,
-        image: formData.image || null,
         is_available: formData.is_available,
-      });
+      };
+
+      // Add image file if uploaded
+      if (formData.imageFile) {
+        productData.imageFile = formData.imageFile;
+      } else if (formData.image_url) {
+        productData.image_url = formData.image_url;
+      } else if (formData.image) {
+        productData.image = formData.image;
+      }
+
+      console.log("Sending create request:");
+      const newProduct = await createProduct(productData);
+      console.log("Create successful:", newProduct);
       setProducts((prev) => [newProduct, ...prev]);
       setFormData(initialFormData);
       setIsAddDialogOpen(false);
       setSuccess("Product created successfully!");
       refreshCategories();
       setTimeout(() => setSuccess(null), 3000);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to create product:", err);
-      setError("Failed to create product");
+      setError(err?.message || "Failed to create product. Please check your permissions.");
     }
   };
 
   const handleEditProduct = async () => {
     if (!editingProduct) return;
+    
+    // Debug logging
+    console.log("Editing product:", editingProduct);
+    console.log("Form data:", formData);
+    console.log("Form valid:", !!formData.name, !!formData.category_id);
+    
     try {
-      const updated = await updateProduct(editingProduct.id, {
+      const productData: Record<string, unknown> = {
         name: formData.name,
         category_id: Number(formData.category_id),
         price_small: formData.price_small ? Number(formData.price_small) : 0,
         price_medium: formData.price_medium ? Number(formData.price_medium) : 0,
         price_large: formData.price_large ? Number(formData.price_large) : 0,
-        sku: formData.sku || null,
-        image: formData.image || null,
         is_available: formData.is_available,
-      });
+      };
+
+      // Add image file if uploaded
+      if (formData.imageFile) {
+        productData.imageFile = formData.imageFile;
+      } else if (formData.image_url) {
+        productData.image_url = formData.image_url;
+      } else if (formData.image) {
+        productData.image = formData.image;
+      }
+
+      console.log("Sending update request for product:", editingProduct.id);
+      const updated = await updateProduct(editingProduct.id, productData);
+      console.log("Update successful:", updated);
       setProducts((prev) =>
         prev.map((p) => (p.id === editingProduct.id ? { ...p, ...updated } : p))
       );
@@ -239,9 +339,9 @@ export default function Products() {
       setSuccess("Product updated successfully!");
       refreshCategories();
       setTimeout(() => setSuccess(null), 3000);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to update product:", err);
-      setError("Failed to update product");
+      setError(err?.message || "Failed to update product. Please check your permissions.");
     }
   };
 
@@ -255,7 +355,7 @@ export default function Products() {
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       console.error("Failed to delete product:", err);
-      setError("Failed to delete product");
+      setError("Failed to delete product. Please check your permissions.");
     }
   };
 
@@ -286,8 +386,9 @@ export default function Products() {
       price_small: String(product.price_small || ""),
       price_medium: String(product.price_medium || ""),
       price_large: String(product.price_large || ""),
-      sku: product.sku || "",
       image: product.image || "",
+      image_url: "",
+      imageFile: null,
       is_available: product.is_available ?? product.is_active,
     });
   };
@@ -296,7 +397,24 @@ export default function Products() {
     setIsAddDialogOpen(false);
     setEditingProduct(null);
     setFormData(initialFormData);
+    setImageInputMode('upload');
   };
+
+  // Preview image from file or URL
+  const getPreviewImage = (): string => {
+    if (formData.imageFile) {
+      return URL.createObjectURL(formData.imageFile);
+    }
+    if (formData.image_url) {
+      return formData.image_url;
+    }
+    if (formData.image) {
+      return getImageUrl(formData.image);
+    }
+    return "";
+  };
+
+  const previewImage = getPreviewImage();
 
   if (loading) {
     return (
@@ -341,7 +459,7 @@ export default function Products() {
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#7C5D58]" />
         <Input
-          placeholder="Search products by name, category, or SKU..."
+          placeholder="Search products by name or category..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="pl-10 border-[#EAD6C0] focus:border-[#4B2E2B] focus:ring-[#4B2E2B]"
@@ -400,7 +518,8 @@ export default function Products() {
               Create a new product for your menu
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
+          <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto">
+            {/* Name */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-[#4B2E2B]">
                 Name <span className="text-red-500">*</span>
@@ -412,6 +531,8 @@ export default function Products() {
                 className="border-[#EAD6C0]"
               />
             </div>
+
+            {/* Category */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-[#4B2E2B]">
                 Category <span className="text-red-500">*</span>
@@ -432,6 +553,8 @@ export default function Products() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Prices */}
             <div className="grid grid-cols-3 gap-2">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-[#4B2E2B]">Small</label>
@@ -467,24 +590,113 @@ export default function Products() {
                 />
               </div>
             </div>
+
+            {/* Image Upload Section */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-[#4B2E2B]">SKU</label>
-              <Input
-                placeholder="Product SKU"
-                value={formData.sku}
-                onChange={(e) => setFormData((prev) => ({ ...prev, sku: e.target.value }))}
-                className="border-[#EAD6C0]"
-              />
+              <label className="text-sm font-medium text-[#4B2E2B]">Product Image</label>
+              
+              {/* Toggle between upload and URL */}
+              <div className="flex gap-2 mb-2">
+                <Button
+                  type="button"
+                  variant={imageInputMode === 'upload' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setImageInputMode('upload')}
+                  className={imageInputMode === 'upload' ? 'bg-[#4B2E2B]' : ''}
+                >
+                  <Upload className="h-4 w-4 mr-1" />
+                  Upload
+                </Button>
+                <Button
+                  type="button"
+                  variant={imageInputMode === 'url' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setImageInputMode('url')}
+                  className={imageInputMode === 'url' ? 'bg-[#4B2E2B]' : ''}
+                >
+                  <Link className="h-4 w-4 mr-1" />
+                  URL
+                </Button>
+              </div>
+
+              {imageInputMode === 'upload' ? (
+                <div
+                  className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
+                    isDragging 
+                      ? 'border-[#4B2E2B] bg-[#F1E3D3]' 
+                      : 'border-[#EAD6C0] hover:border-[#4B2E2B]'
+                  }`}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                  {previewImage ? (
+                    <div className="relative inline-block">
+                      <img
+                        src={previewImage}
+                        alt="Preview"
+                        className="h-32 w-32 object-cover rounded-lg mx-auto"
+                      />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemoveImage();
+                        }}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="py-4">
+                      <Upload className="h-8 w-8 mx-auto text-[#7C5D58] mb-2" />
+                      <p className="text-sm text-[#7C5D58]">
+                        Drag and drop or click to browse
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Input
+                    placeholder="https://example.com/image.jpg"
+                    value={formData.image_url}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, image_url: e.target.value }))}
+                    className="border-[#EAD6C0]"
+                  />
+                  {previewImage && (
+                    <div className="relative inline-block">
+                      <img
+                        src={previewImage}
+                        alt="Preview"
+                        className="h-32 w-32 object-cover rounded-lg mx-auto"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setFormData((prev) => ({ ...prev, image_url: "" }))}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-[#4B2E2B]">Image URL</label>
-              <Input
-                placeholder="https://example.com/image.jpg"
-                value={formData.image}
-                onChange={(e) => setFormData((prev) => ({ ...prev, image: e.target.value }))}
-                className="border-[#EAD6C0]"
-              />
-            </div>
+
+            {/* Status */}
             <div className="flex items-center gap-2">
               <Switch
                 checked={formData.is_available}
@@ -517,7 +729,8 @@ export default function Products() {
               Update product details
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
+          <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto">
+            {/* Name */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-[#4B2E2B]">
                 Name <span className="text-red-500">*</span>
@@ -529,6 +742,8 @@ export default function Products() {
                 className="border-[#EAD6C0]"
               />
             </div>
+
+            {/* Category */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-[#4B2E2B]">
                 Category <span className="text-red-500">*</span>
@@ -549,6 +764,8 @@ export default function Products() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Prices */}
             <div className="grid grid-cols-3 gap-2">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-[#4B2E2B]">Small</label>
@@ -584,24 +801,113 @@ export default function Products() {
                 />
               </div>
             </div>
+
+            {/* Image Upload Section */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-[#4B2E2B]">SKU</label>
-              <Input
-                placeholder="Product SKU"
-                value={formData.sku}
-                onChange={(e) => setFormData((prev) => ({ ...prev, sku: e.target.value }))}
-                className="border-[#EAD6C0]"
-              />
+              <label className="text-sm font-medium text-[#4B2E2B]">Product Image</label>
+              
+              {/* Toggle between upload and URL */}
+              <div className="flex gap-2 mb-2">
+                <Button
+                  type="button"
+                  variant={imageInputMode === 'upload' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setImageInputMode('upload')}
+                  className={imageInputMode === 'upload' ? 'bg-[#4B2E2B]' : ''}
+                >
+                  <Upload className="h-4 w-4 mr-1" />
+                  Upload
+                </Button>
+                <Button
+                  type="button"
+                  variant={imageInputMode === 'url' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setImageInputMode('url')}
+                  className={imageInputMode === 'url' ? 'bg-[#4B2E2B]' : ''}
+                >
+                  <Link className="h-4 w-4 mr-1" />
+                  URL
+                </Button>
+              </div>
+
+              {imageInputMode === 'upload' ? (
+                <div
+                  className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
+                    isDragging 
+                      ? 'border-[#4B2E2B] bg-[#F1E3D3]' 
+                      : 'border-[#EAD6C0] hover:border-[#4B2E2B]'
+                  }`}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                  {previewImage ? (
+                    <div className="relative inline-block">
+                      <img
+                        src={previewImage}
+                        alt="Preview"
+                        className="h-32 w-32 object-cover rounded-lg mx-auto"
+                      />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemoveImage();
+                        }}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="py-4">
+                      <Upload className="h-8 w-8 mx-auto text-[#7C5D58] mb-2" />
+                      <p className="text-sm text-[#7C5D58]">
+                        Drag and drop or click to browse
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Input
+                    placeholder="https://example.com/image.jpg"
+                    value={formData.image_url}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, image_url: e.target.value }))}
+                    className="border-[#EAD6C0]"
+                  />
+                  {previewImage && (
+                    <div className="relative inline-block">
+                      <img
+                        src={previewImage}
+                        alt="Preview"
+                        className="h-32 w-32 object-cover rounded-lg mx-auto"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setFormData((prev) => ({ ...prev, image_url: "" }))}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-[#4B2E2B]">Image URL</label>
-              <Input
-                placeholder="https://example.com/image.jpg"
-                value={formData.image}
-                onChange={(e) => setFormData((prev) => ({ ...prev, image: e.target.value }))}
-                className="border-[#EAD6C0]"
-              />
-            </div>
+
+            {/* Status */}
             <div className="flex items-center gap-2">
               <Switch
                 checked={formData.is_available}

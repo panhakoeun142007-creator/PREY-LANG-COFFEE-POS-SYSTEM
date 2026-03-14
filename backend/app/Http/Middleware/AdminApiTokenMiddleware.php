@@ -18,7 +18,8 @@ class AdminApiTokenMiddleware
     public function handle(Request $request, Closure $next): Response
     {
         $token = $request->bearerToken();
-        $allowAccountFallback = $request->is('api/user/me');
+        $isAccountMeEndpoint = $request->is('api/user') || $request->is('api/user/me');
+        $allowAccountFallback = $isAccountMeEndpoint && $request->isMethod('GET');
 
         if (!$token) {
             if ($allowAccountFallback) {

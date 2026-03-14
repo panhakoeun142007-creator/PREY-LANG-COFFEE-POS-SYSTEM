@@ -8,6 +8,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class StaffController extends Controller
 {
@@ -44,13 +47,61 @@ class StaffController extends Controller
         // Only allow profile_image update - name and email cannot be changed by staff
         $validated = $request->validate([
             'profile_image' => ['nullable', 'image', 'max:5120'],
+            'remove_profile_image' => ['sometimes', 'boolean'],
         ]);
 
-        if ($request->hasFile('profile_image')) {
-            $file = $request->file('profile_image');
-            $mime = $file->getMimeType() ?: 'application/octet-stream';
-            $staff->profile_image = 'data:' . $mime . ';base64,' . base64_encode((string) file_get_contents($file->getRealPath()));
+        $existingProfileImage = (string) ($staff->getOriginal('profile_image') ?? '');
+
+        if (($validated['remove_profile_image'] ?? false) === true) {
+            if ($existingProfileImage !== '' && !str_starts_with($existingProfileImage, 'data:')) {
+                Storage::disk('public')->delete($existingProfileImage);
+            }
+            $staff->profile_image = null;
             $staff->save();
+        }
+
+        if ($request->hasFile('profile_image')) {
+            try {
+                $file = $request->file('profile_image');
+                if ($file) {
+                    // Validate file type
+                    $allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+                    $mime = $file->getClientMimeType();
+                    if (!in_array($mime, $allowedMimes)) {
+                        return response()->json([
+                            'message' => 'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.',
+                        ], 422);
+                    }
+
+                    $extension = $file->extension() ?: $file->guessExtension() ?: 'jpg';
+                    $filename = Str::uuid()->toString() . '.' . $extension;
+                    $path = $file->storePubliclyAs("profile-images/staffs/{$staff->id}", $filename, 'public');
+
+                    if ($path) {
+                        if ($existingProfileImage !== '' && !str_starts_with($existingProfileImage, 'data:')) {
+                            Storage::disk('public')->delete($existingProfileImage);
+                        }
+                        $staff->profile_image = $path;
+                        $staff->save();
+                    } else {
+                        Log::error('Failed to store staff profile image', [
+                            'staff_id' => $staff->id,
+                            'file' => $filename,
+                        ]);
+                        return response()->json([
+                            'message' => 'Failed to store profile image. Please try again.',
+                        ], 500);
+                    }
+                }
+            } catch (\Exception $e) {
+                Log::error('Staff profile image upload error', [
+                    'staff_id' => $staff->id,
+                    'error' => $e->getMessage(),
+                ]);
+                return response()->json([
+                    'message' => 'An error occurred while uploading the profile image: ' . $e->getMessage(),
+                ], 500);
+            }
         }
 
         return response()->json($this->serializeStaff($staff->fresh()));
@@ -114,13 +165,45 @@ class StaffController extends Controller
         ]);
 
         if ($request->hasFile('profile_image')) {
-            $file = $request->file('profile_image');
-            $mime = $file->getMimeType() ?: 'application/octet-stream';
-            $validated['profile_image'] = 'data:' . $mime . ';base64,' . base64_encode((string) file_get_contents($file->getRealPath()));
-        }
+            try {
+                $file = $request->file('profile_image');
+                if ($file) {
+                    // Validate file type
+                    $allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+                    $mime = $file->getClientMimeType();
+                    if (!in_array($mime, $allowedMimes)) {
+                        return response()->json([
+                            'message' => 'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.',
+                        ], 422);
+                    }
 
-        $validated['password_plain'] = $validated['password'];
-        $staff = Staff::create($validated);
+                    $extension = $file->extension() ?: $file->guessExtension() ?: 'jpg';
+                    $filename = Str::uuid()->toString() . '.' . $extension;
+                    
+                    // Create staff first to get ID, then store image
+                    $validated['password_plain'] = $validated['password'];
+                    $staff = Staff::create($validated);
+                    
+                    $path = $file->storePubliclyAs("profile-images/staffs/{$staff->id}", $filename, 'public');
+                    if ($path) {
+                        $staff->profile_image = $path;
+                        $staff->save();
+                    } else {
+                        Log::error('Failed to store staff profile image during creation', [
+                            'staff_id' => $staff->id,
+                            'file' => $filename,
+                        ]);
+                    }
+                }
+            } catch (\Exception $e) {
+                Log::error('Staff profile image upload error during creation', [
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        } else {
+            $validated['password_plain'] = $validated['password'];
+            $staff = Staff::create($validated);
+        }
         
         // Clear staff cache
         Cache::forget('staffs_list');
@@ -160,9 +243,48 @@ class StaffController extends Controller
         }
 
         if ($request->hasFile('profile_image')) {
-            $file = $request->file('profile_image');
-            $mime = $file->getMimeType() ?: 'application/octet-stream';
-            $validated['profile_image'] = 'data:' . $mime . ';base64,' . base64_encode((string) file_get_contents($file->getRealPath()));
+            try {
+                $file = $request->file('profile_image');
+                if ($file) {
+                    // Validate file type
+                    $allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+                    $mime = $file->getClientMimeType();
+                    if (!in_array($mime, $allowedMimes)) {
+                        return response()->json([
+                            'message' => 'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.',
+                        ], 422);
+                    }
+
+                    $existingProfileImage = (string) ($staff->getRawOriginal('profile_image') ?? '');
+                    
+                    $extension = $file->extension() ?: $file->guessExtension() ?: 'jpg';
+                    $filename = Str::uuid()->toString() . '.' . $extension;
+                    $path = $file->storePubliclyAs("profile-images/staffs/{$staff->id}", $filename, 'public');
+
+                    if ($path) {
+                        if ($existingProfileImage !== '' && !str_starts_with($existingProfileImage, 'data:')) {
+                            Storage::disk('public')->delete($existingProfileImage);
+                        }
+                        $validated['profile_image'] = $path;
+                    } else {
+                        Log::error('Failed to store staff profile image during update', [
+                            'staff_id' => $staff->id,
+                            'file' => $filename,
+                        ]);
+                        return response()->json([
+                            'message' => 'Failed to store profile image. Please try again.',
+                        ], 500);
+                    }
+                }
+            } catch (\Exception $e) {
+                Log::error('Staff profile image upload error during update', [
+                    'staff_id' => $staff->id,
+                    'error' => $e->getMessage(),
+                ]);
+                return response()->json([
+                    'message' => 'An error occurred while uploading the profile image: ' . $e->getMessage(),
+                ], 500);
+            }
         }
 
         $staff->update($validated);
@@ -196,7 +318,7 @@ class StaffController extends Controller
         $payload['initials'] = $this->getInitials($staff->name);
 
         if ($staff->profile_image) {
-            if (str_starts_with($staff->profile_image, 'data:image')) {
+            if (str_starts_with($staff->profile_image, 'data:')) {
                 $payload['profile_image_url'] = $staff->profile_image;
             } else {
                 $base = request()->getSchemeAndHttpHost();

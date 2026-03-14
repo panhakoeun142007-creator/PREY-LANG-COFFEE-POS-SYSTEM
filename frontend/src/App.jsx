@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useNavigate, useLocation } from "react-router-
 import AppLayout from "./components/AppLayout";
 import { CategoryProvider } from "./context/CategoryContext";
 import { SettingsProvider } from "./context/SettingsContext";
+import { persistUserToLocalStorage } from "./utils/userStorage";
 
 // Auth Context
 const AuthContext = createContext({
@@ -106,7 +107,7 @@ function AuthProvider({ children }) {
       const data = await response.json();
       if (data && data.id) {
         setUser(data);
-        localStorage.setItem('user', JSON.stringify(data));
+        persistUserToLocalStorage(data);
         return true;
       }
       return false;
@@ -149,7 +150,7 @@ function AuthProvider({ children }) {
 
   const login = (token, userData, redirectPath = '/') => {
     localStorage.setItem("token", token);
-    localStorage.setItem("user", JSON.stringify(userData));
+    persistUserToLocalStorage(userData);
     setIsAuthenticated(true);
     setUser(userData);
     setUserFetched(true);
@@ -167,7 +168,7 @@ function AuthProvider({ children }) {
 
   const updateUser = (newUser) => {
     setUser(newUser);
-    localStorage.setItem('user', JSON.stringify(newUser));
+    persistUserToLocalStorage(newUser);
   };
 
   if (loading) {

@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\SettingController;
 use App\Http\Controllers\Api\StaffController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\ForgotPasswordController;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -30,6 +31,53 @@ use Illuminate\Support\Facades\Route;
 // Health check
 Route::get('/health', function () {
     return response()->json(['status' => 'ok']);
+});
+
+// Database connectivity health check (safe, returns JSON)
+Route::get('/health/db', function () {
+    if (!app()->environment('local', 'testing')) {
+        return response()->json(['message' => 'Not found'], 404);
+    }
+
+    try {
+        DB::select('SELECT 1');
+
+        $usersProfileImage = null;
+        $staffsProfileImage = null;
+
+        try {
+            $usersProfileImage = DB::table('information_schema.columns')
+                ->select(['DATA_TYPE', 'COLUMN_TYPE', 'CHARACTER_MAXIMUM_LENGTH'])
+                ->where('table_schema', DB::raw('DATABASE()'))
+                ->where('table_name', 'users')
+                ->where('column_name', 'profile_image')
+                ->first();
+
+            $staffsProfileImage = DB::table('information_schema.columns')
+                ->select(['DATA_TYPE', 'COLUMN_TYPE', 'CHARACTER_MAXIMUM_LENGTH'])
+                ->where('table_schema', DB::raw('DATABASE()'))
+                ->where('table_name', 'staffs')
+                ->where('column_name', 'profile_image')
+                ->first();
+        } catch (\Throwable) {
+            // Optional: information_schema access may be restricted.
+        }
+
+        return response()->json([
+            'status' => 'ok',
+            'database' => 'connected',
+            'columns' => [
+                'users.profile_image' => $usersProfileImage,
+                'staffs.profile_image' => $staffsProfileImage,
+            ],
+        ]);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'status' => 'error',
+            'database' => 'disconnected',
+            'message' => $e->getMessage(),
+        ], 500);
+    }
 });
 
 // Public routes - Login
@@ -59,18 +107,12 @@ Route::middleware('admin.api')->group(function () {
     Route::put('/settings', [SettingController::class, 'update']);
     Route::apiResource('staffs', StaffController::class);
     Route::apiResource('categories', CategoryController::class)->except(['index', 'show']);
-    Route::apiResource('products', ProductController::class)->except(['index', 'show']);
     Route::apiResource('tables', DiningTableController::class);
     Route::apiResource('ingredients', IngredientController::class);
     Route::apiResource('recipes', RecipeController::class);
     Route::apiResource('expenses', ExpenseController::class);
     Route::get('/expenses/income', [ExpenseController::class, 'income']);
     Route::apiResource('purchases', PurchaseController::class);
-    Route::get('/recipes-board', [RecipeController::class, 'boardIndex']);
-    Route::post('/recipes-board', [RecipeController::class, 'boardStore']);
-    Route::put('/recipes-board/{product}', [RecipeController::class, 'boardUpdate']);
-    Route::patch('/recipes-board/{product}/status', [RecipeController::class, 'boardUpdateStatus']);
-    Route::delete('/recipes-board/{product}/{size}', [RecipeController::class, 'boardDestroy']);
     Route::get('/finance/income', [FinanceController::class, 'income']);
 });
 
@@ -91,10 +133,16 @@ Route::middleware('staff.api')->group(function () {
     Route::apiResource('order-items', OrderItemController::class);
     Route::get('/receipts', [ReceiptController::class, 'index']);
     Route::get('/settings', [SettingController::class, 'show'])->middleware('api.cache');
+    // Products - allow both admin and staff to manage
+    Route::apiResource('products', ProductController::class);
+    Route::get('/recipes-board', [RecipeController::class, 'boardIndex']);
+    Route::post('/recipes-board', [RecipeController::class, 'boardStore']);
+    Route::put('/recipes-board/{product}', [RecipeController::class, 'boardUpdate']);
+    Route::patch('/recipes-board/{product}/status', [RecipeController::class, 'boardUpdateStatus']);
+    Route::delete('/recipes-board/{product}/{size}', [RecipeController::class, 'boardDestroy']);
 });
 
 // Public routes with caching
 Route::middleware('api.cache')->group(function () {
     Route::get('/categories', [CategoryController::class, 'index']);
-    Route::get('/products', [ProductController::class, 'index']);
 });
