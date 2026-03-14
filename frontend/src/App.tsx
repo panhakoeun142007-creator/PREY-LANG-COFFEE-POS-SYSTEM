@@ -139,6 +139,9 @@ export default function App() {
     });
   };
 
+  // Handle sidebar collapsed state - for now using fixed margin since collapsed state is internal to Sidebar
+  const sidebarWidth = 'ml-64';
+
   return (
     <div className="min-h-screen w-full flex transition-colors duration-300 overflow-x-hidden">
       <Toaster position="top-right" />
@@ -151,10 +154,10 @@ export default function App() {
         onThemeToggle={handleThemeToggle}
       />
 
-      <div className={`flex-1 ml-72 min-h-screen ${isDark ? 'dark' : ''}`}>
+      <div className={`flex-1 ${sidebarWidth} min-h-screen ${isDark ? 'dark' : ''}`}>
         <main className="w-full p-4 md:p-6 lg:p-8 transition-colors duration-300">
           <section className="panel-shell p-5 md:p-8 min-h-[calc(100vh-3rem)] w-full">
-          {renderContent()}
+            {renderContent()}
           </section>
         </main>
 
@@ -166,13 +169,12 @@ export default function App() {
                   <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">{selectedOrder.tableNo}</p>
                   <h3 className="text-2xl font-black text-slate-900 dark:text-white">Order {orderDisplayIdMap[selectedOrder.id] ?? selectedOrder.id}</h3>
                 </div>
-                <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                  selectedOrder.status === 'Preparing' ? 'bg-orange-100 text-orange-600' :
-                  selectedOrder.status === 'Pending' ? 'bg-amber-100 text-amber-600' :
-                  selectedOrder.status === 'Ready' ? 'bg-emerald-100 text-emerald-600' :
-                  selectedOrder.status === 'Completed' ? 'bg-blue-100 text-blue-600' :
-                  'bg-red-100 text-red-600'
-                }`}>
+                <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${selectedOrder.status === 'Preparing' ? 'bg-orange-100 text-orange-600' :
+                    selectedOrder.status === 'Pending' ? 'bg-amber-100 text-amber-600' :
+                      selectedOrder.status === 'Ready' ? 'bg-emerald-100 text-emerald-600' :
+                        selectedOrder.status === 'Completed' ? 'bg-blue-100 text-blue-600' :
+                          'bg-red-100 text-red-600'
+                  }`}>
                   {selectedOrder.status}
                 </span>
               </div>

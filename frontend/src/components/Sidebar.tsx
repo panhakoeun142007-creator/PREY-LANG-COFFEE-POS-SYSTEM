@@ -8,6 +8,8 @@ import {
   Moon,
   Sun,
   AlertCircle,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import LogoImage from '../assets/coffee.png';
@@ -20,6 +22,15 @@ interface SidebarProps {
   onThemeToggle: () => void;
 }
 
+function statusClass(isActive: boolean, isDarkMode: boolean): string {
+  if (isActive) {
+    return isDarkMode
+      ? 'bg-slate-700 text-slate-100 font-semibold shadow'
+      : 'bg-[#F5E6D3] text-[#4B2E2B] font-semibold shadow';
+  }
+  return isDarkMode ? 'text-slate-200 hover:bg-slate-700/70' : 'text-white/80 hover:bg-white/10';
+}
+
 const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   setActiveTab,
@@ -28,6 +39,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onThemeToggle,
 }) => {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -36,71 +48,86 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'history', label: 'Order History', icon: History },
   ];
 
+  const sidebarWidth = collapsed ? 'w-20' : 'w-64';
+
   return (
     <>
-      <div className="w-72 h-screen bg-[#3e241f] bg-[linear-gradient(180deg,#4f2d26_0%,#311713_100%)] flex flex-col p-6 fixed left-0 top-0 z-40 transition-all duration-500 ease-in-out shadow-2xl border-r border-white/10">
-        <div className="flex items-center mb-12 px-2 gap-4">
+      <div className={`fixed inset-y-0 left-0 z-40 flex ${sidebarWidth} flex-col text-white transition-all duration-300 ${isDark
+        ? 'border-r border-slate-700/70 bg-slate-950/90 backdrop-blur-xl'
+        : 'bg-[#4B2E2B]'
+        }`}>
+        {/* Logo Section */}
+        <div className={`flex items-center gap-3 px-4 py-5 ${isDark ? 'border-b border-slate-800' : 'border-b border-white/10'}`}>
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="relative w-14 h-14 rounded-2xl overflow-hidden border-2 border-white/20 flex-shrink-0 bg-white shadow-inner"
+            className="relative w-11 h-11 rounded-lg overflow-hidden border-2 border-white/20 flex-shrink-0 bg-white shadow-inner"
           >
             <img src={LogoImage} alt="Logo" className="w-full h-full object-contain p-1" />
           </motion.div>
-          <div className="flex flex-col">
-            <h1 className="font-black text-xl tracking-tight leading-none mb-1 text-white">Prey Lang</h1>
-            <p className="text-[10px] uppercase tracking-[0.2em] font-black text-orange-200">POS System</p>
-          </div>
+          {!collapsed && (
+            <div className="leading-tight">
+              <p className="text-sm font-bold tracking-wide">PREY LANG</p>
+              <p className="text-xs text-white/80">COFFEE</p>
+            </div>
+          )}
         </div>
 
-        <nav className="flex-1 space-y-2">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all duration-300 relative group ${isActive
-                    ? 'bg-white text-[#B75D17] shadow-xl translate-x-2'
-                    : 'text-white/80 hover:text-white hover:bg-white/10'
-                  }`}
-              >
-                <Icon size={22} strokeWidth={isActive ? 3 : 2} />
-                <span className={`text-base ${isActive ? 'font-black' : 'font-bold'}`}>{item.label}</span>
-
-                {isActive && (
-                  <motion.div
-                    layoutId="activePill"
-                    className="absolute -left-2 w-1.5 h-8 bg-[#ffd6ae] rounded-full"
-                  />
-                )}
-              </button>
-            );
-          })}
+        <nav className="flex-1 overflow-y-auto px-3 py-4">
+          <div className="space-y-2">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id)}
+                  className={`w-full flex items-center rounded-xl px-3 py-2.5 text-sm transition ${statusClass(isActive, isDark)}`}
+                  title={collapsed ? item.label : undefined}
+                >
+                  <Icon size={18} />
+                  {!collapsed && <span className="ml-3">{item.label}</span>}
+                </button>
+              );
+            })}
+          </div>
         </nav>
 
-        <div className="mt-auto space-y-2 pt-6 border-t border-white/20">
+        <div className={`p-3 ${isDark ? 'border-t border-slate-800' : 'border-t border-white/10'}`}>
           <button
             onClick={onThemeToggle}
             aria-label="Toggle dark mode"
             aria-pressed={isDark}
-            className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all active:scale-95 text-white/80 hover:text-white hover:bg-black/10"
+            className={`w-full flex items-center rounded-xl px-3 py-2.5 text-sm transition ${isDark ? 'text-slate-300 hover:bg-slate-800/70' : 'text-white/80 hover:bg-white/10'
+              }`}
           >
-            <div className="relative w-6 h-6 flex items-center justify-center">
-              {isDark ? <Moon size={22} /> : <Sun size={22} />}
+            <div className="relative w-[18px] h-[18px] flex items-center justify-center">
+              {isDark ? <Moon size={18} /> : <Sun size={18} />}
             </div>
-            <span className="text-base font-bold">{isDark ? 'Dark Mode: On' : 'Dark Mode: Off'}</span>
+            {!collapsed && <span className="ml-3">{isDark ? 'Dark Mode: On' : 'Dark Mode: Off'}</span>}
           </button>
 
           <button
             onClick={() => setShowLogoutConfirm(true)}
-            className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all active:scale-95 text-white/80 hover:text-white hover:bg-red-600/20"
+            className={`w-full flex items-center rounded-xl px-3 py-2.5 text-sm transition mt-2 ${isDark ? 'text-slate-300 hover:bg-slate-800/70' : 'text-white/80 hover:bg-white/10'
+              }`}
           >
-            <LogOut size={22} />
-            <span className="text-base font-bold">Logout</span>
+            <LogOut size={18} />
+            {!collapsed && <span className="ml-3">Logout</span>}
           </button>
         </div>
+
+        <button
+          type="button"
+          onClick={() => setCollapsed((prev) => !prev)}
+          className={`absolute -right-3 top-24 hidden h-7 w-7 items-center justify-center rounded-full shadow md:flex ${isDark
+            ? 'border-slate-600 bg-slate-800 text-slate-100'
+            : 'border-[#EAD6C0] bg-[#FFF8F0] text-[#4B2E2B]'
+            }`}
+          aria-label="Toggle sidebar"
+        >
+          {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+        </button>
       </div>
 
       <AnimatePresence>
