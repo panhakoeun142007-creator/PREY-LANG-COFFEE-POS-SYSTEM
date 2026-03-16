@@ -4,7 +4,10 @@ import { createContext, useContext, useMemo, useState } from 'react';
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    const token = localStorage.getItem('token') || localStorage.getItem('auth_token');
+    return !!token;
+  });
 
   const value = useMemo(
     () => ({

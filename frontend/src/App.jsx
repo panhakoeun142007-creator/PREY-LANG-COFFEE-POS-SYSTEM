@@ -7,11 +7,12 @@ import QRpayment from "./pages/QRpayment";
 import Paymantule from "./pages/paymantule";
 import Wait from "./pages/wait";
 import Ready from "./pages/ready";
+import DashboardPage from "./pages/DashboardPage";
 import { getCartTotal } from "./utils/pricing";
 
 function App() {
   const [cartItems, setCartItems] = useState([]);
-  const [currentPage, setCurrentPage] = useState("menu");
+  const [currentPage, setCurrentPage] = useState("dashboard");
   const [detailTarget, setDetailTarget] = useState(null);
   const [qrOrderNumber, setQrOrderNumber] = useState("#A-000");
   const [theme, setTheme] = useState(() => {
@@ -214,6 +215,9 @@ function App() {
 
   return (
     <div className="app-shell">
+      {currentPage === "dashboard" && (
+        <DashboardPage onNavigate={setCurrentPage} />
+      )}
       {currentPage === "menu" && (
         <Customer
           cartItems={cartItems}

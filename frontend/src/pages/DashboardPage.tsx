@@ -47,7 +47,7 @@ const defaultData: DashboardData = {
   notifications: [],
 };
 
-export default function DashboardPage() {
+export default function DashboardPage({ onNavigate }: { onNavigate?: (page: string) => void }) {
   const [data, setData] = useState<DashboardData>(defaultData);
   const [, setLoading] = useState(true);
   const [, setError] = useState<string | null>(null);

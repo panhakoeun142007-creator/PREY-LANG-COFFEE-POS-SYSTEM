@@ -43,8 +43,8 @@ export default function Login() {
         localStorage.setItem('token', token);
         localStorage.setItem('auth_token', token);
         localStorage.setItem('user', JSON.stringify(userData));
-        // Force full page redirect to admin
-        window.location.replace('/');
+        // Force full page redirect to dashboard
+        window.location.replace('/dashboard');
         return;
       } else {
         console.log('No token or user in response');
