@@ -7,6 +7,8 @@ import {
   LogOut,
   Moon,
   Sun,
+  ChevronLeft,
+  ChevronRight,
   AlertCircle,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -18,6 +20,8 @@ interface SidebarProps {
   onLogoutClick: () => void;
   isDark: boolean;
   onThemeToggle: () => void;
+  isCollapsed: boolean;
+  onToggleCollapse: () => void;
   shopName?: string;
 }
 
@@ -27,6 +31,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   onLogoutClick,
   isDark,
   onThemeToggle,
+  isCollapsed,
+  onToggleCollapse,
   shopName = 'Prey Lang',
 }) => {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -40,22 +46,41 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <>
-      <div className="w-72 h-screen bg-[#3e241f] bg-[linear-gradient(180deg,#4f2d26_0%,#311713_100%)] flex flex-col p-6 fixed left-0 top-0 z-40 transition-all duration-500 ease-in-out shadow-2xl border-r border-white/10">
-        <div className="flex items-center mb-12 px-2 gap-4">
+      <div
+        className={`h-screen bg-[#3f2622] bg-[linear-gradient(180deg,#4a2b27_0%,#2f1713_100%)] text-white flex flex-col fixed left-0 top-0 z-40 transition-all duration-300 overflow-y-auto ${
+          isCollapsed ? 'w-16 px-3' : 'w-72 p-6'
+        }`}
+      >
+        <button
+          type="button"
+          onClick={onToggleCollapse}
+          aria-label={isCollapsed ? 'Show sidebar' : 'Hide sidebar'}
+          className="absolute -right-3 top-24 w-7 h-7 rounded-full bg-[#F6E8D7] text-[#5C2E22] shadow-md flex items-center justify-center border border-white/40"
+        >
+          {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+        </button>
+
+        <div className={`flex items-center ${isCollapsed ? 'mb-8 justify-center' : 'mb-10 gap-4'}`}>
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="relative w-14 h-14 rounded-2xl overflow-hidden border-2 border-white/20 flex-shrink-0 bg-white shadow-inner"
+            className={`relative rounded-2xl overflow-hidden border border-white/15 flex-shrink-0 bg-white shadow-inner flex items-center justify-center ${
+              isCollapsed ? 'w-10 h-10' : 'w-12 h-12'
+            }`}
           >
-            <img src={LogoImage} alt="Logo" className="w-full h-full object-contain p-1" />
+            <img
+              src={LogoImage}
+              alt="Logo"
+              className={`${isCollapsed ? 'w-6 h-6' : 'w-8 h-8'} object-contain`}
+            />
           </motion.div>
-          <div className="flex flex-col">
-            <h1 className="font-black text-xl tracking-tight leading-none mb-1 text-white">{shopName}</h1>
-            <p className="text-[10px] uppercase tracking-[0.2em] font-black text-orange-200">POS System</p>
+          <div className={`flex flex-col ${isCollapsed ? 'sr-only' : ''}`}>
+            <h1 className="text-base font-bold tracking-wide leading-tight text-white">PREY LANG</h1>
+            <p className="text-xs tracking-[0.2em] text-white/80">COFFEE</p>
           </div>
         </div>
 
-        <nav className="flex-1 space-y-2">
+        <nav className={`flex-1 space-y-2 pb-6 ${isCollapsed ? 'items-center' : ''}`}>
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -63,44 +88,45 @@ const Sidebar: React.FC<SidebarProps> = ({
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all duration-300 relative group ${isActive
-                    ? 'bg-white text-[#B75D17] shadow-xl translate-x-2'
-                    : 'text-white/80 hover:text-white hover:bg-white/10'
+                className={`w-full flex items-center rounded-2xl transition-all duration-200 ${
+                  isCollapsed ? 'justify-center px-0 py-3' : 'gap-4 px-4 py-3'
+                } ${isActive
+                    ? 'bg-[#F6E8D7] text-[#5C2E22] shadow-md'
+                    : 'text-white/90 hover:text-white hover:bg-white/5'
                   }`}
               >
-                <Icon size={22} strokeWidth={isActive ? 3 : 2} />
-                <span className={`text-base ${isActive ? 'font-black' : 'font-bold'}`}>{item.label}</span>
-
-                {isActive && (
-                  <motion.div
-                    layoutId="activePill"
-                    className="absolute -left-2 w-1.5 h-8 bg-[#ffd6ae] rounded-full"
-                  />
-                )}
+                <Icon className={`w-5 h-5 ${isActive ? 'text-[#5C2E22]' : 'text-white/80'}`} />
+                <span className={`text-sm font-medium ${isCollapsed ? 'sr-only' : ''}`}>{item.label}</span>
               </button>
             );
           })}
         </nav>
 
-        <div className="mt-auto space-y-2 pt-6 border-t border-white/20">
+        <div className={`mt-auto space-y-2 pt-4 border-t border-white/10 ${isCollapsed ? 'pb-2' : ''}`}>
           <button
             onClick={onThemeToggle}
             aria-label="Toggle dark mode"
             aria-pressed={isDark}
-            className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all active:scale-95 text-white/80 hover:text-white hover:bg-black/10"
+            className={`w-full flex items-center rounded-2xl transition-colors text-white/90 hover:text-white hover:bg-white/5 ${
+              isCollapsed ? 'justify-center px-0 py-3' : 'gap-4 px-4 py-3'
+            }`}
           >
             <div className="relative w-6 h-6 flex items-center justify-center">
-              {isDark ? <Moon size={22} /> : <Sun size={22} />}
+              {isDark ? <Moon size={20} /> : <Sun size={20} />}
             </div>
-            <span className="text-base font-bold">{isDark ? 'Dark Mode: On' : 'Dark Mode: Off'}</span>
+            <span className={`text-sm font-medium ${isCollapsed ? 'sr-only' : ''}`}>
+              {isDark ? 'Dark Mode: On' : 'Dark Mode: Off'}
+            </span>
           </button>
 
           <button
             onClick={() => setShowLogoutConfirm(true)}
-            className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all active:scale-95 text-white/80 hover:text-white hover:bg-red-600/20"
+            className={`w-full flex items-center rounded-2xl transition-colors text-white/90 hover:text-white hover:bg-white/5 ${
+              isCollapsed ? 'justify-center px-0 py-3' : 'gap-4 px-4 py-3'
+            }`}
           >
-            <LogOut size={22} />
-            <span className="text-base font-bold">Logout</span>
+            <LogOut size={20} />
+            <span className={`text-sm font-medium ${isCollapsed ? 'sr-only' : ''}`}>Logout</span>
           </button>
         </div>
       </div>

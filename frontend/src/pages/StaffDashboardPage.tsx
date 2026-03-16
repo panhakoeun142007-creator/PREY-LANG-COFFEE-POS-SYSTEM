@@ -24,6 +24,7 @@ import { persistUserToLocalStorage } from "../utils/userStorage";
 
 export default function StaffDashboardPage() {
   const navigate = useNavigate();
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isDark, setIsDark] = useState<boolean>(() => {
     const savedTheme = localStorage.getItem("theme");
     if (savedTheme === "dark") return true;
@@ -298,9 +299,11 @@ export default function StaffDashboardPage() {
         onLogoutClick={handleLogout}
         isDark={isDark}
         onThemeToggle={handleThemeToggle}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
       />
 
-      <div className={`flex-1 ml-72 min-h-screen ${isDark ? "dark" : ""}`}>
+      <div className={`flex-1 ${isSidebarCollapsed ? "ml-16" : "ml-72"} min-h-screen ${isDark ? "dark" : ""}`}>
         <main className="w-full p-4 md:p-6 lg:p-8 transition-colors duration-300">
           <section className="panel-shell p-5 md:p-8 min-h-[calc(100vh-3rem)] w-full">
             {renderContent()}
