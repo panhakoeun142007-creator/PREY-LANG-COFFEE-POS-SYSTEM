@@ -1,6 +1,6 @@
 import { motion } from "motion/react";
 import type { ComponentType } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useCategoryContext } from "../../context/CategoryContext";
 import {
   Coffee,
@@ -33,10 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./select";
-import {
-  fetchCategories,
-  type CategoryApiItem,
-} from "../../services/api";
+import type { CategoryApiItem } from "../../services/api";
 
 type CategoryStatus = "active" | "archived";
 type IconKey = "coffee" | "bakery" | "hot" | "iced" | "merch" | "seasonal";
@@ -76,9 +73,14 @@ function isApiConnectionError(message: string): boolean {
 }
 
 export default function CategoriesUI() {
-  const { addCategory, editCategory, removeCategory } = useCategoryContext();
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    categories: apiCategories,
+    loading,
+    error: loadError,
+    addCategory,
+    editCategory,
+    removeCategory,
+  } = useCategoryContext();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -93,36 +95,33 @@ export default function CategoriesUI() {
     status: "active",
     icon: "coffee",
   });
-  const isConnectionError = !!error && isApiConnectionError(error);
 
-  useEffect(() => {
-    void loadCategories();
-  }, []);
+  const mergedError = error ?? loadError ?? null;
+  const isConnectionError = !!mergedError && isApiConnectionError(mergedError);
 
-  function mapApiCategory(item: CategoryApiItem): Category {
-    return {
+  const categories = useMemo(() => {
+    const ALL_ICONS: IconKey[] = ["coffee", "bakery", "hot", "iced", "merch", "seasonal"];
+
+    function pickIcon(name: string, index: number): IconKey {
+      const n = name.toLowerCase();
+      if (n.includes("coffee") || n.includes("espresso") || n.includes("latte") || n.includes("cappuccino")) return "coffee";
+      if (n.includes("bak") || n.includes("bread") || n.includes("pastry") || n.includes("croissant") || n.includes("cake")) return "bakery";
+      if (n.includes("hot") || n.includes("tea") || n.includes("warm") || n.includes("soup")) return "hot";
+      if (n.includes("ice") || n.includes("cold") || n.includes("frozen") || n.includes("smoothie") || n.includes("shake")) return "iced";
+      if (n.includes("merch") || n.includes("gift") || n.includes("accessory") || n.includes("bottle") || n.includes("mug")) return "merch";
+      if (n.includes("season") || n.includes("special") || n.includes("limited") || n.includes("promo")) return "seasonal";
+      return ALL_ICONS[index % ALL_ICONS.length];
+    }
+
+    return apiCategories.map((item, index) => ({
       id: item.id,
       name: item.name,
       description: item.description,
       count: item.quantity ?? item.products_count ?? 0,
       status: item.is_active ? "active" : "archived",
-      icon: "coffee",
-    };
-  }
-
-  async function loadCategories() {
-    try {
-      setLoading(true);
-      setError(null);
-      const items = await fetchCategories();
-      const mapped: Category[] = items.map(mapApiCategory);
-      setCategories(mapped);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load categories");
-    } finally {
-      setLoading(false);
-    }
-  }
+      icon: pickIcon(item.name, index),
+    } satisfies Category));
+  }, [apiCategories]);
 
   const totalCategories = categories.length;
   const activeCount = categories.filter((item) => item.status === "active").length;
@@ -186,7 +185,6 @@ export default function CategoriesUI() {
           is_active: form.status === "active",
         });
       }
-      await loadCategories();
       setDialogOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save category");
@@ -209,7 +207,6 @@ export default function CategoriesUI() {
       setDeleting(true);
       setError(null);
       await removeCategory(pendingDeleteId);
-      await loadCategories();
       setDeleteOpen(false);
       setPendingDeleteId(null);
     } catch (err) {
@@ -233,11 +230,11 @@ export default function CategoriesUI() {
           Add Category
         </Button>
       </div>
-      {error ? (
+      {mergedError ? (
         <p className="text-sm text-red-600">
           {isConnectionError
             ? "Cannot reach backend API. Start Laravel server: php artisan serve --host=127.0.0.1 --port=8000"
-            : error}
+            : mergedError}
         </p>
       ) : null}
       {loading ? <p className="text-sm text-[#7C5D58]">Loading categories...</p> : null}

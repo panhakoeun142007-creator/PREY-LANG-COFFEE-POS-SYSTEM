@@ -15,7 +15,7 @@ class SalesAnalyticsController extends Controller
     public function index(): JsonResponse
     {
         $monthRows = [];
-        $startMonth = now()->startOfMonth()->subMonths(11);
+        $startMonth = now()->startOfYear();
 
         for ($i = 0; $i < 12; $i++) {
             $monthStart = (clone $startMonth)->addMonths($i)->startOfMonth();
@@ -38,20 +38,20 @@ class SalesAnalyticsController extends Controller
             ];
         }
 
-        $hourRows = [];
-        $today = now()->startOfDay();
-        for ($hour = 6; $hour <= 17; $hour++) {
-            $hourLabel = Carbon::createFromTime($hour)->format('g A');
-            $hourStart = (clone $today)->setTime($hour, 0, 0);
-            $hourEnd = (clone $today)->setTime($hour, 59, 59);
-            $orders = Order::query()
-                ->whereBetween('created_at', [$hourStart, $hourEnd])
-                ->where('status', '!=', 'cancelled')
-                ->count();
+        // Aggregate order counts grouped by hour (6 AM – 5 PM) across all history
+        $hourCounts = Order::query()
+            ->selectRaw('HOUR(created_at) as hr, COUNT(*) as total')
+            ->whereRaw('HOUR(created_at) BETWEEN 6 AND 17')
+            ->where('status', '!=', 'cancelled')
+            ->groupByRaw('HOUR(created_at)')
+            ->pluck('total', 'hr')
+            ->toArray();
 
+        $hourRows = [];
+        for ($hour = 6; $hour <= 17; $hour++) {
             $hourRows[] = [
-                'hour' => $hourLabel,
-                'orders' => $orders,
+                'hour' => Carbon::createFromTime($hour)->format('g A'),
+                'orders' => (int) ($hourCounts[$hour] ?? 0),
             ];
         }
 

@@ -73,8 +73,11 @@ class DashboardController extends Controller
         // Monthly profit
         $monthlyProfit = $monthlyRevenue - (float) $monthlyExpenses;
 
-        // Revenue last 7 days - single query with group by
-        $revenueData = Order::where('created_at', '>=', now()->subDays(7)->startOfDay())
+        // Revenue for current week Mon–Sun
+        $startOfWeek = now()->startOfWeek(\Carbon\Carbon::MONDAY)->startOfDay();
+        $endOfWeek   = now()->endOfWeek(\Carbon\Carbon::SUNDAY)->endOfDay();
+
+        $revenueData = Order::whereBetween('created_at', [$startOfWeek, $endOfWeek])
             ->where('status', '!=', 'cancelled')
             ->selectRaw('DATE(created_at) as date, SUM(total_price) as revenue')
             ->groupBy('date')
@@ -85,10 +88,10 @@ class DashboardController extends Controller
                 return (float) $row->revenue;
             });
 
-        // Build complete 7-day array
+        // Build Mon–Sun array
         $formattedRevenueData = [];
-        for ($i = 6; $i >= 0; $i--) {
-            $date = now()->subDays($i)->startOfDay();
+        for ($i = 0; $i <= 6; $i++) {
+            $date = $startOfWeek->copy()->addDays($i);
             $dateKey = $date->format('Y-m-d');
             $formattedRevenueData[] = [
                 'name' => $date->format('D'),

@@ -5,8 +5,8 @@ import { navGroups, pageTitleByPath } from "../data/mockData";
 import { useSettings } from "../context/SettingsContext";
 import { persistUserToLocalStorage } from "../utils/userStorage";
 import {
-  fetchCurrentUser,
   fetchNotifications,
+  fetchCurrentUser,
   Notification,
   CurrentUser,
   logoutAdmin,
@@ -84,25 +84,29 @@ export default function AppLayout() {
   }, [isDarkMode]);
 
   useEffect(() => {
-    async function loadUser() {
-      try {
-        const user = await fetchCurrentUser();
-        setCurrentUser(user);
-        setAccountName(user.name);
-        setAccountEmail(user.email);
-        setAccountImagePreview(user.profile_image_url ?? null);
-        // Update localStorage with fresh data (without storing large base64 data URLs)
-        persistUserToLocalStorage(user);
-      } catch (err) {
-        console.error("Failed to load user:", err);
-        setCurrentUser(null);
-        setAccountName("");
-        setAccountEmail("");
-        setAccountImagePreview(null);
-      }
+    const storedUser = localStorage.getItem("user");
+    if (!storedUser) {
+      setCurrentUser(null);
+      setAccountName("");
+      setAccountEmail("");
+      setAccountImagePreview(null);
+      return;
     }
 
-    loadUser();
+    try {
+      const parsed = JSON.parse(storedUser) as CurrentUser;
+      setCurrentUser(parsed);
+      setAccountName(parsed.name ?? "");
+      setAccountEmail(parsed.email ?? "");
+      setAccountImagePreview(parsed.profile_image_url ?? null);
+      persistUserToLocalStorage(parsed);
+    } catch (err) {
+      console.error("Failed to parse stored user:", err);
+      setCurrentUser(null);
+      setAccountName("");
+      setAccountEmail("");
+      setAccountImagePreview(null);
+    }
   }, []);
 
   useEffect(() => {
@@ -143,20 +147,17 @@ export default function AppLayout() {
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  // Filter navGroups based on user role
-  const userRole = currentUser?.role || 'admin';
+  const userRole = currentUser?.role === 'admin' ? 'admin' : 'staff';
   const filteredNavGroups = useMemo(() => {
     return navGroups
-      .map(group => ({
+      .map((group) => ({
         ...group,
-        items: group.items.filter(item => {
-          // If no roles specified, show to all
+        items: group.items.filter((item) => {
           if (!item.roles || item.roles.length === 0) return true;
-          // Otherwise check if user's role is in the allowed roles
-          return item.roles.includes(userRole as 'admin' | 'staff');
-        })
+          return item.roles.includes(userRole);
+        }),
       }))
-      .filter(group => group.items.length > 0); // Remove groups with no items
+      .filter((group) => group.items.length > 0);
   }, [userRole]);
 
   const pageTitle = pageTitleByPath[location.pathname] ?? "Dashboard";
@@ -351,12 +352,13 @@ export default function AppLayout() {
                 await logoutAdmin();
               } catch (err) {
                 console.error("Failed to logout:", err);
-              } finally {
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
-                window.location.href = '/login';
-              }
-            }}
+                } finally {
+                  localStorage.removeItem('token');
+                  localStorage.removeItem('user');
+                  window.dispatchEvent(new Event('auth:unauthorized'));
+                  navigate('/login', { replace: true });
+                }
+              }}
             className={`flex w-full items-center rounded-xl px-3 py-2.5 text-sm transition ${
               isDarkMode ? "text-slate-300 hover:bg-slate-800/70" : "text-white/80 hover:bg-white/10"
             }`}
@@ -541,7 +543,8 @@ export default function AppLayout() {
                         } finally {
                           localStorage.removeItem('token');
                           localStorage.removeItem('user');
-                          window.location.href = '/login';
+                          window.dispatchEvent(new Event('auth:unauthorized'));
+                          navigate('/login', { replace: true });
                         }
                       }}
                       className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"

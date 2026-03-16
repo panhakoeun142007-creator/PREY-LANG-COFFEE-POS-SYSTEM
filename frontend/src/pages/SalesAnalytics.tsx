@@ -158,7 +158,7 @@ export default function SalesAnalytics() {
 
         <Card className="border-none shadow-md">
           <CardHeader>
-            <CardTitle className="text-lg text-[#4B2E2B]">Peak Hours (Today)</CardTitle>
+            <CardTitle className="text-lg text-[#4B2E2B]">Peak Hours</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-[300px] w-full">

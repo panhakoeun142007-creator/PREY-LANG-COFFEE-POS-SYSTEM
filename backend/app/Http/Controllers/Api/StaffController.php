@@ -15,10 +15,6 @@ use Illuminate\Support\Str;
 class StaffController extends Controller
 {
     /**
-     * Cache TTL for staff list (5 minutes).
-     */
-    private const CACHE_TTL = 300;
-    /**
      * Get current authenticated staff member.
      */
     public function me(): JsonResponse
@@ -112,40 +108,34 @@ class StaffController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        // Build cache key based on request parameters
-        $cacheKey = 'staffs_list_paginated';
-        $search = $request->filled('search') ? trim($request->string('search')) : null;
-        $isActive = $request->has('is_active') ? $request->boolean('is_active') : null;
-        
-        if ($search) {
-            $cacheKey .= '_search_' . $search;
+        $validated = $request->validate([
+            'search' => ['nullable', 'string', 'max:120'],
+            'is_active' => ['nullable', 'boolean'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        $query = Staff::query()->latest();
+
+        if (!empty($validated['search'])) {
+            $search = trim((string) $validated['search']);
+            $query->where(function ($inner) use ($search) {
+                $inner
+                    ->where('name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%");
+            });
         }
-        if ($isActive !== null) {
-            $cacheKey .= '_active_' . ($isActive ? '1' : '0');
+
+        if ($request->has('is_active')) {
+            $query->where('is_active', $request->boolean('is_active'));
         }
 
-        $paginator = Cache::remember($cacheKey, self::CACHE_TTL, function () use ($request, $search, $isActive) {
-            $query = Staff::query()->latest();
+        $perPage = isset($validated['per_page']) ? (int) $validated['per_page'] : 20;
 
-            if ($search) {
-                $query->where(function ($inner) use ($search) {
-                    $inner
-                        ->where('name', 'like', "%{$search}%")
-                        ->orWhere('email', 'like', "%{$search}%");
-                });
-            }
-
-            if ($isActive !== null) {
-                $query->where('is_active', $isActive);
-            }
-
-            $paginator = $query->paginate(20);
-            $paginator->setCollection(
-                $paginator->getCollection()->map(fn (Staff $staff) => $this->serializeStaff($staff))
-            );
-
-            return $paginator;
-        });
+        $paginator = $query->paginate($perPage);
+        $paginator->setCollection(
+            $paginator->getCollection()->map(fn (Staff $staff) => $this->serializeStaff($staff))
+        );
 
         return response()->json($paginator);
     }

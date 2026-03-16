@@ -7,6 +7,12 @@ export const authService = {
   login(payload) {
     return apiRequest('/login', { method: 'POST', body: JSON.stringify(payload) });
   },
+  sendResetLink(payload) {
+    return apiRequest('/send-reset-link', { method: 'POST', body: JSON.stringify(payload) });
+  },
+  verifyCode(payload) {
+    return apiRequest('/verify-code', { method: 'POST', body: JSON.stringify(payload) });
+  },
   logout() {
     return apiRequest('/logout', { method: 'POST' });
   },

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { authService } from '../services/authService';
 import '../style/index.css';
 
 export default function ForgotPassword() {
@@ -25,15 +26,7 @@ export default function ForgotPassword() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/send-reset-link', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email }),
-      });
-
-      const data = await response.json();
+      const data = await authService.sendResetLink({ email });
 
       if (data.success) {
         localStorage.setItem('verificationEmail', email);

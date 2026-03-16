@@ -33,7 +33,6 @@ import {
   createProduct,
   updateProduct,
   deleteProduct,
-  fetchCategories,
 } from "../services/api";
 import { useCategoryContext } from "../context/CategoryContext";
 import { CATEGORY_UPDATE_EVENT } from "../context/CategoryContext";
@@ -158,7 +157,6 @@ const ProductRow = memo(function ProductRow({
 
 export default function Products() {
   const [products, setProducts] = useState<ApiProduct[]>([]);
-  const [categories, setCategories] = useState<{ id: number; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -169,21 +167,21 @@ export default function Products() {
   const [imageInputMode, setImageInputMode] = useState<'upload' | 'url'>('upload');
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { refreshCategories } = useCategoryContext();
+  const { categories: apiCategories, refreshCategories } = useCategoryContext();
+
+  const categories = useMemo(() => {
+    return apiCategories
+      .map((item) => ({ id: item.id, name: item.name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [apiCategories]);
 
   // Fetch data with useCallback for performance
-  const loadData = useCallback(async () => {
+  const loadProducts = useCallback(async () => {
     try {
-      const [productsResult, categoriesResult] = await Promise.all([
-        fetchProducts(),
-        fetchCategories(),
-      ]);
+      const productsResult = await fetchProducts();
       
       if (productsResult?.data) {
         setProducts(productsResult.data);
-      }
-      if (Array.isArray(categoriesResult)) {
-        setCategories(categoriesResult.map((item) => ({ id: item.id, name: item.name })));
       }
       setError(null);
     } catch (err) {
@@ -195,19 +193,19 @@ export default function Products() {
   }, []);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    void loadProducts();
+  }, [loadProducts]);
 
   useEffect(() => {
     const handleCategoryUpdate = () => {
-      void loadData();
+      void loadProducts();
     };
 
     window.addEventListener(CATEGORY_UPDATE_EVENT, handleCategoryUpdate);
     return () => {
       window.removeEventListener(CATEGORY_UPDATE_EVENT, handleCategoryUpdate);
     };
-  }, [loadData]);
+  }, [loadProducts]);
 
   // Memoized filtered products
   const filteredProducts = useMemo(() => {

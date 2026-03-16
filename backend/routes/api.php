@@ -95,17 +95,11 @@ Route::get('/recipe-logs', [RecipeLogController::class, 'index']);
 Route::post('/recipe-logs', [RecipeLogController::class, 'store']);
 Route::delete('/recipe-logs/{id}', [RecipeLogController::class, 'destroy']);
 
-// Orders - public listing
-Route::get('/orders', [OrderController::class, 'index']);
-Route::patch('/orders/{id}/status', [OrderController::class, 'updateStatus']);
-
 // Staff and Admin routes (both can access)
 Route::middleware('staff.api')->group(function () {
     Route::get('/user/me', [UserController::class, 'me']);
     Route::post('/user/me', [UserController::class, 'updateMe']);
-    Route::put('/settings', [SettingController::class, 'update']);
     Route::apiResource('staffs', StaffController::class);
-    Route::apiResource('categories', CategoryController::class)->except(['index', 'show']);
     Route::apiResource('tables', DiningTableController::class);
     Route::apiResource('ingredients', IngredientController::class);
     Route::apiResource('recipes', RecipeController::class);
@@ -116,9 +110,14 @@ Route::middleware('staff.api')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
 });
 
+// Admin-only routes
+Route::middleware('admin.api')->group(function () {
+    Route::put('/settings', [SettingController::class, 'update']);
+    Route::apiResource('categories', CategoryController::class)->except(['index', 'show']);
+});
+
 // Staff and Admin routes (both can access)
 Route::middleware('staff.api')->group(function () {
-    Route::get('/user/me', [UserController::class, 'me']);
     Route::get('/staff/me', [StaffController::class, 'me']);
     Route::post('/staff/me', [StaffController::class, 'updateMyProfile']);
     Route::get('/manager', [ManagerController::class, 'show']);

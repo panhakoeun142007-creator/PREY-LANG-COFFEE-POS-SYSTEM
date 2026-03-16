@@ -72,7 +72,7 @@ export default function ResetPassword() {
       localStorage.removeItem('verificationDevCode');
       localStorage.removeItem('verificationEmail');
       setSuccess('Password changed successfully. Redirecting...');
-      setTimeout(() => window.location.replace('/'), 600);
+      setTimeout(() => navigate('/', { replace: true }), 600);
     } catch (err) {
       setError(err?.message || 'Reset password failed. Please try again.');
     } finally {

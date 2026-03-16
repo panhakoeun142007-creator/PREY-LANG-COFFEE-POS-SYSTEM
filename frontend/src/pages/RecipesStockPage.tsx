@@ -29,14 +29,13 @@ import {
 } from "../components/ui/table";
 import {
   ApiProduct,
-  Category,
+  CategoryApiItem,
   createRecipeBoard,
   deleteRecipeBoard,
   fetchCategories,
   fetchIngredients,
   fetchProducts,
   fetchRecipeBoards,
-  fetchRecipeBoard,
   IngredientApiItem,
   RecipeBoardRow,
   RecipeSize,
@@ -67,7 +66,7 @@ export default function RecipesStockPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<RecipeStatus>("all");
   const [rows, setRows] = useState<RecipeBoardRow[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<CategoryApiItem[]>([]);
   const [products, setProducts] = useState<ApiProduct[]>([]);
   const [ingredients, setIngredients] = useState<IngredientApiItem[]>([]);
   const [loading, setLoading] = useState(true);

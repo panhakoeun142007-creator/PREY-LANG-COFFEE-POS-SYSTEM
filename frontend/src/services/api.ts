@@ -629,7 +629,7 @@ export const deleteExpense = async (id: number): Promise<any> =>
 export const fetchIncomeTransactions = async (params: Record<string, unknown> = {}): Promise<any> =>
   apiRequest(withQuery("/finance/income", params));
 
-export const fetchRecipeBoards = async (): Promise<PaginatedResponse<RecipeBoardRow>> => apiRequest("/recipes-board");
+export const fetchRecipeBoards = async (): Promise<{ data: RecipeBoardRow[] }> => apiRequest("/recipes-board");
 export const fetchRecipeBoard = async (id: number): Promise<any> => apiRequest(`/recipes/${id}`);
 export const createRecipeBoard = async (data: any): Promise<any> =>
   apiRequest("/recipes-board", { method: "POST", body: JSON.stringify(data) });

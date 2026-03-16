@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { authService } from '../services/authService';
 import '../style/index.css';
 
 export default function VerifyCode() {
@@ -63,15 +64,7 @@ export default function VerifyCode() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/verify-code', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, code: enteredCode }),
-      });
-
-      const data = await response.json();
+      const data = await authService.verifyCode({ email, code: enteredCode });
       if (data.success) {
         setSuccess('Code verified successfully.');
         localStorage.setItem('verificationEmail', email);

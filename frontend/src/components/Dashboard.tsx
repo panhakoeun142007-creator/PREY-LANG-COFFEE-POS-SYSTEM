@@ -34,14 +34,14 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, onViewDetails, currentUse
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
-  const storedUser: DashboardUser | null = (() => {
+  const storedUser: DashboardUser | null = useMemo(() => {
     try {
       const raw = localStorage.getItem('user');
       return raw ? (JSON.parse(raw) as DashboardUser) : null;
     } catch {
       return null;
     }
-  })();
+  }, []);
 
   const user = currentUser ?? storedUser;
   const userName = (user?.name ?? 'Staff').toString();
