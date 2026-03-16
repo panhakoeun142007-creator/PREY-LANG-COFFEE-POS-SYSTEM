@@ -24,8 +24,11 @@ const ReceiptsPage = lazy(() => import("./pages/ReceiptsPage"));
 const RecipesStockPage = lazy(() => import("./pages/RecipesStockPage"));
 const Tables = lazy(() => import("./pages/Tables"));
 const IngredientsPage = lazy(() => import("./pages/IngredientsPage"));
+const IngredientsStockPage = lazy(() => import("./pages/IngredientsStockPage"));
+const FinancePage = lazy(() => import("./pages/FinancePage"));
 const IncomePage = lazy(() => import("./components/ui/income"));
 const SettingsPage = lazy(() => import("./components/ui/setting"));
+const StaffManagementPage = lazy(() => import("./pages/CustomerManagementPage"));
 
 // Public pages
 const Login = lazy(() => import("./pages/Login"));
@@ -217,6 +220,17 @@ function StaffRoutes() {
           <Route path="live-orders" element={withSuspense(<LiveOrders />)} />
           <Route path="order-history" element={withSuspense(<OrderHistory />)} />
           <Route path="receipts" element={withSuspense(<ReceiptsPage />)} />
+          <Route path="products" element={withSuspense(<Products />)} />
+          <Route path="categories" element={withSuspense(<CategoriesPage />)} />
+          <Route path="tables" element={withSuspense(<Tables />)} />
+          <Route path="recipes" element={withSuspense(<RecipesStockPage />)} />
+          <Route path="stock" element={withSuspense(<IngredientsPage />)} />
+          <Route path="ingredients" element={withSuspense(<IngredientsPage />)} />
+          <Route path="finance" element={withSuspense(<FinancePage />)} />
+          <Route path="income" element={withSuspense(<IncomePage />)} />
+          <Route path="analytics" element={withSuspense(<SalesAnalytics />)} />
+          <Route path="staff-management" element={withSuspense(<StaffManagementPage />)} />
+          <Route path="settings" element={withSuspense(<SettingsPage />)} />
         </Route>
         <Route path="*" element={<Navigate to="/live-orders" replace />} />
       </Routes>
