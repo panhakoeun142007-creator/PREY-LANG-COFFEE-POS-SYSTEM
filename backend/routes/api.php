@@ -50,10 +50,8 @@ Route::delete('/recipe-logs/{id}', [RecipeLogController::class, 'destroy']);
 Route::get('/orders', [OrderController::class, 'index']);
 Route::patch('/orders/{id}/status', [OrderController::class, 'updateStatus']);
 
-// Admin-only routes
-Route::middleware('admin.api')->group(function () {
-    Route::post('/logout', [AuthController::class, 'logout']);
-    Route::get('/user', [UserController::class, 'me']);
+// Staff and Admin routes (both can access)
+Route::middleware('staff.api')->group(function () {
     Route::get('/user/me', [UserController::class, 'me']);
     Route::post('/user/me', [UserController::class, 'updateMe']);
     Route::apiResource('staffs', StaffController::class);
@@ -71,6 +69,7 @@ Route::middleware('admin.api')->group(function () {
     Route::patch('/recipes-board/{product}/status', [RecipeController::class, 'boardUpdateStatus']);
     Route::delete('/recipes-board/{product}/{size}', [RecipeController::class, 'boardDestroy']);
     Route::get('/finance/income', [FinanceController::class, 'income']);
+    Route::post('/logout', [AuthController::class, 'logout']);
 });
 
 // Staff and Admin routes (both can access)
