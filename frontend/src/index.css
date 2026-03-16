@@ -101,6 +101,31 @@
   }
 }
 
+@layer utilities {
+  /* Make staff typography match admin typography (lighter weights, no forced uppercase, minimal tracking). */
+  .staff-admin-typography .font-black {
+    @apply font-semibold;
+  }
+
+  .staff-admin-typography .font-bold {
+    @apply font-semibold;
+  }
+
+  .staff-admin-typography .uppercase {
+    text-transform: none !important;
+  }
+
+  .staff-admin-typography .tracking-widest,
+  .staff-admin-typography .tracking-wider,
+  .staff-admin-typography .tracking-wide,
+  .staff-admin-typography .tracking-tight,
+  .staff-admin-typography .tracking-tighter,
+  .staff-admin-typography .tracking-normal,
+  .staff-admin-typography .tracking-\[0\.2em\] {
+    letter-spacing: 0.01em !important;
+  }
+}
+
 .panel-shell {
   @apply rounded-[28px] border border-white/70 shadow-xl backdrop-blur-sm;
   background-color: var(--panel-bg);

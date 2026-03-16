@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\DiningTableController;
 use App\Http\Controllers\Api\ExpenseController;
 use App\Http\Controllers\Api\FinanceController;
 use App\Http\Controllers\Api\IngredientController;
+use App\Http\Controllers\Api\ManagerController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\OrderItemController;
 use App\Http\Controllers\Api\ProductController;
@@ -120,6 +121,7 @@ Route::middleware('staff.api')->group(function () {
     Route::get('/user/me', [UserController::class, 'me']);
     Route::get('/staff/me', [StaffController::class, 'me']);
     Route::post('/staff/me', [StaffController::class, 'updateMyProfile']);
+    Route::get('/manager', [ManagerController::class, 'show']);
     Route::get('/dashboard', [DashboardController::class, 'index']);
     Route::get('/dashboard/notifications', [DashboardController::class, 'notifications']);
     Route::get('/notifications', [DashboardController::class, 'notifications']);

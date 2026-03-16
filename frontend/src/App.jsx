@@ -34,6 +34,7 @@ const VerifyCode = lazy(() => import("./pages/VerifyCode"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const VerifySuccessful = lazy(() => import("./pages/VerifySuccessful"));
 const SessionExpired = lazy(() => import("./pages/SessionExpired"));
+const StaffDashboardPage = lazy(() => import("./pages/StaffDashboardPage"));
 
 // API Base URL
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
@@ -76,20 +77,51 @@ function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [userFetched, setUserFetched] = useState(false);
 
-  const fetchUserData = useCallback(async (token) => {
+  useEffect(() => {
+    const handler = () => {
+      setIsAuthenticated(false);
+      setUser(null);
+      setUserFetched(false);
+      if (window.location.pathname !== "/login") {
+        navigate("/login", { replace: true });
+      }
+    };
+
+    window.addEventListener("auth:unauthorized", handler);
+    return () => window.removeEventListener("auth:unauthorized", handler);
+  }, [navigate]);
+
+  const fetchUserData = useCallback(async (token, role) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/user`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const tryFetch = async (endpoint) => {
+        return fetch(endpoint, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+      };
+
+      const primaryEndpoint = role === 'staff' ? `${API_BASE_URL}/staff/me` : `${API_BASE_URL}/user/me`;
+      const secondaryEndpoint = role === 'staff' ? `${API_BASE_URL}/user/me` : `${API_BASE_URL}/staff/me`;
+
+      let response = await tryFetch(primaryEndpoint);
+      if (!response.ok) {
+        // If role in localStorage is stale/wrong, try the other "me" endpoint before logging out.
+        response = await tryFetch(secondaryEndpoint);
+      }
 
       if (!response.ok) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        setIsAuthenticated(false);
-        return false;
+        // Only force logout on auth-related failures. For transient/server errors, keep the session.
+        if (response.status === 401 || response.status === 403) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          setIsAuthenticated(false);
+          setUser(null);
+          setUserFetched(false);
+          return false;
+        }
+        return true;
       }
 
       const data = await response.json();
@@ -101,7 +133,8 @@ function AuthProvider({ children }) {
       return false;
     } catch (error) {
       console.error('User fetch error:', error);
-      return false;
+      // Network/server issue: keep the session instead of bouncing to /login.
+      return true;
     }
   }, []);
 
@@ -116,7 +149,7 @@ function AuthProvider({ children }) {
         setIsAuthenticated(true);
 
         if (!userFetched) {
-          fetchUserData(token).then(success => {
+          fetchUserData(token, parsedUser?.role).then(success => {
             if (!success) {
               setIsAuthenticated(false);
             }
@@ -206,6 +239,14 @@ export default function App() {
         <Route path="/reset-password" element={withSuspense(<ResetPassword />)} />
         <Route path="/verify-successful" element={withSuspense(<VerifySuccessful />)} />
         <Route path="/session-expired" element={withSuspense(<SessionExpired />)} />
+        <Route
+          path="/staff-dashboard"
+          element={
+            <ProtectedRoute>
+              {withSuspense(<StaffDashboardPage />)}
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="/*"

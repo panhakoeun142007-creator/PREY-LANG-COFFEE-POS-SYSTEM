@@ -14,7 +14,10 @@ const Orders: React.FC<OrdersProps> = ({ orders = [], updateStatus }) => {
   const [viewMode, setViewMode] = useState<'list' | 'tables'>('list');
   const [activeTab, setActiveTab] = useState<'Live' | 'Completed' | 'Cancelled'>('Live');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const orderDisplayIdMap = useMemo(() => buildOrderDisplayIdMap(orders.map((order) => order.id)), [orders]);
+  const orderDisplayIdMap = useMemo(
+    () => buildOrderDisplayIdMap((Array.isArray(orders) ? orders : []).map((order) => order.id)),
+    [orders],
+  );
 
   const allTables = ['Table 01', 'Table 02', 'Table 03', 'Table 04', 'Table 05', 'Table 06', 'Table 07', 'Table 08', 'Table 09', 'Table 10', 'Table 11', 'Table 12'];
 

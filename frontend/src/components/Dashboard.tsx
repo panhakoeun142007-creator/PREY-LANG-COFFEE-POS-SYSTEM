@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { 
   TrendingUp, 
   Clock, 
@@ -14,18 +14,73 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion'; // Fixed import to match common usage
 import { Order, InventoryItem } from '../types';
+import { fetchNotifications, type Notification } from '../services/api';
+
+type DashboardUser = {
+  name?: string | null;
+  role?: string | null;
+  profile_image_url?: string | null;
+};
 
 interface DashboardProps {
   orders: Order[];
   onViewDetails: (order: Order) => void;
+  currentUser?: DashboardUser | null;
+  onProfileClick?: () => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ orders, onViewDetails }) => {
+const Dashboard: React.FC<DashboardProps> = ({ orders, onViewDetails, currentUser, onProfileClick }) => {
   const [activeTab, setActiveTab] = useState<'Live' | 'Completed' | 'Cancelled'>('Live');
   const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+
+  const storedUser: DashboardUser | null = (() => {
+    try {
+      const raw = localStorage.getItem('user');
+      return raw ? (JSON.parse(raw) as DashboardUser) : null;
+    } catch {
+      return null;
+    }
+  })();
+
+  const user = currentUser ?? storedUser;
+  const userName = (user?.name ?? 'Staff').toString();
+  const userRole = (user?.role ?? 'staff').toString().toUpperCase();
+  const userInitials =
+    userName
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? '')
+      .join('') || 'ST';
 
   const activeOrdersCount = orders.filter(o => o.status !== 'Completed' && o.status !== 'Cancelled').length;
   const readyOrdersCount = orders.filter(o => o.status === 'Ready').length;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      try {
+        const payload = await fetchNotifications();
+        if (cancelled) return;
+        setNotifications(payload.notifications || []);
+      } catch (err) {
+        console.error('Failed to load notifications:', err);
+        if (cancelled) return;
+        setNotifications([]);
+      }
+    }
+
+    load();
+    const interval = setInterval(load, 30000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
+
+  const unreadCount = useMemo(() => notifications.filter((n) => !n.read).length, [notifications]);
 
   const filteredOrders = orders.filter(order => {
     if (activeTab === 'Live') return order.status !== 'Completed' && order.status !== 'Cancelled';
@@ -40,32 +95,21 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, onViewDetails }) => {
     { id: '3', name: 'Caramel Syrup', quantity: 3, unit: 'bottles', threshold: 5 },
   ];
 
-  const mockNotifications = [
-    {
-      id: '1',
-      sender: 'Sophie Manager',
-      message: 'New bulk order received - Table 8 needs immediate attention',
-      time: '2 min ago',
-      type: 'urgent',
-      read: false
-    },
-    {
-      id: '2',
-      sender: 'Kitchen Staff',
-      message: 'Running low on croissants - only 3 left',
-      time: '5 min ago',
-      type: 'warning',
-      read: false
-    },
-    {
-      id: '3',
-      sender: 'System',
-      message: 'Order #1234 is ready for pickup',
-      time: '8 min ago',
-      type: 'success',
-      read: false
-    }
-  ];
+  const renderNotificationIcon = (type: string) => {
+    const t = (type || '').toLowerCase();
+    if (t === 'ready') return <Check size={16} className="text-emerald-600 dark:text-emerald-400" />;
+    if (t === 'order') return <ShoppingBag size={16} className="text-blue-600 dark:text-blue-400" />;
+    if (t === 'stock' || t === 'near_stock') return <AlertTriangle size={16} className="text-amber-600 dark:text-amber-400" />;
+    return <Info size={16} className="text-slate-600 dark:text-slate-400" />;
+  };
+
+  const notificationBubbleClass = (type: string) => {
+    const t = (type || '').toLowerCase();
+    if (t === 'ready') return 'bg-emerald-100 dark:bg-emerald-500/10';
+    if (t === 'order') return 'bg-blue-100 dark:bg-blue-500/10';
+    if (t === 'stock' || t === 'near_stock') return 'bg-amber-100 dark:bg-amber-500/10';
+    return 'bg-slate-100 dark:bg-white/5';
+  };
 
   return (
     <motion.div 
@@ -103,9 +147,11 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, onViewDetails }) => {
           >
             <Bell size={20} className="text-slate-600 dark:text-slate-300" />
             {/* Notification Badge */}
-            <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white dark:border-[#1A110B]">
-              {mockNotifications.filter(n => !n.read).length}
-            </span>
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white dark:border-[#1A110B]">
+                {unreadCount}
+              </span>
+            )}
           </button>
 
           {/* Notifications Dropdown */}
@@ -129,35 +175,25 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, onViewDetails }) => {
 
               {/* Notifications List */}
               <div className="max-h-96 overflow-y-auto">
-                {mockNotifications.map((notification) => (
+                {notifications.map((notification) => (
                   <div
                     key={notification.id}
                     className="p-4 border-b border-slate-50 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
                   >
                     <div className="flex items-start gap-3">
                       {/* Icon based on type */}
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                        notification.type === 'urgent' ? 'bg-red-100 dark:bg-red-500/10' :
-                        notification.type === 'warning' ? 'bg-amber-100 dark:bg-amber-500/10' :
-                        'bg-emerald-100 dark:bg-emerald-500/10'
-                      }`}>
-                        {notification.type === 'urgent' ? (
-                          <AlertTriangle size={16} className="text-red-600 dark:text-red-400" />
-                        ) : notification.type === 'warning' ? (
-                          <AlertCircle size={16} className="text-amber-600 dark:text-amber-400" />
-                        ) : (
-                          <Check size={16} className="text-emerald-600 dark:text-emerald-400" />
-                        )}
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${notificationBubbleClass(notification.type)}`}>
+                        {renderNotificationIcon(notification.type)}
                       </div>
 
                       {/* Content */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-1">
                           <p className="text-sm font-bold text-slate-900 dark:text-white">
-                            {notification.sender}
+                            {notification.title || 'Notification'}
                           </p>
                           <span className="text-[10px] text-slate-400 dark:text-slate-500">
-                            {notification.time}
+                            {notification.time || ''}
                           </span>
                         </div>
                         <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2">
@@ -168,7 +204,7 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, onViewDetails }) => {
                   </div>
                 ))}
 
-                {mockNotifications.length === 0 && (
+                {notifications.length === 0 && (
                   <div className="p-8 text-center">
                     <Info size={24} className="text-slate-300 dark:text-slate-600 mx-auto mb-2" />
                     <p className="text-sm text-slate-400 dark:text-slate-500">No notifications</p>
@@ -178,7 +214,11 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, onViewDetails }) => {
 
               {/* Dropdown Footer */}
               <div className="p-3 border-t border-slate-100 dark:border-white/5">
-                <button className="w-full text-center text-sm text-[#BD5E0A] font-bold hover:underline">
+                <button
+                  type="button"
+                  onClick={() => setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))}
+                  className="w-full text-center text-sm text-[#BD5E0A] font-bold hover:underline"
+                >
                   Mark all as read
                 </button>
               </div>
@@ -186,18 +226,31 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, onViewDetails }) => {
           )}
 
           {/* Profile Div */}
-          <div className="flex items-center gap-3 bg-white dark:bg-[#1A110B] p-2 pr-4 rounded-full border border-slate-100 dark:border-white/10 shadow-sm transition-colors">
-            <img 
-              src="https://picsum.photos/seed/user1/100/100" 
-              alt="User" 
-              className="w-10 h-10 rounded-full object-cover border border-slate-100 dark:border-white/10"
-              referrerPolicy="no-referrer"
-            />
-            <div>
-              <p className="text-sm font-bold leading-none dark:text-white transition-colors">Chanthy CHET</p>
-              <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium uppercase tracking-wider">Barista</p>
+          <button
+            type="button"
+            onClick={onProfileClick}
+            disabled={!onProfileClick}
+            className={`flex items-center gap-3 bg-white dark:bg-[#1A110B] p-2 pr-4 rounded-full border border-slate-100 dark:border-white/10 shadow-sm transition-colors ${
+              onProfileClick ? 'hover:scale-105 active:scale-95 cursor-pointer' : 'cursor-default'
+            }`}
+          >
+            {user?.profile_image_url ? (
+              <img
+                src={user.profile_image_url}
+                alt="User"
+                className="w-10 h-10 rounded-full object-cover border border-slate-100 dark:border-white/10"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-full border border-slate-100 dark:border-white/10 bg-[#F5E6D3] text-[#4B2E2B] flex items-center justify-center text-sm font-bold">
+                {userInitials}
+              </div>
+            )}
+            <div className="text-left">
+              <p className="text-sm font-bold leading-none dark:text-white transition-colors">{userName}</p>
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium uppercase tracking-wider">{userRole}</p>
             </div>
-          </div>
+          </button>
         </div>
       </header>
 

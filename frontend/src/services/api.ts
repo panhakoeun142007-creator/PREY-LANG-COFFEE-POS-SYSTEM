@@ -153,11 +153,13 @@ export interface ApiTable {
 }
 
 export interface Notification {
-  id: number;
+  id: number | string;
   type: string;
+  title?: string;
   message: string;
+  time?: string;
   read: boolean;
-  created_at: string;
+  created_at?: string;
 }
 
 export interface CurrentUser {
@@ -169,6 +171,14 @@ export interface CurrentUser {
   created_at?: string;
   updated_at?: string;
 }
+
+export type ManagerInfo = {
+  id: number;
+  name: string;
+  email: string;
+  role?: "admin" | string;
+  profile_image_url?: string | null;
+};
 
 export interface StaffApiItem {
   id: number;
@@ -359,8 +369,11 @@ export async function apiRequest<T = any>(path: string, options: RequestInit = {
     if (response.status === 401) {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
-      if (window.location.pathname !== "/login") {
-        window.location.href = "/login";
+      // Let the SPA router handle navigation (avoids hard reload / blank page in some setups).
+      try {
+        window.dispatchEvent(new CustomEvent("auth:unauthorized", { detail: { path } }));
+      } catch {
+        window.dispatchEvent(new Event("auth:unauthorized"));
       }
     }
 
@@ -396,9 +409,22 @@ function toFormData(data: Record<string, unknown>): FormData {
 export const fetchCurrentUser = async (): Promise<CurrentUser> => {
   const storedUser = localStorage.getItem("user");
   const userRole = storedUser ? (JSON.parse(storedUser).role as string) : "admin";
-  const endpoint = userRole === "staff" ? "/staff/me" : "/user/me";
-  return apiRequest(endpoint);
+
+  const primaryEndpoint = userRole === "staff" ? "/staff/me" : "/user/me";
+  const secondaryEndpoint = userRole === "staff" ? "/user/me" : "/staff/me";
+
+  const primaryResponse = await safeFetch(primaryEndpoint);
+  if (!primaryResponse.ok && (primaryResponse.status === 401 || primaryResponse.status === 403)) {
+    const secondaryResponse = await safeFetch(secondaryEndpoint);
+    if (secondaryResponse.ok) {
+      return apiRequest(secondaryEndpoint);
+    }
+  }
+
+  return apiRequest(primaryEndpoint);
 };
+
+export const fetchManager = async (): Promise<ManagerInfo> => apiRequest("/manager");
 
 export const fetchNotifications = async (): Promise<{ notifications: Notification[] }> => {
   return apiRequest("/notifications");

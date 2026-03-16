@@ -8,7 +8,6 @@ import {
   Moon,
   Sun,
   AlertCircle,
-  Settings,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import LogoImage from '../assets/coffee.png';
@@ -37,7 +36,6 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'orders', label: 'Orders', icon: ShoppingBag },
     { id: 'recipe', label: 'Recipe', icon: BookOpen },
     { id: 'history', label: 'Order History', icon: History },
-    { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
   return (

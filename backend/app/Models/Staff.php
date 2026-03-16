@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use Illuminate\Auth\Authenticatable;
+use Illuminate\Contracts\Auth\Authenticatable as AuthenticatableContract;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Staff extends Model
+class Staff extends Model implements AuthenticatableContract
 {
     use HasFactory;
+    use Authenticatable;
 
     protected $table = 'staffs';
 
