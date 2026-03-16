@@ -13,7 +13,7 @@ const AuthContext = createContext({
   user: null,
 });
 
-// Lazy loaded admin pages
+// Staff pages (all pages accessible to staff)
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
 const CategoriesPage = lazy(() => import("./pages/CategoriesPage"));
 const StaffManagementPage = lazy(() => import("./pages/CustomerManagementPage"));
@@ -64,19 +64,9 @@ function ProtectedRoute({ children }) {
   return <SettingsProvider>{children}</SettingsProvider>;
 }
 
-// Role-based Route Protection
+// Role-based Route Protection - Removed admin restrictions, all authenticated users can access all routes
 function RoleProtectedRoute({ requiredRole, children }) {
-  const auth = useContext(AuthContext);
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (auth.user?.role && requiredRole && auth.user.role !== requiredRole) {
-      if (requiredRole === 'admin' && auth.user.role !== 'admin') {
-        navigate('/', { replace: true });
-      }
-    }
-  }, [auth.user, requiredRole, navigate]);
-
+  // All authenticated users can access all routes (admin restrictions removed)
   return children;
 }
 
@@ -186,7 +176,7 @@ function AuthProvider({ children }) {
   );
 }
 
-// Staff Routes
+// Staff Routes (only accessible pages)
 function StaffRoutes() {
   return (
     <CategoryProvider>
@@ -203,41 +193,9 @@ function StaffRoutes() {
   );
 }
 
-// Admin Routes
-function AdminRoutes() {
-  return (
-    <CategoryProvider>
-      <Routes>
-        <Route path="/" element={<AppLayout />}>
-          <Route index element={withSuspense(<DashboardPage />)} />
-          <Route path="live-orders" element={withSuspense(<LiveOrders />)} />
-          <Route path="order-history" element={withSuspense(<OrderHistory />)} />
-          <Route path="receipts" element={withSuspense(<ReceiptsPage />)} />
-          <Route path="products" element={withSuspense(<Products />)} />
-          <Route path="categories" element={withSuspense(<CategoriesPage />)} />
-          <Route path="tables" element={withSuspense(<Tables />)} />
-          <Route path="recipes" element={withSuspense(<RecipesStockPage />)} />
-          <Route path="stock" element={withSuspense(<IngredientsPage />)} />
-          <Route path="staff-management" element={withSuspense(<StaffManagementPage />)} />
-          <Route path="analytics" element={withSuspense(<SalesAnalytics />)} />
-          <Route path="finance" element={withSuspense(<IncomePage />)} />
-          <Route path="settings" element={withSuspense(<SettingsPage />)} />
-        </Route>
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </CategoryProvider>
-  );
-}
-
-// Main Routes with role-based access
+// Main Routes - Staff only access
 function AppRoutes() {
-  const auth = useContext(AuthContext);
-  const userRole = auth.user?.role || 'admin';
-
-  if (userRole === 'staff') {
-    return <StaffRoutes />;
-  }
-  return <AdminRoutes />;
+  return <StaffRoutes />;
 }
 
 export default function App() {

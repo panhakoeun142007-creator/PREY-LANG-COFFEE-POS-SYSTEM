@@ -41,34 +41,34 @@ export const navGroups: NavGroup[] = [
   {
     group: "Menu Management",
     items: [
-      { label: "Products", path: "/products", icon: Package, roles: ['admin'] },
-      { label: "Categories", path: "/categories", icon: Salad, roles: ['admin'] },
+      { label: "Products", path: "/products", icon: Package, roles: ['admin', 'staff'] },
+      { label: "Categories", path: "/categories", icon: Salad, roles: ['admin', 'staff'] },
     ],
   },
   {
     group: "Tables",
-    items: [{ label: "Table Management", path: "/tables", icon: Table2, roles: ['admin'] }],
+    items: [{ label: "Table Management", path: "/tables", icon: Table2, roles: ['admin', 'staff'] }],
   },
   {
     group: "Stock & Recipe",
     items: [
-      { label: "Recipes", path: "/recipes", icon: ClipboardList, roles: ['admin'] },
-      { label: "Ingredients / Stock", path: "/stock", icon: Package, roles: ['admin'] },
+      { label: "Recipes", path: "/recipes", icon: ClipboardList, roles: ['admin', 'staff'] },
+      { label: "Ingredients / Stock", path: "/stock", icon: Package, roles: ['admin', 'staff'] },
     ],
   },
   {
     group: "Finance",
-    items: [{ label: "Income & Expenses", path: "/finance", icon: Wallet, roles: ['admin'] }],
+    items: [{ label: "Income & Expenses", path: "/finance", icon: Wallet, roles: ['admin', 'staff'] }],
   },
   {
     group: "Analytics",
-    items: [{ label: "Sales Analytics", path: "/analytics", icon: BarChart3, roles: ['admin'] }],
+    items: [{ label: "Sales Analytics", path: "/analytics", icon: BarChart3, roles: ['admin', 'staff'] }],
   },
   {
     group: "System",
     items: [
-      { label: "Staff Management", path: "/staff-management", icon: Users, roles: ['admin'] },
-      { label: "Settings", path: "/settings", icon: Settings, roles: ['admin'] },
+      { label: "Staff Management", path: "/staff-management", icon: Users, roles: ['admin', 'staff'] },
+      { label: "Settings", path: "/settings", icon: Settings, roles: ['admin', 'staff'] },
     ],
   },
 ];
