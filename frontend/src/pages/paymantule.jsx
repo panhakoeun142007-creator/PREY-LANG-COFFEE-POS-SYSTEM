@@ -52,9 +52,12 @@ function Paymantule({ cartItems = [], onDone }) {
           <small>PLEASE PAY AT THE COUNTER</small>
         </div>
 
-        <button className="paymantule-done" type="button" onClick={onDone}>
-          DONE
-        </button>
+        <div style={{ textAlign: 'center' }}>
+          <button className="paymantule-done" type="button" onClick={onDone}>
+            DONE
+          </button>
+        </div>
+
       </div>
     </div>
   );

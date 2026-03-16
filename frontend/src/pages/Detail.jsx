@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { getItemUnitPrice } from "../utils/pricing";
-import "../cart.css";
+import "../detail.css";
 
 const SIZES = ["S", "M", "L"];
 const SUGAR_LEVELS = ["0%", "25%", "50%", "75%", "100%"];
@@ -59,113 +59,111 @@ function Detail({
   const totalPrice = unitPrice * item.quantity;
 
   return (
-    <div className="cart-page">
-      <div className="cart-topbar">
-        <button className="cart-back-icon" type="button" onClick={onBack}>
+    <div className="detail-page">
+      <div className="detail-top">
+        <button className="detail-back" type="button" onClick={onBack}>
           {"<"}
         </button>
-        <h2>Edit Item</h2>
-        <span style={{ width: 30 }} />
-      </div>
-
-      <div style={{ textAlign: "center", marginBottom: 16 }}>
-        <small style={{ color: "var(--text-secondary)" }}>
+        <h2 className="detail-title">Edit Item</h2>
+        <span className="detail-count-chip">
           Item {detailIndex + 1} of {detailCount}
-        </small>
+        </span>
       </div>
 
-      <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 20 }}>
+      <div className="detail-image-nav">
         <button
-          className="back-btn"
+          className="detail-side-nav"
           type="button"
           onClick={onPrevItem}
           disabled={!canGoPrev}
-          style={{ opacity: canGoPrev ? 1 : 0.5 }}
         >
-          {"<"} Prev
+          {"<"}
         </button>
+        <div className="detail-image-wrap">
+          <img
+            className="detail-product-image"
+            src={item.image || "/placeholder.jpg"}
+            alt={item.name}
+          />
+        </div>
         <button
-          className="back-btn"
+          className="detail-side-nav"
           type="button"
           onClick={onNextItem}
           disabled={!canGoNext}
-          style={{ opacity: canGoNext ? 1 : 0.5 }}
         >
-          Next {">"}
+          {">"}
         </button>
       </div>
 
-      <div className="cart-item">
-        <img
-          className="cart-item-image"
-          src={item.image || "/placeholder.jpg"}
-          alt={item.name}
-        />
-        <div className="cart-item-info">
+      <div className="detail-card">
+        <div className="detail-headline">
           <h3>{item.name}</h3>
-          <div className="item-detail">
-            <label>Size:</label>
-            <select value={selectedSize} onChange={(e) => setSelectedSize(e.target.value)}>
-              {SIZES.map((size) => (
-                <option key={size} value={size}>{size}</option>
-              ))}
-            </select>
-          </div>
-          <div className="item-detail">
-            <label>Sugar:</label>
-            <select value={sugarLevel} onChange={(e) => setSugarLevel(e.target.value)}>
-              {SUGAR_LEVELS.map((level) => (
-                <option key={level} value={level}>{level}</option>
-              ))}
-            </select>
-          </div>
-          <div className="item-detail">
-            <label>Milk:</label>
-            <select value={milkOption} onChange={(e) => setMilkOption(e.target.value)}>
-              {MILK_OPTIONS.map((milk) => (
-                <option key={milk} value={milk}>{milk}</option>
-              ))}
-            </select>
-          </div>
-          <div className="item-detail" style={{ marginTop: 8 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <p>Unit: ${unitPrice.toFixed(2)} | Total: ${totalPrice.toFixed(2)}</p>
+        </div>
+        <div className="detail-section-block">
+          <label>Size</label>
+          <select value={selectedSize} onChange={(e) => setSelectedSize(e.target.value)}>
+            {SIZES.map((size) => (
+              <option key={size} value={size}>{size}</option>
+            ))}
+          </select>
+        </div>
+        <div className="detail-section-block">
+          <label>Sugar Level</label>
+          <select value={sugarLevel} onChange={(e) => setSugarLevel(e.target.value)}>
+            {SUGAR_LEVELS.map((level) => (
+              <option key={level} value={level}>{level}</option>
+            ))}
+          </select>
+        </div>
+        <div className="detail-section-block">
+          <label>Milk</label>
+          <select value={milkOption} onChange={(e) => setMilkOption(e.target.value)}>
+            {MILK_OPTIONS.map((milk) => (
+              <option key={milk} value={milk}>{milk}</option>
+            ))}
+          </select>
+        </div>
+        <div className="extra-list">
+          <div className="extra-row">
+            <label>
               <input
                 type="checkbox"
                 checked={extras.extraShot}
                 onChange={(e) => setExtras({ ...extras, extraShot: e.target.checked })}
               />
-              Extra Shot (+$1.25)
+              Extra Shot
             </label>
+            <small>+$1.25</small>
           </div>
-          <div className="item-detail">
-            <label style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <div className="extra-row">
+            <label>
               <input
                 type="checkbox"
                 checked={extras.whippedCream}
                 onChange={(e) => setExtras({ ...extras, whippedCream: e.target.checked })}
               />
-              Whipped Cream (+$0.50)
+              Whipped Cream
             </label>
+            <small>+$0.50</small>
           </div>
-          <div className="item-detail">
-            <label style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <div className="extra-row">
+            <label>
               <input
                 type="checkbox"
                 checked={extras.cinnamonSprinkles}
                 onChange={(e) => setExtras({ ...extras, cinnamonSprinkles: e.target.checked })}
               />
-              Cinnamon (+$0.25)
+              Cinnamon Sprinkles
             </label>
+            <small>+$0.25</small>
           </div>
-          <p className="detail-price">
-            ${unitPrice.toFixed(2)} x {item.quantity} = ${totalPrice.toFixed(2)}
-          </p>
         </div>
+        <button className="detail-save-btn" type="button" onClick={handleSave}>
+          SAVE CHANGES
+        </button>
       </div>
-
-      <button className="buy-btn" type="button" onClick={handleSave} style={{ marginTop: 16 }}>
-        SAVE CHANGES
-      </button>
     </div>
   );
 }

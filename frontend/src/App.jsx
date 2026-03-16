@@ -6,6 +6,7 @@ import Checkout from "./pages/checkout";
 import QRpayment from "./pages/QRpayment";
 import Paymantule from "./pages/paymantule";
 import Wait from "./pages/wait";
+import Ready from "./pages/ready";
 import { getCartTotal } from "./utils/pricing";
 
 function App() {
@@ -22,6 +23,7 @@ function App() {
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("theme", theme);
   }, [theme]);
+
 
   const handleAddToCart = ({ product, selectedSize, productKey }) => {
     setCartItems((prev) => {
@@ -52,7 +54,12 @@ function App() {
         index === existingIndex ? { ...item, quantity: item.quantity + 1 } : item
       );
     });
+    alert("Added to cart!");
   };
+
+
+
+
 
   const updateCartItemQuantity = (productKey, selectedSize, change) => {
     setCartItems((prev) =>
@@ -72,7 +79,10 @@ function App() {
         (item) => !(item.productKey === productKey && item.selectedSize === selectedSize)
       )
     );
+    alert("Item removed from cart!");
   };
+
+
 
   const openDetailPage = (productKey, selectedSize) => {
     setDetailTarget({ productKey, selectedSize });
@@ -263,11 +273,22 @@ function App() {
           }}
         />
       )}
-      {currentPage === "wait" && (
+{currentPage === "wait" && (
         <Wait
           cartItems={cartItems}
           onBack={() => setCurrentPage("counter-payment")}
           onBackToMenu={() => {
+            setCartItems([]);
+            setCurrentPage("menu");
+          }}
+          onPickUpNow={() => setCurrentPage("ready")}
+        />
+      )}
+      {currentPage === "ready" && (
+        <Ready 
+          tableNumber="012"
+          onBack={() => setCurrentPage("wait")}
+          onEnjoyCoffee={() => {
             setCartItems([]);
             setCurrentPage("menu");
           }}
