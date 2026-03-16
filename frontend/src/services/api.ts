@@ -77,6 +77,7 @@ export interface DashboardData {
     message: string;
     created_at: string;
   }>;
+  notification_count: number;
 }
 
 export interface ApiProduct {
@@ -428,6 +429,10 @@ export const fetchManager = async (): Promise<ManagerInfo> => apiRequest("/manag
 
 export const fetchNotifications = async (): Promise<{ notifications: Notification[] }> => {
   return apiRequest("/notifications");
+};
+
+export const fetchDashboard = async (): Promise<DashboardData> => {
+  return apiRequest("/dashboard");
 };
 
 export const logoutAdmin = async (): Promise<any> => {

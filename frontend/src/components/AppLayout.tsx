@@ -1,5 +1,5 @@
 import { Bell, ChevronLeft, ChevronRight, LogOut, Menu, Moon, Settings, Sun, User } from "lucide-react";
-import { useEffect, useMemo, useState, createContext, useContext } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { navGroups, pageTitleByPath } from "../data/mockData";
 import { useSettings } from "../context/SettingsContext";
@@ -174,7 +174,11 @@ export default function AppLayout() {
   );
 
   const sidebarWidth = collapsed ? "md:w-20" : "md:w-64";
-  const mainMargin = collapsed ? "md:ml-20" : "md:ml-64";
+  const mainMargin = collapsed 
+    ? isDarkMode 
+      ? "md:ml-[calc(5rem+1px)]" 
+      : "md:ml-20" 
+    : "md:ml-64";
 
   function roleLabel(role: string | undefined): string {
     if (role === 'staff') return 'Staff';

@@ -1,15 +1,5 @@
-import React, { useState } from 'react';
-import {
-  LayoutDashboard,
-  ShoppingBag,
-  BookOpen,
-  History,
-  LogOut,
-  Moon,
-  Sun,
-  AlertCircle,
-} from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronLeft, ChevronRight, LayoutDashboard, ShoppingBag, BookOpen, History, LogOut, Sun, Moon } from 'lucide-react';
+import { useState } from 'react';
 import LogoImage from '../assets/coffee.png';
 
 interface SidebarProps {
@@ -21,130 +11,129 @@ interface SidebarProps {
   shopName?: string;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({
+function statusClass(isActive: boolean, isDark: boolean): string {
+  if (isActive) {
+    return isDark
+      ? 'bg-slate-700 text-slate-100 font-semibold shadow'
+      : 'bg-[#F5E6D3] text-[#4B2E2B] font-semibold shadow';
+  }
+  return isDark ? 'text-slate-200 hover:bg-slate-700/70' : 'text-white/80 hover:bg-white/10';
+}
+
+const navGroups = [
+  {
+    group: 'Dashboard',
+    items: [{ id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard }],
+  },
+  {
+    group: 'Orders',
+    items: [
+      { id: 'orders', label: 'Orders', icon: ShoppingBag },
+      { id: 'history', label: 'Order History', icon: History },
+    ],
+  },
+  {
+    group: 'Inventory',
+    items: [{ id: 'recipe', label: 'Recipe', icon: BookOpen }],
+  },
+];
+
+export default function Sidebar({
   activeTab,
   setActiveTab,
   onLogoutClick,
-  isDark,
   onThemeToggle,
+  isDark,
   shopName = 'Prey Lang',
-}) => {
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-
-  const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'orders', label: 'Orders', icon: ShoppingBag },
-    { id: 'recipe', label: 'Recipe', icon: BookOpen },
-    { id: 'history', label: 'Order History', icon: History },
-  ];
+}: SidebarProps) {
+  const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <>
-      <div className="w-72 h-screen bg-[#3e241f] bg-[linear-gradient(180deg,#4f2d26_0%,#311713_100%)] flex flex-col p-6 fixed left-0 top-0 z-40 transition-all duration-500 ease-in-out shadow-2xl border-r border-white/10">
-        <div className="flex items-center mb-12 px-2 gap-4">
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="relative w-14 h-14 rounded-2xl overflow-hidden border-2 border-white/20 flex-shrink-0 bg-white shadow-inner"
-          >
-            <img src={LogoImage} alt="Logo" className="w-full h-full object-contain p-1" />
-          </motion.div>
-          <div className="flex flex-col">
-            <h1 className="font-black text-xl tracking-tight leading-none mb-1 text-white">{shopName}</h1>
-            <p className="text-[10px] uppercase tracking-[0.2em] font-black text-orange-200">POS System</p>
-          </div>
-        </div>
-
-        <nav className="flex-1 space-y-2">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all duration-300 relative group ${isActive
-                    ? 'bg-white text-[#B75D17] shadow-xl translate-x-2'
-                    : 'text-white/80 hover:text-white hover:bg-white/10'
-                  }`}
-              >
-                <Icon size={22} strokeWidth={isActive ? 3 : 2} />
-                <span className={`text-base ${isActive ? 'font-black' : 'font-bold'}`}>{item.label}</span>
-
-                {isActive && (
-                  <motion.div
-                    layoutId="activePill"
-                    className="absolute -left-2 w-1.5 h-8 bg-[#ffd6ae] rounded-full"
-                  />
-                )}
-              </button>
-            );
-          })}
-        </nav>
-
-        <div className="mt-auto space-y-2 pt-6 border-t border-white/20">
-          <button
-            onClick={onThemeToggle}
-            aria-label="Toggle dark mode"
-            aria-pressed={isDark}
-            className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all active:scale-95 text-white/80 hover:text-white hover:bg-black/10"
-          >
-            <div className="relative w-6 h-6 flex items-center justify-center">
-              {isDark ? <Moon size={22} /> : <Sun size={22} />}
-            </div>
-            <span className="text-base font-bold">{isDark ? 'Dark Mode: On' : 'Dark Mode: Off'}</span>
-          </button>
-
-          <button
-            onClick={() => setShowLogoutConfirm(true)}
-            className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all active:scale-95 text-white/80 hover:text-white hover:bg-red-600/20"
-          >
-            <LogOut size={22} />
-            <span className="text-base font-bold">Logout</span>
-          </button>
-        </div>
-      </div>
-
-      <AnimatePresence>
-        {showLogoutConfirm && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-[#1A110B] border border-white/5 rounded-[32px] p-8 max-w-sm w-full text-center shadow-2xl"
-            >
-              <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
-                <AlertCircle size={40} className="text-red-500" />
-              </div>
-              <h2 className="text-2xl font-black text-white mb-2">Wait a minute!</h2>
-              <p className="text-white/50 text-sm mb-8 leading-relaxed">
-                Are you sure you want to end your shift and log out?
-              </p>
-
-              <div className="flex flex-col gap-3">
-                <button
-                  onClick={() => {
-                    setShowLogoutConfirm(false);
-                    onLogoutClick();
-                  }}
-                  className="w-full py-4 rounded-2xl bg-red-600 text-white font-black uppercase tracking-widest text-xs hover:bg-red-700 transition-colors shadow-lg shadow-red-900/40"
-                >
-                  Yes, Log Me Out
-                </button>
-                <button
-                  onClick={() => setShowLogoutConfirm(false)}
-                  className="w-full py-4 rounded-2xl bg-white/5 text-white/70 font-bold hover:bg-white/10 transition-colors"
-                >
-                  Stay Logged In
-                </button>
-              </div>
-            </motion.div>
+    <aside
+      className={[
+        'fixed inset-y-0 left-0 z-40 flex flex-col text-white transition-all duration-300',
+        collapsed ? 'w-20' : 'w-64',
+        isDark
+          ? 'border-r border-slate-700/70 bg-slate-950/90 backdrop-blur-xl'
+          : 'bg-[#4B2E2B]',
+      ].join(' ')}
+    >
+      {/* Logo */}
+      <div className={`flex items-center gap-3 px-4 py-5 ${isDark ? 'border-b border-slate-800' : 'border-b border-white/10'}`}>
+        <img
+          src={LogoImage}
+          alt="Logo"
+          className="h-11 w-11 flex-shrink-0 rounded-lg bg-white/20 object-contain p-1"
+        />
+        {!collapsed && (
+          <div className="leading-tight">
+            <p className="text-sm font-bold tracking-wide">{shopName}</p>
+            <p className="text-xs text-white/80">POS System</p>
           </div>
         )}
-      </AnimatePresence>
-    </>
-  );
-};
+      </div>
 
-export default Sidebar;
+      {/* Nav */}
+      <nav className="flex-1 overflow-y-auto px-3 py-4">
+        <div className="space-y-5">
+          {navGroups.map((group) => (
+            <div key={group.group} className="space-y-2">
+              {!collapsed && (
+                <p className={`px-2 text-[11px] font-semibold uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-white/50'}`}>
+                  {group.group}
+                </p>
+              )}
+              {group.items.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setActiveTab(item.id)}
+                  title={collapsed ? item.label : undefined}
+                  className={`flex w-full items-center rounded-xl px-3 py-2.5 text-sm transition ${statusClass(activeTab === item.id, isDark)}`}
+                >
+                  <item.icon size={18} className="flex-shrink-0" />
+                  {!collapsed && <span className="ml-3">{item.label}</span>}
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+      </nav>
+
+      {/* Theme toggle + Logout */}
+      <div className={`p-3 space-y-0.5 ${isDark ? 'border-t border-slate-800' : 'border-t border-white/10'}`}>
+        <button
+          type="button"
+          onClick={onThemeToggle}
+          title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+          className={`flex w-full items-center rounded-xl px-3 py-2.5 text-sm transition ${isDark ? 'text-slate-300 hover:bg-slate-800/70' : 'text-white/80 hover:bg-white/10'}`}
+        >
+          {isDark ? <Sun size={18} className="flex-shrink-0" /> : <Moon size={18} className="flex-shrink-0" />}
+          {!collapsed && <span className="ml-3">{isDark ? 'Light Mode' : 'Dark Mode'}</span>}
+        </button>
+        <button
+          type="button"
+          onClick={onLogoutClick}
+          className={`flex w-full items-center rounded-xl px-3 py-2.5 text-sm transition ${isDark ? 'text-slate-300 hover:bg-slate-800/70' : 'text-white/80 hover:bg-white/10'}`}
+        >
+          <LogOut size={18} className="flex-shrink-0" />
+          {!collapsed && <span className="ml-3">Logout</span>}
+        </button>
+      </div>
+
+      {/* Collapse toggle */}
+      <button
+        type="button"
+        onClick={() => setCollapsed((prev) => !prev)}
+        aria-label="Toggle sidebar"
+        className={`absolute -right-3 top-24 flex h-7 w-7 items-center justify-center rounded-full shadow ${
+          isDark
+            ? 'border-slate-600 bg-slate-800 text-slate-100'
+            : 'border-[#EAD6C0] bg-[#FFF8F0] text-[#4B2E2B]'
+        }`}
+      >
+        {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+      </button>
+    </aside>
+  );
+}

@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { 
-  TrendingUp, 
-  Clock, 
-  CheckCircle2, 
+import {
+  TrendingUp,
+  Clock,
+  CheckCircle2,
   AlertCircle,
   Plus,
   ShoppingBag,
@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion'; // Fixed import to match common usage
 import { Order, InventoryItem } from '../types';
-import { fetchNotifications, type Notification } from '../services/api';
+import { fetchNotifications, fetchDashboard, type Notification, type DashboardData } from '../services/api';
 
 type DashboardUser = {
   name?: string | null;
@@ -33,6 +33,7 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, onViewDetails, currentUse
   const [activeTab, setActiveTab] = useState<'Live' | 'Completed' | 'Cancelled'>('Live');
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notificationCount, setNotificationCount] = useState(0);
 
   const storedUser: DashboardUser | null = useMemo(() => {
     try {
@@ -60,7 +61,19 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, onViewDetails, currentUse
   useEffect(() => {
     let cancelled = false;
 
-    async function load() {
+    async function loadDashboard() {
+      try {
+        const payload = await fetchDashboard();
+        if (cancelled) return;
+        setNotificationCount(payload.notification_count || 0);
+      } catch (err) {
+        console.error('Failed to load dashboard:', err);
+        if (cancelled) return;
+        setNotificationCount(0);
+      }
+    }
+
+    async function loadNotifications() {
       try {
         const payload = await fetchNotifications();
         if (cancelled) return;
@@ -72,15 +85,17 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, onViewDetails, currentUse
       }
     }
 
-    load();
-    const interval = setInterval(load, 30000);
+    loadDashboard();
+    loadNotifications();
+    const interval = setInterval(() => {
+      loadDashboard();
+      loadNotifications();
+    }, 30000);
     return () => {
       cancelled = true;
       clearInterval(interval);
     };
   }, []);
-
-  const unreadCount = useMemo(() => notifications.filter((n) => !n.read).length, [notifications]);
 
   const filteredOrders = orders.filter(order => {
     if (activeTab === 'Live') return order.status !== 'Completed' && order.status !== 'Cancelled';
@@ -141,15 +156,15 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, onViewDetails, currentUse
         {/* Profile and Notifications Div - Dark Mode Support */}
         <div className="flex items-center gap-3 relative">
           {/* Notification Bell */}
-          <button 
+          <button
             onClick={() => setShowNotifications(!showNotifications)}
             className="relative p-2 bg-white dark:bg-[#1A110B] rounded-full border border-slate-100 dark:border-white/10 shadow-sm transition-colors hover:scale-105 active:scale-95"
           >
             <Bell size={20} className="text-slate-600 dark:text-slate-300" />
             {/* Notification Badge */}
-            {unreadCount > 0 && (
+            {notificationCount > 0 && (
               <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white dark:border-[#1A110B]">
-                {unreadCount}
+                {notificationCount}
               </span>
             )}
           </button>

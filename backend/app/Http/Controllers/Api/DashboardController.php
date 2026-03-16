@@ -31,6 +31,7 @@ class DashboardController extends Controller
 
         // Always get fresh notifications (don't cache orders that may change)
         $data['notifications'] = $this->getNotifications();
+        $data['notification_count'] = $this->getNotificationCount();
 
         return response()->json($data);
     }
@@ -273,6 +274,24 @@ class DashboardController extends Controller
         }
 
         return $notifications;
+    }
+
+    /**
+     * Get the total count of unread notifications.
+     */
+    private function getNotificationCount(): int
+    {
+        $pendingOrdersCount = Order::where('status', 'pending')->count();
+        $readyOrdersCount = Order::where('status', 'ready')->count();
+        $lowStockCount = Ingredient::whereColumn('stock_qty', '<=', 'min_stock')
+                                    ->where('min_stock', '>', 0)
+                                    ->count();
+        $nearStockCount = Ingredient::whereColumn('stock_qty', '>', 'min_stock')
+                                    ->whereColumn('stock_qty', '<=', DB::raw('min_stock * 1.5'))
+                                    ->where('min_stock', '>', 0)
+                                    ->count();
+
+        return $pendingOrdersCount + $readyOrdersCount + $lowStockCount + $nearStockCount;
     }
 
     /**

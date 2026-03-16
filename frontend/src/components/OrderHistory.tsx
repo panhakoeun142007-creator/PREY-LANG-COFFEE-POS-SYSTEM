@@ -1,11 +1,12 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Printer, Search, Bell, X, Hash } from 'lucide-react';
+import { Printer, Search, Bell, X, Hash, Info } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import coffeeLogo from '../assets/coffee.png';
 import { Order } from '../types';
 import { buildOrderDisplayIdMap } from '../lib/orderDisplayId';
 import { createRecipeLog } from '../lib/api';
+import { fetchNotifications, type Notification } from '../services/api';
 
 interface OrderHistoryProps {
   orders: Order[];
@@ -67,7 +68,65 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ orders = [] }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isSavingPrintLog, setIsSavingPrintLog] = useState(false);
   const [printedOrderIds, setPrintedOrderIds] = useState<Set<string>>(new Set());
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notificationCount, setNotificationCount] = useState(0);
   const orderDisplayIdMap = useMemo(() => buildOrderDisplayIdMap(orders.map((order) => order.id)), [orders]);
+
+  const notificationBubbleClass = (type: string) => {
+    switch (type) {
+      case 'order':
+        return 'bg-blue-500';
+      case 'payment':
+        return 'bg-green-500';
+      case 'system':
+        return 'bg-purple-500';
+      case 'warning':
+        return 'bg-yellow-500';
+      default:
+        return 'bg-gray-500';
+    }
+  };
+
+  const renderNotificationIcon = (type: string) => {
+    switch (type) {
+      case 'order':
+        return <Hash size={16} className="text-white" />;
+      case 'payment':
+        return <Printer size={16} className="text-white" />;
+      case 'system':
+        return <Bell size={16} className="text-white" />;
+      case 'warning':
+        return <Search size={16} className="text-white" />;
+      default:
+        return <Bell size={16} className="text-white" />;
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadNotifications = async () => {
+      try {
+        const payload = await fetchNotifications();
+        if (cancelled) return;
+        setNotifications(payload.notifications || []);
+        setNotificationCount(payload.notifications?.filter((n: Notification) => !n.read).length || 0);
+      } catch (err) {
+        console.error('Failed to load notifications:', err);
+        if (cancelled) return;
+        setNotifications([]);
+        setNotificationCount(0);
+      }
+    };
+
+    loadNotifications();
+    const interval = setInterval(loadNotifications, 30000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
 
   const handlePrint = async () => {
     if (!orderToPrint) return;
@@ -369,9 +428,86 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ orders = [] }) => {
                 </p>
               </div>
             </div>
-            <button className="p-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl text-slate-400 dark:text-slate-500 hover:text-[#BD5E0A] transition-colors">
-              <Bell size={20} />
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="relative p-2 bg-white dark:bg-[#1A110B] rounded-full border border-slate-100 dark:border-white/10 shadow-sm transition-colors hover:scale-105 active:scale-95"
+              >
+                <Bell size={20} className="text-slate-600 dark:text-slate-300" />
+                {/* Notification Badge */}
+                {notificationCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white dark:border-[#1A110B]">
+                    {notificationCount}
+                  </span>
+                )}
+              </button>
+              
+              {/* Notifications Dropdown */}
+              {showNotifications && (
+                <div className="absolute right-0 top-16 w-96 bg-white dark:bg-[#1A110B] rounded-2xl border border-slate-100 dark:border-white/10 shadow-xl z-50 overflow-hidden">
+                  {/* Dropdown Header */}
+                  <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-white/5">
+                    <h3 className="font-bold text-slate-900 dark:text-white">Notifications</h3>
+                    <button
+                      onClick={() => setShowNotifications(false)}
+                      className="p-1 hover:bg-slate-50 dark:hover:bg-white/5 rounded-lg transition-colors"
+                    >
+                      <X size={16} className="text-slate-400 dark:text-slate-500" />
+                    </button>
+                  </div>
+                  
+                  {/* Notifications List */}
+                  <div className="max-h-96 overflow-y-auto">
+                    {notifications.map((notification) => (
+                      <div
+                        key={notification.id}
+                        className="p-4 border-b border-slate-50 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                      >
+                        <div className="flex items-start gap-3">
+                          {/* Icon based on type */}
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${notificationBubbleClass(notification.type)}`}>
+                            {renderNotificationIcon(notification.type)}
+                          </div>
+                          
+                          {/* Content */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-1">
+                              <p className="text-sm font-bold text-slate-900 dark:text-white">
+                                {notification.title || 'Notification'}
+                              </p>
+                              <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                                {notification.time || ''}
+                              </span>
+                            </div>
+                            <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2">
+                              {notification.message}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {notifications.length === 0 && (
+                      <div className="p-8 text-center">
+                        <Info size={24} className="text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+                        <p className="text-sm text-slate-400 dark:text-slate-500">No notifications</p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Dropdown Footer */}
+                  <div className="p-3 border-t border-slate-100 dark:border-white/5">
+                    <button
+                      type="button"
+                      onClick={() => setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))}
+                      className="w-full text-center text-sm text-[#BD5E0A] font-bold hover:underline"
+                    >
+                      Mark all as read
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </header>
 
           <div className="relative mb-6">
