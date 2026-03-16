@@ -3,8 +3,7 @@ import "../paymantule.css";
 
 function Paymantule({ cartItems = [], onDone }) {
   const total = getCartTotal(cartItems);
-  const tax = total * 0.1;
-  const finalTotal = total + tax;
+  const finalTotal = total;
 
   return (
     <div className="paymantule-page">
@@ -33,14 +32,6 @@ function Paymantule({ cartItems = [], onDone }) {
         </div>
 
         <div className="paymantule-totals">
-          <div>
-            <span>Subtotal</span>
-            <span>${total.toFixed(2)}</span>
-          </div>
-          <div>
-            <span>Tax (10%)</span>
-            <span>${tax.toFixed(2)}</span>
-          </div>
           <div className="paymantule-total-row">
             <span>Total</span>
             <span>${finalTotal.toFixed(2)}</span>

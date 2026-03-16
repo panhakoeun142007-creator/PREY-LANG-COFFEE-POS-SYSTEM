@@ -6,8 +6,7 @@ function Checkout({ cartItems = [], onBack, onConfirmOrder }) {
   const [paymentMethod, setPaymentMethod] = useState("card");
 
   const total = getCartTotal(cartItems);
-  const tax = total * 0.1;
-  const finalTotal = total + tax;
+  const finalTotal = total;
 
   const handleConfirm = () => {
     onConfirmOrder(paymentMethod);
@@ -51,14 +50,6 @@ function Checkout({ cartItems = [], onBack, onConfirmOrder }) {
         </div>
 
         <div className="checkout-totals">
-          <div>
-            <span>Subtotal</span>
-            <span>${total.toFixed(2)}</span>
-          </div>
-          <div>
-            <span>Tax (10%)</span>
-            <span>${tax.toFixed(2)}</span>
-          </div>
           <div className="checkout-total-row">
             <span>Total</span>
             <span>${finalTotal.toFixed(2)}</span>

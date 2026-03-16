@@ -30,13 +30,13 @@
 }
 
 .checkout-back {
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
   border: 1px solid var(--border-color);
   background: var(--card-bg);
   color: var(--text-primary);
-  font-size: 0.85rem;
+  font-size: 1rem;
   font-weight: 700;
   cursor: pointer;
 }
@@ -52,7 +52,8 @@
 
 .checkout-section h3 {
   margin: 0 0 8px;
-  font-size: 1rem;
+  font-size: 1.25rem;
+  font-weight: 700;
   color: var(--text-primary);
 }
 
@@ -175,6 +176,11 @@
   margin: 0;
   font-size: 0.9rem;
   font-weight: 600;
+  color: var(--text-primary);
+}
+
+.payment-option small {
+  color: var(--text-primary);
 }
 
 .payment-option small {

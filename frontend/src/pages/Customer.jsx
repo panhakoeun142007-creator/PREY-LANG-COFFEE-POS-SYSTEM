@@ -977,7 +977,9 @@ function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", o
       <div className="sticky-header">
         <div className="navbar">
           <div className="logo-section">
-            <img src={image} alt="Prey Lang Coffee Logo" />
+<div style={{ backgroundColor: '#d48c58', border: '1px solid #bb8764', borderRadius: '16px', padding: '6px 7px 5px 8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <img src={image} alt="Prey Lang Coffee Logo" style={{ width: '42px', height: '42px', objectFit: 'contain', background: 'transparent' }} />
+            </div>
             <h3>Prey Lang Coffee</h3>
           </div>
 
