@@ -16,7 +16,6 @@ const AuthContext = createContext({
 // Staff pages (all pages accessible to staff)
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
 const CategoriesPage = lazy(() => import("./pages/CategoriesPage"));
-const StaffManagementPage = lazy(() => import("./pages/CustomerManagementPage"));
 const LiveOrders = lazy(() => import("./pages/LiveOrders"));
 const OrderHistory = lazy(() => import("./pages/OrderHistory"));
 const SalesAnalytics = lazy(() => import("./pages/SalesAnalytics"));
@@ -35,7 +34,6 @@ const VerifyCode = lazy(() => import("./pages/VerifyCode"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const VerifySuccessful = lazy(() => import("./pages/VerifySuccessful"));
 const SessionExpired = lazy(() => import("./pages/SessionExpired"));
-const StaffDashboardPage = lazy(() => import("./pages/StaffDashboardPage"));
 
 // API Base URL
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
@@ -208,7 +206,6 @@ export default function App() {
         <Route path="/reset-password" element={withSuspense(<ResetPassword />)} />
         <Route path="/verify-successful" element={withSuspense(<VerifySuccessful />)} />
         <Route path="/session-expired" element={withSuspense(<SessionExpired />)} />
-        <Route path="/staff-dashboard" element={withSuspense(<StaffDashboardPage />)} />
 
         <Route
           path="/*"

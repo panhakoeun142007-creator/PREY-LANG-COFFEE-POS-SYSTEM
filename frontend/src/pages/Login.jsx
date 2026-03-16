@@ -40,8 +40,7 @@ export default function Login() {
         console.log('Login successful, redirecting...');
 
         // Determine redirect path based on role
-        const userRole = userData.role || 'staff';
-        const redirectPath = userRole === 'admin' ? '/' : '/staff-dashboard';
+        const redirectPath = '/';
 
         // Update auth context state and redirect
         auth.login(token, userData, redirectPath);
