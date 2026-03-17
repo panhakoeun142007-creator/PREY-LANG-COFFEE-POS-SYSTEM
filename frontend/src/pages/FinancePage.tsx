@@ -1,7 +1,15 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
 import { Input } from "../components/ui/input";
 import {
   Select,
@@ -20,60 +28,64 @@ import {
 } from "../components/ui/table";
 import {
   createExpense,
-  DashboardData,
   deleteExpense,
-  ExpenseApiItem,
-  ExpenseCategory,
   fetchDashboardData,
   fetchExpenses,
+  updateExpense,
+  type DashboardData,
+  type ExpenseApiItem,
+  type ExpenseCategory,
 } from "../services/api";
 import { useSettings } from "../context/SettingsContext";
 
-const expenseCategories: ExpenseCategory[] = ["ingredients", "utilities", "salary", "rent", "other"];
+const EXPENSE_CATEGORIES: ExpenseCategory[] = ["ingredients", "utilities", "salary", "rent", "other"];
 
-function toNumber(value: string): number {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
+const EMPTY_FORM = {
+  title: "",
+  amount: "",
+  category: "other" as ExpenseCategory,
+  date: new Date().toISOString().slice(0, 10),
+  note: "",
+};
 
 function parseCurrencyLabel(value: string): number {
   const numeric = value.replace(/[^\d.-]/g, "");
-  return toNumber(numeric);
+  const parsed = Number(numeric);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 export default function FinancePage() {
   const { currency } = useSettings();
   const money = useMemo(
-    () =>
-      new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency,
-      }),
+    () => new Intl.NumberFormat("en-US", { style: "currency", currency }),
     [currency],
   );
+
   const [expenses, setExpenses] = useState<ExpenseApiItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<"all" | ExpenseCategory>("all");
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
 
-  const [title, setTitle] = useState("");
-  const [amount, setAmount] = useState("");
-  const [category, setCategory] = useState<ExpenseCategory>("other");
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-  const [note, setNote] = useState("");
+  // Add/Edit form state
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  // Delete confirm state
+  const [deleteTarget, setDeleteTarget] = useState<ExpenseApiItem | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const loadFinanceData = useCallback(async () => {
     setLoading(true);
     setError(null);
-
     try {
       const [dashboard, expensePage] = await Promise.all([
         fetchDashboardData(),
         fetchExpenses({ category: categoryFilter === "all" ? undefined : categoryFilter }),
       ]);
-
       setDashboardData(dashboard);
       setExpenses(expensePage.data);
     } catch (err) {
@@ -88,64 +100,88 @@ export default function FinancePage() {
   }, [loadFinanceData]);
 
   const revenueToday = useMemo(() => {
-    const value = dashboardData?.stats.find((item) => item.label === "Total Revenue Today")?.value;
+    const value = dashboardData?.stats.find((s) => s.label === "Total Revenue Today")?.value;
     return value ? parseCurrencyLabel(value) : 0;
   }, [dashboardData]);
 
   const monthlyProfit = useMemo(() => {
-    const value = dashboardData?.stats.find((item) => item.label === "Monthly Profit")?.value;
+    const value = dashboardData?.stats.find((s) => s.label === "Monthly Profit")?.value;
     return value ? parseCurrencyLabel(value) : 0;
   }, [dashboardData]);
 
   const listedExpensesTotal = useMemo(
-    () => expenses.reduce((sum, expense) => sum + Number(expense.amount), 0),
+    () => expenses.reduce((sum, e) => sum + Number(e.amount), 0),
     [expenses],
   );
 
-  async function handleCreateExpense(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function openAddDialog() {
+    setEditingId(null);
+    setForm(EMPTY_FORM);
+    setDialogOpen(true);
+  }
 
-    if (!title.trim() || !amount.trim() || Number(amount) <= 0 || !date) {
+  function openEditDialog(expense: ExpenseApiItem) {
+    setEditingId(expense.id);
+    setForm({
+      title: expense.title,
+      amount: String(expense.amount),
+      category: expense.category,
+      date: expense.date.slice(0, 10),
+      note: expense.note ?? "",
+    });
+    setDialogOpen(true);
+  }
+
+  async function handleSubmit() {
+    if (!form.title.trim() || !form.amount || Number(form.amount) <= 0 || !form.date) {
       setError("Title, amount, and date are required.");
       return;
     }
 
     setSaving(true);
     setError(null);
-
     try {
-      await createExpense({
-        title: title.trim(),
-        amount: Number(amount),
-        category,
-        date,
-        note: note.trim() || undefined,
-      });
+      const payload = {
+        title: form.title.trim(),
+        amount: Number(form.amount),
+        category: form.category,
+        date: form.date,
+        note: form.note.trim() || undefined,
+      };
 
-      setTitle("");
-      setAmount("");
-      setCategory("other");
-      setDate(new Date().toISOString().slice(0, 10));
-      setNote("");
+      if (editingId !== null) {
+        await updateExpense(editingId, payload);
+      } else {
+        await createExpense(payload);
+      }
+
+      setDialogOpen(false);
       await loadFinanceData();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create expense");
+      setError(err instanceof Error ? err.message : "Failed to save expense");
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleDeleteExpense(expenseId: number) {
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleting(deleteTarget.id);
     try {
-      await deleteExpense(expenseId);
+      await deleteExpense(deleteTarget.id);
+      setDeleteOpen(false);
+      setDeleteTarget(null);
       await loadFinanceData();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete expense");
+    } finally {
+      setDeleting(null);
     }
   }
 
   return (
     <div className="space-y-6">
+      {/* KPI Cards */}
       <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Card>
           <CardContent className="p-5">
@@ -167,74 +203,37 @@ export default function FinancePage() {
         </Card>
       </section>
 
-      <Card>
-        <CardContent className="p-5">
-          <form className="grid grid-cols-1 gap-3 md:grid-cols-6" onSubmit={handleCreateExpense}>
-            <Input
-              placeholder="Expense title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="md:col-span-2"
-            />
-            <Input
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="Amount"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-            />
-            <Select value={category} onValueChange={(value) => setCategory(value as ExpenseCategory)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Category" />
-              </SelectTrigger>
-              <SelectContent>
-                {expenseCategories.map((item) => (
-                  <SelectItem key={item} value={item}>
-                    {item}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-            <Button type="submit" disabled={saving}>
-              <Plus className="mr-2 h-4 w-4" />
-              {saving ? "Saving..." : "Add Expense"}
-            </Button>
-            <Input
-              placeholder="Optional note"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              className="md:col-span-6"
-            />
-          </form>
-        </CardContent>
-      </Card>
-
+      {/* Expense Table */}
       <Card>
         <CardContent className="space-y-4 p-5">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3">
             <h2 className="text-lg font-semibold text-[#4B2E2B]">Expense Transactions</h2>
-            <Select
-              value={categoryFilter}
-              onValueChange={(value) => setCategoryFilter(value as "all" | ExpenseCategory)}
-            >
-              <SelectTrigger className="w-44">
-                <SelectValue placeholder="Filter category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">all</SelectItem>
-                {expenseCategories.map((item) => (
-                  <SelectItem key={item} value={item}>
-                    {item}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2">
+              <Select
+                value={categoryFilter}
+                onValueChange={(v) => setCategoryFilter(v as "all" | ExpenseCategory)}
+              >
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Filter category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  {EXPENSE_CATEGORIES.map((c) => (
+                    <SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button onClick={openAddDialog}>
+                <Plus className="mr-1 h-4 w-4" />
+                Add Expense
+              </Button>
+            </div>
           </div>
 
           {error && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
+            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {error}
+            </div>
           )}
 
           <div className="overflow-x-auto">
@@ -246,7 +245,7 @@ export default function FinancePage() {
                   <TableHead>Title</TableHead>
                   <TableHead>Note</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -265,7 +264,7 @@ export default function FinancePage() {
                 ) : (
                   expenses.map((expense) => (
                     <TableRow key={expense.id}>
-                      <TableCell>{expense.date}</TableCell>
+                      <TableCell>{expense.date.slice(0, 10)}</TableCell>
                       <TableCell className="capitalize">{expense.category}</TableCell>
                       <TableCell className="font-medium">{expense.title}</TableCell>
                       <TableCell>{expense.note || "-"}</TableCell>
@@ -273,14 +272,23 @@ export default function FinancePage() {
                         {money.format(Number(expense.amount))}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteExpense(expense.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-red-600" />
-                        </Button>
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openEditDialog(expense)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-red-600 hover:bg-red-50"
+                            onClick={() => { setDeleteTarget(expense); setDeleteOpen(true); }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -290,6 +298,111 @@ export default function FinancePage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Add / Edit Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setEditingId(null); setError(null); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingId !== null ? "Edit Expense" : "Add Expense"}</DialogTitle>
+            <DialogDescription>
+              {editingId !== null ? "Update the expense details." : "Record a new expense transaction."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {error && (
+              <p className="text-sm text-red-600">{error}</p>
+            )}
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-[#4B2E2B]">Title</label>
+              <Input
+                value={form.title}
+                onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
+                placeholder="e.g. Coffee beans restock"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-[#4B2E2B]">Amount</label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.amount}
+                  onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))}
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-[#4B2E2B]">Date</label>
+                <Input
+                  type="date"
+                  value={form.date}
+                  onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-[#4B2E2B]">Category</label>
+              <Select
+                value={form.category}
+                onValueChange={(v) => setForm((p) => ({ ...p, category: v as ExpenseCategory }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {EXPENSE_CATEGORIES.map((c) => (
+                    <SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-[#4B2E2B]">Note (optional)</label>
+              <Input
+                value={form.note}
+                onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))}
+                placeholder="Any additional details..."
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={saving || !form.title.trim() || !form.amount || Number(form.amount) <= 0 || !form.date}
+            >
+              {saving ? "Saving..." : editingId !== null ? "Save Changes" : "Add Expense"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirm Dialog */}
+      <Dialog open={deleteOpen} onOpenChange={(open) => { setDeleteOpen(open); if (!open) setDeleteTarget(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Expense</DialogTitle>
+            <DialogDescription>
+              {deleteTarget
+                ? `Delete "${deleteTarget.title}"? This action cannot be undone.`
+                : "Delete this expense? This action cannot be undone."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDelete}
+              disabled={deleting !== null}
+            >
+              {deleting !== null ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

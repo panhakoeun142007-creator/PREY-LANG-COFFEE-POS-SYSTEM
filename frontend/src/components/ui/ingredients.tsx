@@ -35,6 +35,7 @@ interface IngredientFormState {
   unit: string;
   stock_qty: string;
   min_stock: string;
+  unit_cost: string;
 }
 
 interface StockFormState {
@@ -72,6 +73,7 @@ export default function IngredientsUI() {
     unit: "kg",
     stock_qty: "0",
     min_stock: "0",
+    unit_cost: "0",
   });
   const [stockForm, setStockForm] = useState<StockFormState>({
     stock_qty: "0",
@@ -82,14 +84,9 @@ export default function IngredientsUI() {
   }, []);
 
   useEffect(() => {
-    const handleCategoryUpdate = () => {
-      void loadIngredients();
-    };
-
+    const handleCategoryUpdate = () => { void loadIngredients(); };
     window.addEventListener(CATEGORY_UPDATE_EVENT, handleCategoryUpdate);
-    return () => {
-      window.removeEventListener(CATEGORY_UPDATE_EVENT, handleCategoryUpdate);
-    };
+    return () => { window.removeEventListener(CATEGORY_UPDATE_EVENT, handleCategoryUpdate); };
   }, []);
 
   async function loadIngredients() {
@@ -125,14 +122,9 @@ export default function IngredientsUI() {
       const categoryLabel = item.category || (item.category_id ? categoryMap.get(item.category_id) : null) || "";
       const isLow = Number(item.stock_qty) < Number(item.min_stock);
       const status = isLow ? "low_stock" : "in_stock";
-
-      const matchSearch =
-        q === "" ||
-        item.name.toLowerCase().includes(q) ||
-        categoryLabel.toLowerCase().includes(q);
+      const matchSearch = q === "" || item.name.toLowerCase().includes(q) || categoryLabel.toLowerCase().includes(q);
       const matchCategory = categoryFilter === "all" || String(item.category_id ?? "") === categoryFilter;
       const matchStatus = statusFilter === "all" || status === statusFilter;
-
       return matchSearch && matchCategory && matchStatus;
     });
   }, [ingredients, categoryMap, search, categoryFilter, statusFilter]);
@@ -155,6 +147,7 @@ export default function IngredientsUI() {
       unit: "kg",
       stock_qty: "0",
       min_stock: "0",
+      unit_cost: "0",
     });
     setDialogOpen(true);
   }
@@ -167,15 +160,14 @@ export default function IngredientsUI() {
       unit: item.unit,
       stock_qty: String(item.stock_qty),
       min_stock: String(item.min_stock),
+      unit_cost: item.unit_cost !== null && item.unit_cost !== undefined ? String(item.unit_cost) : "0",
     });
     setDialogOpen(true);
   }
 
   function openStockDialog(item: IngredientApiItem) {
     setStockEditingId(item.id);
-    setStockForm({
-      stock_qty: String(item.stock_qty),
-    });
+    setStockForm({ stock_qty: String(item.stock_qty) });
     setStockDialogOpen(true);
   }
 
@@ -184,6 +176,7 @@ export default function IngredientsUI() {
     const categoryId = Number(form.category_id);
     const stockQty = toNumber(form.stock_qty.trim() || "0");
     const minStock = toNumber(form.min_stock.trim() || "0");
+    const unitCost = toNumber(form.unit_cost.trim() || "0") ?? 0;
     const unit = form.unit.trim();
 
     if (!name || !Number.isInteger(categoryId) || categoryId <= 0 || !unit || stockQty === null || minStock === null) {
@@ -193,23 +186,11 @@ export default function IngredientsUI() {
     try {
       setSaving(true);
       setError(null);
-
+      const payload = { name, category_id: categoryId, unit, stock_qty: stockQty, min_stock: minStock, unit_cost: unitCost };
       if (editingId !== null) {
-        await updateIngredient(editingId, {
-          name,
-          category_id: categoryId,
-          unit,
-          stock_qty: stockQty,
-          min_stock: minStock,
-        });
+        await updateIngredient(editingId, payload);
       } else {
-        await createIngredient({
-          name,
-          category_id: categoryId,
-          unit,
-          stock_qty: stockQty,
-          min_stock: minStock,
-        });
+        await createIngredient(payload);
       }
       await loadIngredients();
       setDialogOpen(false);
@@ -221,10 +202,7 @@ export default function IngredientsUI() {
   }
 
   async function confirmDelete() {
-    if (pendingDeleteId === null) {
-      return;
-    }
-
+    if (pendingDeleteId === null) return;
     try {
       setDeleting(true);
       setError(null);
@@ -240,14 +218,9 @@ export default function IngredientsUI() {
   }
 
   async function submitStockUpdate() {
-    if (stockEditingId === null) {
-      return;
-    }
+    if (stockEditingId === null) return;
     const qty = toNumber(stockForm.stock_qty.trim() || "0");
-    if (qty === null) {
-      return;
-    }
-
+    if (qty === null) return;
     try {
       setStockSaving(true);
       setError(null);
@@ -316,7 +289,7 @@ export default function IngredientsUI() {
       <Card>
         <CardContent className="p-5">
           <h3 className="mb-4 text-xl font-semibold text-[#4B2E2B]">
-            Ingredient Stock ({filtered.length})
+            Ingredients / Stock ({filtered.length})
           </h3>
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-left">
@@ -327,6 +300,7 @@ export default function IngredientsUI() {
                   <th className="px-3 py-3">Current Stock</th>
                   <th className="px-3 py-3">Min. Required</th>
                   <th className="px-3 py-3">Unit</th>
+                  <th className="px-3 py-3">Unit Cost</th>
                   <th className="px-3 py-3">Status</th>
                   <th className="px-3 py-3 text-right">Actions</th>
                 </tr>
@@ -339,10 +313,7 @@ export default function IngredientsUI() {
                     "Uncategorized";
                   const isLow = Number(item.stock_qty) < Number(item.min_stock);
                   return (
-                    <tr
-                      key={item.id}
-                      className="border-b border-[#F1E3D3] text-sm"
-                    >
+                    <tr key={item.id} className="border-b border-[#F1E3D3] text-sm">
                       <td className="px-3 py-3 font-medium text-[#4B2E2B]">{item.name}</td>
                       <td className="px-3 py-3 text-[#4B2E2B]">{category}</td>
                       <td className="px-3 py-3">
@@ -352,6 +323,9 @@ export default function IngredientsUI() {
                       </td>
                       <td className="px-3 py-3 text-[#4B2E2B]">{Number(item.min_stock).toFixed(2)}</td>
                       <td className="px-3 py-3 text-[#4B2E2B]">{item.unit}</td>
+                      <td className="px-3 py-3 text-[#4B2E2B]">
+                        ${item.unit_cost !== null && item.unit_cost !== undefined ? Number(item.unit_cost).toFixed(2) : "0.00"}
+                      </td>
                       <td className="px-3 py-3">
                         <span
                           className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
@@ -363,28 +337,17 @@ export default function IngredientsUI() {
                       </td>
                       <td className="px-3 py-3">
                         <div className="flex justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openStockDialog(item)}
-                          >
+                          <Button variant="outline" size="sm" onClick={() => openStockDialog(item)}>
                             Update Stock
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => openEditDialog(item)}
-                          >
+                          <Button variant="ghost" size="icon" onClick={() => openEditDialog(item)}>
                             <Pencil className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="icon"
                             className="text-red-600 hover:bg-red-50"
-                            onClick={() => {
-                              setPendingDeleteId(item.id);
-                              setDeleteOpen(true);
-                            }}
+                            onClick={() => { setPendingDeleteId(item.id); setDeleteOpen(true); }}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -395,7 +358,7 @@ export default function IngredientsUI() {
                 })}
                 {!loading && filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-3 py-8 text-center text-sm text-[#7C5D58]">
+                    <td colSpan={8} className="px-3 py-8 text-center text-sm text-[#7C5D58]">
                       No ingredients found.
                     </td>
                   </tr>
@@ -406,22 +369,13 @@ export default function IngredientsUI() {
         </CardContent>
       </Card>
 
-      <Dialog
-        open={dialogOpen}
-        onOpenChange={(open) => {
-          setDialogOpen(open);
-          if (!open) {
-            setEditingId(null);
-          }
-        }}
-      >
+      {/* Add / Edit Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditingId(null); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingId !== null ? "Edit Ingredient" : "Add Ingredient"}</DialogTitle>
             <DialogDescription>
-              {editingId !== null
-                ? "Update ingredient details and save changes."
-                : "Create a new ingredient for inventory tracking."}
+              {editingId !== null ? "Update ingredient details and save changes." : "Create a new ingredient for inventory tracking."}
             </DialogDescription>
           </DialogHeader>
 
@@ -482,13 +436,21 @@ export default function IngredientsUI() {
                   onChange={(e) => setForm((prev) => ({ ...prev, min_stock: e.target.value }))}
                 />
               </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <label className="text-sm font-medium text-[#4B2E2B]">Unit Cost ($)</label>
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={form.unit_cost}
+                  onChange={(e) => setForm((prev) => ({ ...prev, unit_cost: e.target.value }))}
+                />
+              </div>
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              Cancel
-            </Button>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
             <Button
               onClick={submitForm}
               disabled={
@@ -506,15 +468,8 @@ export default function IngredientsUI() {
         </DialogContent>
       </Dialog>
 
-      <Dialog
-        open={stockDialogOpen}
-        onOpenChange={(open) => {
-          setStockDialogOpen(open);
-          if (!open) {
-            setStockEditingId(null);
-          }
-        }}
-      >
+      {/* Update Stock Dialog */}
+      <Dialog open={stockDialogOpen} onOpenChange={(open) => { setStockDialogOpen(open); if (!open) setStockEditingId(null); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Update Stock</DialogTitle>
@@ -535,28 +490,16 @@ export default function IngredientsUI() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setStockDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={submitStockUpdate}
-              disabled={stockSaving || toNumber(stockForm.stock_qty) === null}
-            >
+            <Button variant="outline" onClick={() => setStockDialogOpen(false)}>Cancel</Button>
+            <Button onClick={submitStockUpdate} disabled={stockSaving || toNumber(stockForm.stock_qty) === null}>
               {stockSaving ? "Updating..." : "Update Stock"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog
-        open={deleteOpen}
-        onOpenChange={(open) => {
-          setDeleteOpen(open);
-          if (!open) {
-            setPendingDeleteId(null);
-          }
-        }}
-      >
+      {/* Delete Confirm Dialog */}
+      <Dialog open={deleteOpen} onOpenChange={(open) => { setDeleteOpen(open); if (!open) setPendingDeleteId(null); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Ingredient</DialogTitle>
@@ -567,9 +510,7 @@ export default function IngredientsUI() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteOpen(false)}>
-              Cancel
-            </Button>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancel</Button>
             <Button variant="destructive" onClick={confirmDelete} disabled={deleting}>
               {deleting ? "Deleting..." : "Delete"}
             </Button>

@@ -22,7 +22,6 @@ const Products = lazy(() => import("./pages/Products"));
 const CategoriesPage = lazy(() => import("./pages/CategoriesPage"));
 const Tables = lazy(() => import("./pages/Tables"));
 const IngredientsStockPage = lazy(() => import("./pages/IngredientsStockPage"));
-const IngredientsPage = lazy(() => import("./pages/IngredientsPage"));
 const FinancePage = lazy(() => import("./pages/FinancePage"));
 const SalesAnalytics = lazy(() => import("./pages/SalesAnalytics"));
 const StaffManagementPage = lazy(() => import("./pages/CustomerManagementPage"));
@@ -269,8 +268,6 @@ export default function App() {
             element={<AdminRoute>{withSuspense(<StaffManagementPage />)}</AdminRoute>}
           />
           <Route path="settings" element={<AdminRoute>{withSuspense(<SettingsPage />)}</AdminRoute>} />
-
-          <Route path="ingredients" element={withSuspense(<IngredientsPage />)} />
 
           <Route element={<CategoryLayout />}>
             <Route path="products" element={withSuspense(<Products />)} />

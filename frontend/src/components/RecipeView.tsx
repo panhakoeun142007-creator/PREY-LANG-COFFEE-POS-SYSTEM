@@ -4,7 +4,12 @@ import { Search, Hash, BookOpen, Trash2, AlertCircle, Coffee } from 'lucide-reac
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import logo from '../assets/coffee.png';
-import { RecipeLog } from '../types';
+interface RecipeLog {
+  id: string;
+  orderId: string;
+  tableNo: string;
+  name: string;
+}
 
 interface RecipeHistoryProps {
   history: RecipeLog[];

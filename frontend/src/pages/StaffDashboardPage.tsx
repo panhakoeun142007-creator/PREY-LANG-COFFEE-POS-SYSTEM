@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Toaster, toast } from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import Dashboard from "../components/Dashboard";
 import Orders from "../components/Orders";
 import OrderHistory from "../components/OrderHistory";
-import RecipeView from "../components/RecipeView";
 import { Button } from "../components/ui/button";
 import {
   Dialog,
@@ -16,37 +15,112 @@ import {
   DialogTitle,
 } from "../components/ui/dialog";
 import { Input } from "../components/ui/input";
-import { deleteRecipeLog, getOrders, getRecipeLogs, updateOrderStatus as updateOrderStatusApi } from "../lib/api";
-import { buildOrderDisplayIdMap } from "../lib/orderDisplayId";
-import type { Order, RecipeLog } from "../types";
-import { fetchCurrentUser, fetchManager, type CurrentUser, type ManagerInfo, updateCurrentUser, logoutAdmin } from "../services/api";
+import {
+  fetchLiveOrders,
+  updateOrderStatus as updateOrderStatusApi,
+  fetchCurrentUser,
+  fetchManager,
+  updateCurrentUser,
+  logoutAdmin,
+  type ApiOrder,
+  type CurrentUser,
+  type ManagerInfo,
+} from "../services/api";
 import { auth } from "../utils/auth";
 import LogoutConfirmModal from "../components/LogoutConfirmModal";
+
+// Minimal local types for the staff dashboard UI
+type OrderStatus = "Pending" | "Preparing" | "Brewing" | "Ready" | "Delayed" | "Completed" | "Cancelled";
+
+interface UiOrderItem {
+  name: string;
+  quantity: number;
+  customization?: string;
+  price?: number;
+}
+
+interface UiOrder {
+  id: string;
+  tableNo: string;
+  status: OrderStatus;
+  items: UiOrderItem[];
+  timeElapsed: string;
+  timestamp: string;
+  total: number;
+  paymentMethod?: "KHQR" | "Cash" | "Card";
+}
+
+function toUiStatus(raw: string): OrderStatus {
+  const s = (raw || "").toLowerCase();
+  if (s === "pending") return "Pending";
+  if (s === "preparing") return "Preparing";
+  if (s === "brewing") return "Brewing";
+  if (s === "ready") return "Ready";
+  if (s === "delayed") return "Delayed";
+  if (s === "completed") return "Completed";
+  if (s === "cancelled") return "Cancelled";
+  return "Pending";
+}
+
+function formatElapsed(createdAt?: string): string {
+  if (!createdAt) return "";
+  const diff = Math.max(0, Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000));
+  if (diff < 1) return "Just now";
+  if (diff < 60) return `${diff}m`;
+  return `${Math.floor(diff / 60)}h ${diff % 60}m`;
+}
+
+function mapApiOrder(o: ApiOrder): UiOrder {
+  return {
+    id: String(o.id),
+    tableNo: o.table?.name || (o.table_id ? `Table ${String(o.table_id).padStart(2, "0")}` : "Takeaway"),
+    status: toUiStatus(o.status),
+    items: (o.items || []).map((item) => ({
+      name: item.product?.name || `Product #${item.product_id}`,
+      quantity: Number(item.qty || 0),
+      customization: item.size ? `Size: ${item.size}` : undefined,
+      price: item.price !== null && item.price !== undefined ? Number(item.price) : undefined,
+    })),
+    timeElapsed: formatElapsed(o.created_at),
+    timestamp: o.created_at || "",
+    total: Number(o.total_price || 0),
+    paymentMethod: (() => {
+      const p = (o.payment_type || "").toLowerCase();
+      if (p === "cash") return "Cash";
+      if (p === "card" || p === "credit_card") return "Card";
+      if (p === "khqr") return "KHQR";
+      return undefined;
+    })(),
+  };
+}
+
+function buildDisplayIdMap(ids: string[]): Record<string, string> {
+  const map: Record<string, string> = {};
+  ids.forEach((id, i) => { map[id] = `POS_${String(i + 1).padStart(3, "0")}`; });
+  return map;
+}
 
 export default function StaffDashboardPage() {
   const navigate = useNavigate();
   const [isDark, setIsDark] = useState<boolean>(() => {
-    const savedTheme = localStorage.getItem("theme");
-    if (savedTheme === "dark") return true;
-    if (savedTheme === "light") return false;
+    const t = localStorage.getItem("theme");
+    if (t === "dark") return true;
+    if (t === "light") return false;
     return window.matchMedia("(prefers-color-scheme: dark)").matches;
   });
   const [activeTab, setActiveTab] = useState("dashboard");
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [recipeLogs, setRecipeLogs] = useState<RecipeLog[]>([]);
+  const [orders, setOrders] = useState<UiOrder[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(true);
-  const [isLoadingRecipes, setIsLoadingRecipes] = useState(true);
-  const [recipeError, setRecipeError] = useState<string | null>(null);
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(() => {
-    return auth.getUser() as CurrentUser | null;
-  });
+  const [selectedOrder, setSelectedOrder] = useState<UiOrder | null>(null);
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(() => auth.getUser() as CurrentUser | null);
   const [manager, setManager] = useState<ManagerInfo | null>(null);
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
   const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
   const [profileImagePreview, setProfileImagePreview] = useState<string | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+  const orderDisplayIdMap = buildDisplayIdMap(orders.map((o) => o.id));
 
   async function doLogout() {
     setShowLogoutConfirm(false);
@@ -55,50 +129,23 @@ export default function StaffDashboardPage() {
     navigate("/login", { replace: true });
   }
 
-  const orderDisplayIdMap = useMemo(() => {
-    const safeOrders = Array.isArray(orders) ? orders : [];
-    return buildOrderDisplayIdMap(safeOrders.map((order) => order.id));
-  }, [orders]);
-
   const loadOrders = useCallback(async () => {
     setIsLoadingOrders(true);
     try {
-      const response = await getOrders();
-      setOrders(response);
-    } catch (error) {
-      toast.error("Unable to load orders from backend API.");
-      console.error(error);
+      const data = await fetchLiveOrders();
+      setOrders(data.map(mapApiOrder));
+    } catch {
+      toast.error("Unable to load orders.");
     } finally {
       setIsLoadingOrders(false);
     }
   }, []);
 
-  const loadRecipeLogs = useCallback(async () => {
-    setIsLoadingRecipes(true);
-    setRecipeError(null);
-    try {
-      const response = await getRecipeLogs();
-      setRecipeLogs(response);
-    } catch (error) {
-      setRecipeError("Unable to load recipe history from backend API.");
-      console.error(error);
-    } finally {
-      setIsLoadingRecipes(false);
-    }
-  }, []);
-
   useEffect(() => {
-    if (isDark) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
+    document.documentElement.classList.toggle("dark", isDark);
   }, [isDark]);
 
-  useEffect(() => {
-    void loadOrders();
-    void loadRecipeLogs();
-  }, [loadOrders, loadRecipeLogs]);
+  useEffect(() => { void loadOrders(); }, [loadOrders]);
 
   useEffect(() => {
     let cancelled = false;
@@ -108,13 +155,9 @@ export default function StaffDashboardPage() {
         if (cancelled) return;
         setCurrentUser(fresh);
         auth.setUser(fresh);
-      } catch (error) {
-        console.error(error);
-      }
+      } catch { /* keep cached user */ }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -124,87 +167,38 @@ export default function StaffDashboardPage() {
         const payload = await fetchManager();
         if (cancelled) return;
         setManager(payload);
-      } catch (error) {
-        console.error(error);
-        setManager(null);
-      }
+      } catch { setManager(null); }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
-  useEffect(() => {
-    if (activeTab === "recipe") {
-      void loadRecipeLogs();
-    }
-  }, [activeTab, loadRecipeLogs]);
-
-  async function updateOrderStatus(id: string, status: Order["status"]) {
+  async function handleUpdateOrderStatus(id: string, status: OrderStatus) {
     try {
-      const updated = await updateOrderStatusApi(id, status);
-      setOrders((prev) => prev.map((order) => (order.id === id ? updated : order)));
-
+      await updateOrderStatusApi(Number(id), status.toLowerCase());
+      setOrders((prev) => prev.map((o) => o.id === id ? { ...o, status } : o));
       const displayId = orderDisplayIdMap[id] ?? id;
-      if (status === "Completed") {
-        toast.success(`Order ${displayId} completed!`);
-      } else if (status === "Cancelled") {
-        toast.error(`Order ${displayId} cancelled`);
-      }
-    } catch (error) {
-      const displayId = orderDisplayIdMap[id] ?? id;
-      toast.error(`Failed to update order ${displayId}.`);
-      console.error(error);
+      if (status === "Completed") toast.success(`Order ${displayId} completed!`);
+      else if (status === "Cancelled") toast.error(`Order ${displayId} cancelled`);
+    } catch {
+      toast.error(`Failed to update order ${orderDisplayIdMap[id] ?? id}.`);
     }
-  }
-
-  async function handleDeleteRecipeLog(logId: string) {
-    try {
-      await deleteRecipeLog(logId);
-      setRecipeLogs((prev) => prev.filter((log) => log.id !== logId));
-      toast.success(`Recipe log ${logId} deleted.`);
-    } catch (error) {
-      toast.error("Failed to delete recipe log.");
-      console.error(error);
-    }
-  }
-
-  function handleThemeToggle() {
-    setIsDark((prev) => {
-      const next = !prev;
-      localStorage.setItem("theme", next ? "dark" : "light");
-      return next;
-    });
-  }
-
-  function handleLogout() {
-    setShowLogoutConfirm(true);
   }
 
   function openProfileDialog() {
-    if (profileImagePreview?.startsWith("blob:")) {
-      URL.revokeObjectURL(profileImagePreview);
-    }
+    if (profileImagePreview?.startsWith("blob:")) URL.revokeObjectURL(profileImagePreview);
     setProfileImageFile(null);
     setProfileImagePreview(currentUser?.profile_image_url ?? null);
     setProfileDialogOpen(true);
   }
 
   function onProfileImageChange(file: File | null) {
-    if (profileImagePreview?.startsWith("blob:")) {
-      URL.revokeObjectURL(profileImagePreview);
-    }
-
+    if (profileImagePreview?.startsWith("blob:")) URL.revokeObjectURL(profileImagePreview);
     setProfileImageFile(file);
     setProfileImagePreview(file ? URL.createObjectURL(file) : (currentUser?.profile_image_url ?? null));
   }
 
   async function saveProfileImage() {
-    if (!profileImageFile) {
-      setProfileDialogOpen(false);
-      return;
-    }
-
+    if (!profileImageFile) { setProfileDialogOpen(false); return; }
     try {
       setSavingProfile(true);
       const updated = await updateCurrentUser({ profile_image: profileImageFile });
@@ -212,14 +206,11 @@ export default function StaffDashboardPage() {
       auth.setUser(updated);
       toast.success("Profile image updated.");
       setProfileDialogOpen(false);
-      if (profileImagePreview?.startsWith("blob:")) {
-        URL.revokeObjectURL(profileImagePreview);
-      }
+      if (profileImagePreview?.startsWith("blob:")) URL.revokeObjectURL(profileImagePreview);
       setProfileImageFile(null);
       setProfileImagePreview(null);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to update profile image.");
-      console.error(error);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update profile image.");
     } finally {
       setSavingProfile(false);
     }
@@ -234,52 +225,24 @@ export default function StaffDashboardPage() {
       toast.success("Profile image removed.");
       setProfileImageFile(null);
       setProfileImagePreview(null);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to remove profile image.");
-      console.error(error);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to remove profile image.");
     } finally {
       setSavingProfile(false);
     }
   }
 
   const renderContent = () => {
+    if (isLoadingOrders) {
+      return <p className="text-slate-500 dark:text-slate-400 font-bold">Loading orders...</p>;
+    }
     switch (activeTab) {
-      case "dashboard":
-        return isLoadingOrders ? (
-          <p className="text-slate-500 dark:text-slate-400 font-bold">Loading orders...</p>
-        ) : (
-          <Dashboard
-            orders={orders}
-            onViewDetails={setSelectedOrder}
-            currentUser={currentUser}
-            onProfileClick={openProfileDialog}
-          />
-        );
       case "orders":
-        return isLoadingOrders ? (
-          <p className="text-slate-500 dark:text-slate-400 font-bold">Loading orders...</p>
-        ) : (
-          <Orders orders={orders} updateStatus={updateOrderStatus} />
-        );
+        return <Orders orders={orders} updateStatus={handleUpdateOrderStatus} />;
       case "history":
-        return isLoadingOrders ? (
-          <p className="text-slate-500 dark:text-slate-400 font-bold">Loading orders...</p>
-        ) : (
-          <OrderHistory orders={orders} />
-        );
-      case "recipe":
-        return (
-          <RecipeView
-            history={recipeLogs}
-            isLoading={isLoadingRecipes}
-            error={recipeError}
-            onDeleteLog={handleDeleteRecipeLog}
-          />
-        );
+        return <OrderHistory orders={orders} />;
       default:
-        return isLoadingOrders ? (
-          <p className="text-slate-500 dark:text-slate-400 font-bold">Loading orders...</p>
-        ) : (
+        return (
           <Dashboard
             orders={orders}
             onViewDetails={setSelectedOrder}
@@ -303,12 +266,16 @@ export default function StaffDashboardPage() {
       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        onLogoutClick={handleLogout}
+        onLogoutClick={() => setShowLogoutConfirm(true)}
         isDark={isDark}
-        onThemeToggle={handleThemeToggle}
+        onThemeToggle={() => setIsDark((prev) => {
+          const next = !prev;
+          localStorage.setItem("theme", next ? "dark" : "light");
+          return next;
+        })}
       />
 
-      <div className={`flex-1 ml-72 min-h-screen ${isDark ? "dark" : ""}`}>
+      <div className={`flex-1 ml-64 min-h-screen ${isDark ? "dark" : ""}`}>
         <main className="w-full p-4 md:p-6 lg:p-8 transition-colors duration-300">
           <section className="panel-shell p-5 md:p-8 min-h-[calc(100vh-3rem)] w-full">
             {renderContent()}
@@ -327,56 +294,38 @@ export default function StaffDashboardPage() {
                     Order {orderDisplayIdMap[selectedOrder.id] ?? selectedOrder.id}
                   </h3>
                 </div>
-                <span
-                  className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                    selectedOrder.status === "Preparing"
-                      ? "bg-orange-100 text-orange-600"
-                      : selectedOrder.status === "Pending"
-                        ? "bg-amber-100 text-amber-600"
-                        : selectedOrder.status === "Ready"
-                          ? "bg-emerald-100 text-emerald-600"
-                          : selectedOrder.status === "Completed"
-                            ? "bg-blue-100 text-blue-600"
-                            : "bg-red-100 text-red-600"
-                  }`}
-                >
+                <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                  selectedOrder.status === "Preparing" ? "bg-orange-100 text-orange-600" :
+                  selectedOrder.status === "Pending" ? "bg-amber-100 text-amber-600" :
+                  selectedOrder.status === "Ready" ? "bg-emerald-100 text-emerald-600" :
+                  selectedOrder.status === "Completed" ? "bg-blue-100 text-blue-600" :
+                  "bg-red-100 text-red-600"
+                }`}>
                   {selectedOrder.status}
                 </span>
               </div>
 
-              <div className="space-y-4">
-                <h4 className="font-bold text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-2">
-                  Order Items
-                </h4>
-                <div className="space-y-3">
-                  {selectedOrder.items.map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="flex justify-between items-center bg-slate-50 dark:bg-white/5 p-3 rounded-xl"
-                    >
-                      <div className="flex gap-3 items-center">
-                        <span className="w-8 h-8 bg-white dark:bg-slate-800 rounded-lg flex items-center justify-center font-bold text-[#BD5E0A] shadow-sm">
-                          {item.quantity}
-                        </span>
-                        <div>
-                          <p className="font-bold text-slate-700 dark:text-slate-300">{item.name}</p>
-                          {item.customization && (
-                            <p className="text-[10px] text-slate-400 font-medium">
-                              {item.customization}
-                            </p>
-                          )}
-                        </div>
+              <div className="space-y-3">
+                {selectedOrder.items.map((item, idx) => (
+                  <div key={idx} className="flex justify-between items-center bg-slate-50 dark:bg-white/5 p-3 rounded-xl">
+                    <div className="flex gap-3 items-center">
+                      <span className="w-8 h-8 bg-white dark:bg-slate-800 rounded-lg flex items-center justify-center font-bold text-[#BD5E0A] shadow-sm">
+                        {item.quantity}
+                      </span>
+                      <div>
+                        <p className="font-bold text-slate-700 dark:text-slate-300">{item.name}</p>
+                        {item.customization && (
+                          <p className="text-[10px] text-slate-400 font-medium">{item.customization}</p>
+                        )}
                       </div>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
 
               <div className="flex justify-between items-center pt-4 border-t border-slate-100 dark:border-slate-800">
                 <p className="text-slate-500 dark:text-slate-400 font-medium">Total Amount</p>
-                <p className="text-2xl font-black text-slate-900 dark:text-white">
-                  ${selectedOrder.total.toFixed(2)}
-                </p>
+                <p className="text-2xl font-black text-slate-900 dark:text-white">${selectedOrder.total.toFixed(2)}</p>
               </div>
 
               <button
@@ -404,89 +353,56 @@ export default function StaffDashboardPage() {
               <label className="text-sm font-medium">Profile Image</label>
               <div className="flex items-center gap-3">
                 {profileImagePreview ? (
-                  <img
-                    src={profileImagePreview}
-                    alt="Profile preview"
-                    className="h-14 w-14 rounded-full border object-cover"
-                  />
+                  <img src={profileImagePreview} alt="Profile preview" className="h-14 w-14 rounded-full border object-cover" />
                 ) : (
                   <div className="flex h-14 w-14 items-center justify-center rounded-full border bg-[#F5E6D3] text-sm font-semibold text-[#4B2E2B]">
-                    {(currentUser?.name ?? "ST")
-                      .split(" ")
-                      .filter(Boolean)
-                      .slice(0, 2)
-                      .map((part) => part[0]?.toUpperCase() ?? "")
-                      .join("")}
+                    {(currentUser?.name ?? "ST").split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? "").join("")}
                   </div>
                 )}
-                <Input
-                  type="file"
-                  accept="image/*"
-                  onChange={(event) => onProfileImageChange(event.target.files?.[0] ?? null)}
-                />
+                <Input type="file" accept="image/*" onChange={(e) => onProfileImageChange(e.target.files?.[0] ?? null)} />
               </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => void removeProfileImage()}
-                  disabled={savingProfile}
-                >
-                  Remove
-                </Button>
-              </div>
+              <Button variant="outline" onClick={() => void removeProfileImage()} disabled={savingProfile}>
+                Remove
+              </Button>
             </div>
 
-          <div className="grid gap-3">
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Name</label>
-              <Input value={currentUser?.name ?? ""} disabled />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Email</label>
-              <Input value={currentUser?.email ?? ""} disabled />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Manager</label>
-              <div className="flex items-center gap-3 rounded-lg border px-3 py-2">
-                {manager?.profile_image_url ? (
-                  <img
-                    src={manager.profile_image_url}
-                    alt={manager.name}
-                    className="h-9 w-9 rounded-full border object-cover"
-                  />
-                ) : (
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full border bg-[#F5E6D3] text-sm font-semibold text-[#4B2E2B]">
-                    {(manager?.name ?? "AD")
-                      .split(" ")
-                      .filter(Boolean)
-                      .slice(0, 2)
-                      .map((p) => p[0]?.toUpperCase() ?? "")
-                      .join("")}
-                  </div>
-                )}
-                <div className="min-w-0">
-                  <div className="text-sm font-semibold text-slate-900 truncate">
-                    {manager?.name ?? "Admin"}
-                  </div>
-                  <div className="text-xs text-slate-500 truncate">{manager?.email ?? ""}</div>
-                </div>
+            <div className="grid gap-3">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Name</label>
+                <Input value={currentUser?.name ?? ""} disabled />
               </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Email</label>
+                <Input value={currentUser?.email ?? ""} disabled />
+              </div>
+              {manager && (
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Manager</label>
+                  <div className="flex items-center gap-3 rounded-lg border px-3 py-2">
+                    {manager.profile_image_url ? (
+                      <img src={manager.profile_image_url} alt={manager.name} className="h-9 w-9 rounded-full border object-cover" />
+                    ) : (
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full border bg-[#F5E6D3] text-sm font-semibold text-[#4B2E2B]">
+                        {(manager.name ?? "AD").split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? "").join("")}
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-slate-900 truncate">{manager.name}</div>
+                      <div className="text-xs text-slate-500 truncate">{manager.email}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
           </div>
 
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setProfileDialogOpen(false);
-                if (profileImagePreview?.startsWith("blob:")) {
-                  URL.revokeObjectURL(profileImagePreview);
-                }
-                setProfileImageFile(null);
-                setProfileImagePreview(null);
-              }}
-            >
+            <Button variant="outline" onClick={() => {
+              setProfileDialogOpen(false);
+              if (profileImagePreview?.startsWith("blob:")) URL.revokeObjectURL(profileImagePreview);
+              setProfileImageFile(null);
+              setProfileImagePreview(null);
+            }}>
               Close
             </Button>
             <Button onClick={() => void saveProfileImage()} disabled={savingProfile || !profileImageFile}>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Eye, Plus, QrCode, RefreshCw, Users, Download, Printer } from "lucide-react";
+import { Eye, Pencil, Plus, QrCode, RefreshCw, Trash2, Users, Download, Printer } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -18,6 +18,7 @@ import { StatusBadge } from "../components/StatusBadge";
 import {
   ApiTable,
   createTable,
+  deleteTable,
   fetchTables,
   updateTable,
 } from "../services/api";
@@ -33,20 +34,32 @@ function getQrValue(table: ApiTable): string {
 
 export default function Tables() {
   const [tables, setTables] = useState<ApiTable[]>([]);
-  const [isAddOpen, setIsAddOpen] = useState(false);
-  const [previewTable, setPreviewTable] = useState<ApiTable | null>(null);
-  const [newTableName, setNewTableName] = useState("");
-  const [newTableCapacity, setNewTableCapacity] = useState("4");
   const [isLoading, setIsLoading] = useState(true);
-  const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [updatingIds, setUpdatingIds] = useState<Set<number>>(new Set());
 
+  // Add dialog
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [newTableName, setNewTableName] = useState("");
+  const [newTableCapacity, setNewTableCapacity] = useState("4");
+  const [isCreating, setIsCreating] = useState(false);
+
+  // Edit dialog
+  const [editTarget, setEditTarget] = useState<ApiTable | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editCapacity, setEditCapacity] = useState("4");
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Delete dialog
+  const [deleteTarget, setDeleteTarget] = useState<ApiTable | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // QR Preview dialog
+  const [previewTable, setPreviewTable] = useState<ApiTable | null>(null);
   const qrRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let isMounted = true;
-
     const loadTables = async () => {
       try {
         setIsLoading(true);
@@ -58,67 +71,55 @@ export default function Tables() {
         if (!isMounted) return;
         setError(err instanceof Error ? err.message : "Failed to load tables");
       } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
+        if (isMounted) setIsLoading(false);
       }
     };
-
     loadTables();
-
-    return () => {
-      isMounted = false;
-    };
+    return () => { isMounted = false; };
   }, []);
 
   const counts = useMemo(() => {
     const total = tables.length;
     const active = tables.filter((t) => t.is_active).length;
-    const inactive = total - active;
-    return { total, active, inactive };
+    return { total, active, inactive: total - active };
   }, [tables]);
+
+  function markUpdating(id: number) {
+    setUpdatingIds((prev) => new Set(prev).add(id));
+  }
+  function unmarkUpdating(id: number) {
+    setUpdatingIds((prev) => { const next = new Set(prev); next.delete(id); return next; });
+  }
 
   const toggleTableStatus = async (id: number) => {
     const table = tables.find((t) => t.id === id);
     if (!table) return;
-
     try {
-      setUpdatingIds((prev) => new Set(prev).add(id));
+      markUpdating(id);
       setError(null);
-      const updated = await updateTable(id, {
-        is_active: !(table.status === "active"),
-      });
+      const updated = await updateTable(id, { is_active: !(table.status === "active") });
       setTables((prev) => prev.map((t) => (t.id === id ? updated : t)));
-      setPreviewTable((prev) => (prev && prev.id === id ? updated : prev));
+      setPreviewTable((prev) => (prev?.id === id ? updated : prev));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update table status");
     } finally {
-      setUpdatingIds((prev) => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
+      unmarkUpdating(id);
     }
   };
 
   const regenerateQR = async (id: number) => {
     const table = tables.find((t) => t.id === id);
     if (!table) return;
-    
     try {
-      setUpdatingIds((prev) => new Set(prev).add(id));
+      markUpdating(id);
       setError(null);
       const updated = await updateTable(id, { qr_code: createQrCode(id, table.name) });
       setTables((prev) => prev.map((t) => (t.id === id ? updated : t)));
-      setPreviewTable((prev) => (prev && prev.id === id ? updated : prev));
+      setPreviewTable((prev) => (prev?.id === id ? updated : prev));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to regenerate QR");
     } finally {
-      setUpdatingIds((prev) => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
+      unmarkUpdating(id);
     }
   };
 
@@ -126,7 +127,6 @@ export default function Tables() {
     const name = newTableName.trim();
     const capacity = Number(newTableCapacity);
     if (!name || !Number.isFinite(capacity) || capacity < 1) return;
-
     try {
       setIsCreating(true);
       setError(null);
@@ -142,48 +142,79 @@ export default function Tables() {
     }
   };
 
+  function openEditDialog(table: ApiTable) {
+    setEditTarget(table);
+    setEditName(table.name);
+    setEditCapacity(String(table.capacity));
+  }
+
+  const handleEditTable = async () => {
+    if (!editTarget) return;
+    const name = editName.trim();
+    const capacity = Number(editCapacity);
+    if (!name || !Number.isFinite(capacity) || capacity < 1) return;
+    try {
+      setIsSaving(true);
+      setError(null);
+      const updated = await updateTable(editTarget.id, { name, capacity });
+      setTables((prev) => prev.map((t) => (t.id === editTarget.id ? updated : t)));
+      setPreviewTable((prev) => (prev?.id === editTarget.id ? updated : prev));
+      setEditTarget(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update table");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteTable = async () => {
+    if (!deleteTarget) return;
+    try {
+      setIsDeleting(true);
+      setError(null);
+      await deleteTable(deleteTarget.id);
+      setTables((prev) => prev.filter((t) => t.id !== deleteTarget.id));
+      if (previewTable?.id === deleteTarget.id) setPreviewTable(null);
+      setDeleteTarget(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete table");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const handleDownloadPreview = () => {
     if (!previewTable || !qrRef.current) return;
-
-    const svg = qrRef.current.querySelector('svg');
+    const svg = qrRef.current.querySelector("svg");
     if (!svg) return;
-
     const svgData = new XMLSerializer().serializeToString(svg);
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
     const img = new Image();
-
     canvas.width = 512;
     canvas.height = 512;
-
     img.onload = () => {
       ctx?.drawImage(img, 0, 0, 512, 512);
       canvas.toBlob((blob) => {
         if (!blob) return;
         const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
+        const link = document.createElement("a");
         link.href = url;
-        link.download = `${previewTable.name.replace(/\s+/g, '-').toLowerCase()}-qr.png`;
+        link.download = `${previewTable.name.replace(/\s+/g, "-").toLowerCase()}-qr.png`;
         document.body.appendChild(link);
         link.click();
         link.remove();
         URL.revokeObjectURL(url);
       });
     };
-
-    img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
+    img.src = "data:image/svg+xml;base64," + btoa(svgData);
   };
 
   const handlePrintPreview = () => {
     if (!previewTable) return;
-
     const qrValue = getQrValue(previewTable);
     const win = window.open("", "_blank", "width=600,height=800");
-    if (!win) {
-      setError("Popup was blocked. Please allow popups to print.");
-      return;
-    }
-
+    if (!win) { setError("Popup was blocked. Please allow popups to print."); return; }
     win.document.write(`
       <html>
         <head>
@@ -200,17 +231,12 @@ export default function Tables() {
         <body>
           <h1>${previewTable.name}</h1>
           <p class="info">Capacity: ${previewTable.capacity} people</p>
-          <div class="qr-container">
-            <div id="qr"></div>
-          </div>
+          <div class="qr-container"><div id="qr"></div></div>
           <p class="info">Scan to view menu and place order</p>
           <p class="link">${qrValue}</p>
           <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
           <script>
-            QRCode.toCanvas(document.getElementById('qr'), '${qrValue}', {
-              width: 300,
-              margin: 2
-            });
+            QRCode.toCanvas(document.getElementById('qr'), '${qrValue}', { width: 300, margin: 2 });
             setTimeout(() => window.print(), 500);
           </script>
         </body>
@@ -222,10 +248,9 @@ export default function Tables() {
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {error}
-        </div>
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>
       )}
+
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-[#4B2E2B]">Tables</h1>
@@ -237,7 +262,6 @@ export default function Tables() {
             <span className="font-semibold text-neutral-600">{counts.inactive}</span>
           </p>
         </div>
-
         <Button className="bg-[#4B2E2B] hover:bg-[#5B3E3B] text-white" onClick={() => setIsAddOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Add Table
@@ -248,86 +272,103 @@ export default function Tables() {
         <div className="rounded-lg border border-[#EAD6C0] bg-white p-4 text-sm text-[#7C5D58]">
           Loading tables...
         </div>
+      ) : tables.length === 0 ? (
+        <div className="rounded-lg border border-[#EAD6C0] bg-white p-8 text-center text-sm text-[#7C5D58]">
+          No tables yet. Click "Add Table" to create one.
+        </div>
       ) : (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {tables.map((table) => (
-          <Card
-            key={table.id}
-            className={
-              table.status === "active"
-                ? "border-emerald-200 bg-white"
-                : "border-neutral-200 bg-white"
-            }
-          >
-            <CardHeader className="pb-2">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <CardTitle className="text-base text-[#4B2E2B]">{table.name}</CardTitle>
-                  <div className="mt-2 inline-flex items-center gap-1 text-sm text-[#7C5D58]">
-                    <Users className="h-4 w-4" />
-                    Capacity: {table.capacity}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {tables.map((table) => (
+            <Card
+              key={table.id}
+              className={table.status === "active" ? "border-emerald-200 bg-white" : "border-neutral-200 bg-white"}
+            >
+              <CardHeader className="pb-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <CardTitle className="text-base text-[#4B2E2B]">{table.name}</CardTitle>
+                    <div className="mt-2 inline-flex items-center gap-1 text-sm text-[#7C5D58]">
+                      <Users className="h-4 w-4" />
+                      Capacity: {table.capacity}
+                    </div>
+                  </div>
+                  <StatusBadge status={table.status} />
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="rounded-lg border border-[#EAD6C0] bg-[#F5E6D3] p-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex-shrink-0">
+                      <QRCodeSVG value={getQrValue(table)} size={48} level="M" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-[#7C5D58] mb-1">Scan to order</p>
+                      <a
+                        href={getQrValue(table)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-[#4B2E2B] hover:text-[#6B4E4B] underline truncate block"
+                      >
+                        {getQrValue(table)}
+                      </a>
+                    </div>
                   </div>
                 </div>
-                <StatusBadge status={table.status} />
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="rounded-lg border border-[#EAD6C0] bg-[#F5E6D3] p-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex-shrink-0">
-                    <QRCodeSVG value={getQrValue(table)} size={48} level="M" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-[#7C5D58] mb-1">Scan to order</p>
-                    <a 
-                      href={getQrValue(table)} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-xs text-[#4B2E2B] hover:text-[#6B4E4B] underline truncate block"
-                    >
-                      {getQrValue(table)}
-                    </a>
-                  </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-[#7C5D58]">
+                    {table.status === "active" ? "Enabled" : "Disabled"}
+                  </span>
+                  <Switch
+                    checked={table.status === "active"}
+                    onCheckedChange={() => toggleTableStatus(table.id)}
+                    disabled={updatingIds.has(table.id)}
+                  />
                 </div>
-              </div>
 
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-[#7C5D58]">
-                  {table.status === "active" ? "Enabled" : "Disabled"}
-                </span>
-                <Switch
-                  checked={table.status === "active"}
-                  onCheckedChange={() => toggleTableStatus(table.id)}
-                  disabled={updatingIds.has(table.id)}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  variant="outline"
-                  className="border-[#EAD6C0] text-[#4B2E2B]"
-                  onClick={() => setPreviewTable(table)}
-                >
-                  <Eye className="h-4 w-4 mr-1" />
-                  Preview
-                </Button>
-                <Button
-                  variant="outline"
-                  className="border-[#EAD6C0] text-[#4B2E2B]"
-                  onClick={() => regenerateQR(table.id)}
-                  disabled={updatingIds.has(table.id)}
-                >
-                  <RefreshCw className="h-4 w-4 mr-1" />
-                  Regenerate
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant="outline"
+                    className="border-[#EAD6C0] text-[#4B2E2B]"
+                    onClick={() => setPreviewTable(table)}
+                  >
+                    <Eye className="h-4 w-4 mr-1" />
+                    Preview
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="border-[#EAD6C0] text-[#4B2E2B]"
+                    onClick={() => regenerateQR(table.id)}
+                    disabled={updatingIds.has(table.id)}
+                  >
+                    <RefreshCw className="h-4 w-4 mr-1" />
+                    Regen QR
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="border-[#EAD6C0] text-[#4B2E2B]"
+                    onClick={() => openEditDialog(table)}
+                  >
+                    <Pencil className="h-4 w-4 mr-1" />
+                    Edit
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="border-red-200 text-red-600 hover:bg-red-50"
+                    onClick={() => setDeleteTarget(table)}
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Delete
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       )}
 
-      <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+      {/* Add Dialog */}
+      <Dialog open={isAddOpen} onOpenChange={(open) => { setIsAddOpen(open); if (!open) { setNewTableName(""); setNewTableCapacity("4"); } }}>
         <DialogContent className="sm:max-w-[460px]">
           <DialogHeader>
             <DialogTitle>Add Table</DialogTitle>
@@ -358,57 +399,113 @@ export default function Tables() {
             <Button variant="outline" className="border-[#EAD6C0] text-[#4B2E2B]" onClick={() => setIsAddOpen(false)}>
               Cancel
             </Button>
-            <Button className="bg-[#4B2E2B] hover:bg-[#5B3E3B] text-white" onClick={handleCreateTable} disabled={isCreating}>
-              Create Table
+            <Button
+              className="bg-[#4B2E2B] hover:bg-[#5B3E3B] text-white"
+              onClick={handleCreateTable}
+              disabled={isCreating || !newTableName.trim() || Number(newTableCapacity) < 1}
+            >
+              {isCreating ? "Creating..." : "Create Table"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* Edit Dialog */}
+      <Dialog open={Boolean(editTarget)} onOpenChange={(open) => { if (!open) setEditTarget(null); }}>
+        <DialogContent className="sm:max-w-[460px]">
+          <DialogHeader>
+            <DialogTitle>Edit Table</DialogTitle>
+            <DialogDescription>Update the table name or capacity.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="editTableName">Table Name</Label>
+              <Input
+                id="editTableName"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="e.g. Table 9"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editTableCapacity">Capacity</Label>
+              <Input
+                id="editTableCapacity"
+                type="number"
+                min={1}
+                value={editCapacity}
+                onChange={(e) => setEditCapacity(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" className="border-[#EAD6C0] text-[#4B2E2B]" onClick={() => setEditTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-[#4B2E2B] hover:bg-[#5B3E3B] text-white"
+              onClick={handleEditTable}
+              disabled={isSaving || !editName.trim() || Number(editCapacity) < 1}
+            >
+              {isSaving ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirm Dialog */}
+      <Dialog open={Boolean(deleteTarget)} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>Delete Table</DialogTitle>
+            <DialogDescription>
+              {deleteTarget
+                ? `Delete "${deleteTarget.name}"? This cannot be undone.`
+                : "Delete this table? This cannot be undone."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" className="border-[#EAD6C0] text-[#4B2E2B]" onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteTable} disabled={isDeleting}>
+              {isDeleting ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* QR Preview Dialog */}
       <Dialog open={Boolean(previewTable)} onOpenChange={(open) => !open && setPreviewTable(null)}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>{previewTable?.name} QR Preview</DialogTitle>
             <DialogDescription>Use this QR code for customer table ordering.</DialogDescription>
           </DialogHeader>
-
           {previewTable && (
             <div className="space-y-4">
               <div className="rounded-xl border border-[#EAD6C0] bg-[#F5E6D3] p-6 text-center">
                 <div ref={qrRef} className="inline-block">
-                  <QRCodeSVG 
-                    value={getQrValue(previewTable)} 
-                    size={256} 
-                    level="H"
-                    includeMargin={true}
-                  />
+                  <QRCodeSVG value={getQrValue(previewTable)} size={256} level="H" includeMargin={true} />
                 </div>
                 <p className="mt-4 text-sm font-semibold text-[#4B2E2B]">{previewTable.name}</p>
                 <p className="mt-1 text-xs text-[#7C5D58]">Capacity: {previewTable.capacity} people</p>
                 <p className="mt-2 text-xs text-[#7C5D58] mb-2">Scan QR code or visit link below:</p>
-                <a 
-                  href={getQrValue(previewTable)} 
-                  target="_blank" 
+                <a
+                  href={getQrValue(previewTable)}
+                  target="_blank"
                   rel="noopener noreferrer"
                   className="text-xs text-[#4B2E2B] hover:text-[#6B4E4B] underline break-all"
                 >
                   {getQrValue(previewTable)}
                 </a>
               </div>
-
               <div className="grid grid-cols-2 gap-3">
-                <Button
-                  variant="outline"
-                  className="border-[#EAD6C0] text-[#4B2E2B]"
-                  onClick={handleDownloadPreview}
-                >
+                <Button variant="outline" className="border-[#EAD6C0] text-[#4B2E2B]" onClick={handleDownloadPreview}>
                   <Download className="h-4 w-4 mr-2" />
                   Download
                 </Button>
-                <Button
-                  className="bg-[#4B2E2B] hover:bg-[#5B3E3B] text-white"
-                  onClick={handlePrintPreview}
-                >
+                <Button className="bg-[#4B2E2B] hover:bg-[#5B3E3B] text-white" onClick={handlePrintPreview}>
                   <Printer className="h-4 w-4 mr-2" />
                   Print
                 </Button>

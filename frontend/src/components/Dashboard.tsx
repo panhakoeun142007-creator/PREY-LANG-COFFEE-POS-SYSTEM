@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  TrendingUp,
   Clock,
   CheckCircle2,
   AlertCircle,
@@ -13,9 +12,33 @@ import {
   Check
 } from 'lucide-react';
 import { motion } from 'framer-motion'; // Fixed import to match common usage
-import { Order, InventoryItem } from '../types';
-import { fetchNotifications, fetchDashboard, type Notification, type DashboardData } from '../services/api';
+import { fetchNotifications, fetchDashboard, type Notification } from '../services/api';
 import { auth } from '../utils/auth';
+
+interface OrderItem {
+  name: string;
+  quantity: number;
+  customization?: string;
+  price?: number;
+}
+
+interface Order {
+  id: string;
+  tableNo: string;
+  status: string;
+  items: OrderItem[];
+  timeElapsed: string;
+  timestamp: string;
+  total: number;
+}
+
+interface InventoryItem {
+  id: string;
+  name: string;
+  quantity: number;
+  unit: string;
+  threshold: number;
+}
 
 type DashboardUser = {
   name?: string | null;
@@ -93,12 +116,12 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, onViewDetails, currentUse
     };
   }, []);
 
-  const filteredOrders = orders.filter(order => {
-    if (activeTab === 'Live') return order.status !== 'Completed' && order.status !== 'Cancelled';
-    if (activeTab === 'Completed') return order.status === 'Completed';
-    if (activeTab === 'Cancelled') return order.status === 'Cancelled';
-    return true;
-  });
+  const filteredOrders = useMemo(() => {
+    if (activeTab === 'Live') return orders.filter((o) => o.status !== 'Completed' && o.status !== 'Cancelled');
+    if (activeTab === 'Completed') return orders.filter((o) => o.status === 'Completed');
+    if (activeTab === 'Cancelled') return orders.filter((o) => o.status === 'Cancelled');
+    return orders;
+  }, [orders, activeTab]);
 
   const mockInventory: InventoryItem[] = [
     { id: '1', name: 'Whole Milk (1L)', quantity: 2, unit: 'units', threshold: 5 },

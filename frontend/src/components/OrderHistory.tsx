@@ -3,10 +3,42 @@ import { createPortal } from 'react-dom';
 import { Printer, Search, Bell, X, Hash, Info } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import coffeeLogo from '../assets/coffee.png';
-import { Order } from '../types';
-import { buildOrderDisplayIdMap } from '../lib/orderDisplayId';
-import { createRecipeLog } from '../lib/api';
 import { fetchNotifications, type Notification } from '../services/api';
+
+interface OrderItem {
+  name: string;
+  quantity: number;
+  customization?: string;
+  price?: number;
+}
+
+interface Order {
+  id: string;
+  tableNo: string;
+  status: string;
+  items: OrderItem[];
+  timeElapsed: string;
+  timestamp: string;
+  total: number;
+}
+
+function buildOrderDisplayIdMap(ids: string[]): Record<string, string> {
+  const map: Record<string, string> = {};
+  ids.forEach((id, i) => { map[id] = `POS_${String(i + 1).padStart(3, "0")}`; });
+  return map;
+}
+
+async function createRecipeLog(payload: { order_id: string; table_no: string; name: string }): Promise<void> {
+  const token = localStorage.getItem("auth_token");
+  await fetch("/api/recipe-logs", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(payload),
+  });
+}
 
 interface OrderHistoryProps {
   orders: Order[];

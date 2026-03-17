@@ -1,8 +1,31 @@
 import React, { useMemo, useState } from 'react';
 import { Search, Clock, Coffee, CheckCircle2, X, ClipboardList } from 'lucide-react';
 import logo from '../assets/coffee.png'; 
-import { Order, OrderStatus } from '../types';
-import { buildOrderDisplayIdMap } from '../lib/orderDisplayId';
+type OrderStatus = "Pending" | "Preparing" | "Brewing" | "Ready" | "Delayed" | "Completed" | "Cancelled";
+
+interface OrderItem {
+  name: string;
+  quantity: number;
+  customization?: string;
+  price?: number;
+}
+
+interface Order {
+  id: string;
+  tableNo: string;
+  status: OrderStatus;
+  items: OrderItem[];
+  timeElapsed: string;
+  timestamp: string;
+  total: number;
+  paymentMethod?: "KHQR" | "Cash" | "Card";
+}
+
+function buildOrderDisplayIdMap(ids: string[]): Record<string, string> {
+  const map: Record<string, string> = {};
+  ids.forEach((id, i) => { map[id] = `POS_${String(i + 1).padStart(3, "0")}`; });
+  return map;
+}
 
 interface OrdersProps {
   orders: Order[];
