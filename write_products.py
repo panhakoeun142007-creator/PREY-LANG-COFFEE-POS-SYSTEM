@@ -1,1 +1,0 @@
-products_content = open("products_backup.txt").read() if False else "".join([chr(int(c)) for c in input().split()])

@@ -67,26 +67,6 @@ export default function PaymentSettings({ value, onSave, isSaving }: PaymentSett
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-muted pointer-events-none" />
             </div>
           </div>
-          <div>
-            <label className="block text-[10px] font-bold text-brand-text mb-2 uppercase tracking-wide">
-              Tax Rate (VAT)
-            </label>
-            <div className="relative">
-              <input
-                type="number"
-                min={0}
-                max={100}
-                value={form.tax_rate}
-                onChange={(e) =>
-                  setForm((prev: PaymentSettingsData) => ({ ...prev, tax_rate: Number(e.target.value || 0) }))
-                }
-                className="w-full bg-slate-50 border border-brand-border rounded-lg px-4 py-2.5 text-xs text-brand-text outline-none focus:ring-1 focus:ring-brand-primary"
-              />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 text-xs font-bold">
-                %
-              </span>
-            </div>
-          </div>
         </div>
       </section>
 

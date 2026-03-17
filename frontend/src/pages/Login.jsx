@@ -1,5 +1,5 @@
 import React, { useState, useContext } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { AuthContext } from '../App.jsx';
 import { authService } from '../services/authService';
 import '../style/index.css';
@@ -10,8 +10,12 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const navigate = useNavigate();
   const auth = useContext(AuthContext);
+
+  if (auth.isAuthenticated) {
+    const role = auth.user?.role;
+    return <Navigate to={role === 'staff' ? '/staff-dashboard' : '/'} replace />;
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();

@@ -114,19 +114,6 @@ export default function ReceiptSettings({ value, onSave, isSaving }: ReceiptSett
                   className="w-full rounded-xl border border-[#EAD6C0] bg-[#FFFBF7] px-4 py-3 text-sm text-[#4B2E2B] outline-none transition focus:border-[#4B2E2B] focus:bg-white"
                 />
               </div>
-
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[#8E706B]">
-                  Tax ID
-                </label>
-                <input
-                  type="text"
-                  value={form.tax_id}
-                  onChange={(e) => setForm((prev) => ({ ...prev, tax_id: e.target.value }))}
-                  className="w-full rounded-xl border border-[#EAD6C0] bg-[#FFFBF7] px-4 py-3 text-sm text-[#4B2E2B] outline-none transition focus:border-[#4B2E2B] focus:bg-white"
-                  placeholder="Optional"
-                />
-              </div>
             </div>
 
             <div>
@@ -228,7 +215,6 @@ export default function ReceiptSettings({ value, onSave, isSaving }: ReceiptSett
                 <p className="text-sm font-bold tracking-wide text-[#4B2E2B]">{form.shop_name || "Shop Name"}</p>
                 <p className="mt-1 text-[11px] text-[#8E706B]">{form.address || "Address"}</p>
                 <p className="text-[11px] text-[#8E706B]">{form.phone || "Phone"}</p>
-                {form.tax_id ? <p className="text-[11px] text-[#8E706B]">Tax ID: {form.tax_id}</p> : null}
               </div>
 
               <div className="my-4 border-t border-dashed border-[#EAD6C0]" />

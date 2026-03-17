@@ -2,6 +2,37 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================= */
+/* PRINT / RECEIPT MODE          */
+/* ============================= */
+
+#physical-receipt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: white;
+  padding: 10px;
+  margin: 20px auto;
+  width: 300px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+@media print {
+  @page { size: 80mm auto; margin: 0; }
+  body > *:not(#physical-receipt) { display: none !important; }
+  #physical-receipt {
+    display: flex !important;
+    flex-direction: column;
+    align-items: center;
+    position: absolute;
+    top: 0; left: 0;
+    width: 80mm !important;
+    padding: 12mm 5mm !important;
+    background: white !important;
+    color: black !important;
+  }
+}
+
 @layer base {
   :root {
     --panel-bg: rgba(255, 255, 255, 0.82);
@@ -26,7 +57,7 @@
     --btn-outline-border: #e5d2bb;
     --btn-outline-text: #4b2e2b;
     --btn-outline-hover: #f8efe4;
--bg: #f    --btn-secondary5e6d3;
+    --btn-secondary-bg: #f5e6d3;
     --btn-secondary-hover: #ead6c0;
     --btn-secondary-text: #4b2e2b;
     --btn-ghost-text: #4b2e2b;
