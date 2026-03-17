@@ -22,14 +22,12 @@ class DashboardController extends Controller
      */
     public function index(): JsonResponse
     {
-        // Try to get cached dashboard data
         $cacheKey = 'dashboard_' . now()->format('Y-m-d-H');
-        
+
         $data = Cache::remember($cacheKey, self::CACHE_TTL, function () {
             return $this->buildDashboardData();
         });
 
-        // Always get fresh notifications (don't cache orders that may change)
         $data['notifications'] = $this->getNotifications();
         $data['notification_count'] = $this->getNotificationCount();
 
@@ -45,34 +43,26 @@ class DashboardController extends Controller
         $startOfMonth = now()->startOfMonth();
         $endOfMonth = now()->endOfMonth();
 
-        // Use single query with conditional sums for today's stats
         $todayStats = Order::whereDate('created_at', $today)
             ->where('status', '!=', 'cancelled')
             ->selectRaw('SUM(total_price) as revenue, COUNT(*) as orders')
             ->first();
 
         $todayRevenue = (float) ($todayStats->revenue ?? 0);
-        $todayOrders = (int) ($todayStats->orders ?? 0);
+        $todayOrders  = (int)   ($todayStats->orders  ?? 0);
 
-        // Low stock items count - single query
         $lowStockCount = Ingredient::whereColumn('stock_qty', '<=', 'min_stock')
             ->where('min_stock', '>', 0)
             ->count();
 
-        // Monthly stats - single query
         $monthlyStats = Order::whereBetween('created_at', [$startOfMonth, $endOfMonth])
             ->where('status', '!=', 'cancelled')
             ->selectRaw('SUM(total_price) as revenue')
             ->first();
 
-        $monthlyRevenue = (float) ($monthlyStats->revenue ?? 0);
-
-        // Monthly expenses - single query
-        $monthlyExpenses = Expense::whereBetween('date', [$startOfMonth->toDateString(), $endOfMonth->toDateString()])
-            ->sum('amount');
-
-        // Monthly profit
-        $monthlyProfit = $monthlyRevenue - (float) $monthlyExpenses;
+        $monthlyRevenue  = (float) ($monthlyStats->revenue ?? 0);
+        $monthlyExpenses = (float) Expense::whereBetween('date', [$startOfMonth->toDateString(), $endOfMonth->toDateString()])->sum('amount');
+        $monthlyProfit   = $monthlyRevenue - $monthlyExpenses;
 
         // Revenue for current week Mon–Sun
         $startOfWeek = now()->startOfWeek(\Carbon\Carbon::MONDAY)->startOfDay();
@@ -85,22 +75,17 @@ class DashboardController extends Controller
             ->orderBy('date')
             ->get()
             ->keyBy('date')
-            ->map(function ($row) {
-                return (float) $row->revenue;
-            });
+            ->map(fn ($row) => (float) $row->revenue);
 
-        // Build Mon–Sun array
         $formattedRevenueData = [];
         for ($i = 0; $i <= 6; $i++) {
             $date = $startOfWeek->copy()->addDays($i);
-            $dateKey = $date->format('Y-m-d');
             $formattedRevenueData[] = [
-                'name' => $date->format('D'),
-                'revenue' => $revenueData->get($dateKey, 0),
+                'name'    => $date->format('D'),
+                'revenue' => $revenueData->get($date->format('Y-m-d'), 0),
             ];
         }
 
-        // Orders by category (last 30 days) - optimized single query
         $thirtyDaysAgo = now()->subDays(30);
         $categoryData = DB::table('categories')
             ->leftJoin('products', 'categories.id', '=', 'products.category_id')
@@ -115,70 +100,38 @@ class DashboardController extends Controller
             ->groupBy('categories.id', 'categories.name')
             ->orderByDesc('total_orders')
             ->get()
-            ->map(function ($category) {
-                return [
-                    'category' => $category->name,
-                    'orders' => (int) $category->total_orders,
-                ];
-            });
+            ->map(fn ($c) => ['category' => $c->name, 'orders' => (int) $c->total_orders]);
 
-        // Recent orders (last 10) - optimized with eager loading
         $recentOrders = Order::with('table:id,name')
             ->orderBy('created_at', 'desc')
             ->limit(10)
             ->get()
-            ->map(function ($order) {
-                return [
-                    'id' => '#ORD-' . str_pad($order->id, 4, '0', STR_PAD_LEFT),
-                    'table' => $order->table?->name ?? 'Takeaway',
-                    'total' => '$' . number_format($order->total_price, 2),
-                    'status' => $order->status,
-                ];
-            });
+            ->map(fn ($order) => [
+                'id'     => '#ORD-' . str_pad($order->id, 4, '0', STR_PAD_LEFT),
+                'table'  => $order->table?->name ?? 'Takeaway',
+                'total'  => '$' . number_format($order->total_price, 2),
+                'status' => $order->status,
+            ]);
 
-        // Low stock items with percentage - optimized query
         $lowStockItems = Ingredient::whereColumn('stock_qty', '<=', 'min_stock')
             ->where('min_stock', '>', 0)
             ->limit(10)
             ->get()
             ->map(function ($ingredient) {
-                $level = $ingredient->min_stock > 0 
-                    ? ($ingredient->stock_qty / $ingredient->min_stock) * 100 
+                $level = $ingredient->min_stock > 0
+                    ? ($ingredient->stock_qty / $ingredient->min_stock) * 100
                     : 0;
-                return [
-                    'name' => $ingredient->name,
-                    'level' => min(100, round($level)),
-                ];
+                return ['name' => $ingredient->name, 'level' => min(100, round($level))];
             });
 
         return [
             'stats' => [
-                [
-                    'label' => 'Total Revenue Today',
-                    'value' => '$' . number_format($todayRevenue, 2),
-                    'trend' => $this->getTodayTrend(),
-                    'accent' => 'text-emerald-600',
-                ],
-                [
-                    'label' => 'Total Orders Today',
-                    'value' => $todayOrders,
-                    'trend' => $this->getOrdersTrend(),
-                    'accent' => 'text-emerald-600',
-                ],
-                [
-                    'label' => 'Low Stock Items',
-                    'value' => $lowStockCount,
-                    'trend' => $lowStockCount > 0 ? 'Needs attention' : 'All good',
-                    'accent' => $lowStockCount > 0 ? 'text-rose-600' : 'text-emerald-600',
-                ],
-                [
-                    'label' => 'Monthly Profit',
-                    'value' => '$' . number_format($monthlyProfit, 2),
-                    'trend' => $monthlyProfit >= 0 ? 'Profit' : 'Loss',
-                    'accent' => $monthlyProfit >= 0 ? 'text-emerald-600' : 'text-rose-600',
-                ],
+                ['label' => 'Total Revenue Today',  'value' => '$' . number_format($todayRevenue, 2),  'trend' => $this->getTodayTrend(),  'accent' => 'text-emerald-600'],
+                ['label' => 'Total Orders Today',   'value' => $todayOrders,                           'trend' => $this->getOrdersTrend(), 'accent' => 'text-emerald-600'],
+                ['label' => 'Low Stock Items',       'value' => $lowStockCount,                         'trend' => $lowStockCount > 0 ? 'Needs attention' : 'All good', 'accent' => $lowStockCount > 0 ? 'text-rose-600' : 'text-emerald-600'],
+                ['label' => 'Monthly Profit',        'value' => '$' . number_format($monthlyProfit, 2), 'trend' => $monthlyProfit >= 0 ? 'Profit' : 'Loss', 'accent' => $monthlyProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'],
             ],
-            'revenueData' => $formattedRevenueData,
+            'revenueData'  => $formattedRevenueData,
             'categoryData' => $categoryData,
             'recentOrders' => $recentOrders,
             'lowStockItems' => $lowStockItems,

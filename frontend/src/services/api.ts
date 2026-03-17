@@ -1,3 +1,6 @@
+// Use in-memory auth instead of localStorage
+import { auth } from "../utils/auth";
+
 function resolveApiBaseUrl(): string {
   const backendUrlRaw = (import.meta.env.VITE_BACKEND_URL as string | undefined) || "http://127.0.0.1:8000";
   const backendUrl = backendUrlRaw.replace(/\/+$/, "");
@@ -329,7 +332,7 @@ function withQuery(path: string, params?: Record<string, unknown>): string {
 }
 
 export async function safeFetch(path: string, options: RequestInit = {}): Promise<Response> {
-  const token = localStorage.getItem("token");
+  const token = auth.getToken();
   const headers = new Headers(options.headers || {});
 
   if (!headers.has("Accept")) {
@@ -368,8 +371,7 @@ export async function apiRequest<T = any>(path: string, options: RequestInit = {
 
   if (!response.ok) {
     if (response.status === 401) {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
+      auth.clear();
       // Let the SPA router handle navigation (avoids hard reload / blank page in some setups).
       try {
         window.dispatchEvent(new CustomEvent("auth:unauthorized", { detail: { path } }));
@@ -408,8 +410,8 @@ function toFormData(data: Record<string, unknown>): FormData {
 }
 
 export const fetchCurrentUser = async (): Promise<CurrentUser> => {
-  const storedUser = localStorage.getItem("user");
-  const userRole = storedUser ? (JSON.parse(storedUser).role as string) : "admin";
+  const user = auth.getUser();
+  const userRole = user?.role || "admin";
 
   const primaryEndpoint = userRole === "staff" ? "/staff/me" : "/user/me";
   const secondaryEndpoint = userRole === "staff" ? "/user/me" : "/staff/me";
@@ -445,9 +447,8 @@ export const updateCurrentUser = async (data: {
   profile_image?: File | null;
   remove_profile_image?: boolean;
 }): Promise<CurrentUser> => {
-  const storedUser = localStorage.getItem("user");
-  const userData = storedUser ? JSON.parse(storedUser) : null;
-  const userRole = (userData?.role as string) || "admin";
+  const user = auth.getUser();
+  const userRole = user?.role || "admin";
 
   const fd = new FormData();
   if (userRole !== "staff") {

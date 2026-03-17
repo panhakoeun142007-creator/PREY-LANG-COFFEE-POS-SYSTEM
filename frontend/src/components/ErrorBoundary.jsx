@@ -1,4 +1,5 @@
 import React from "react";
+import { auth } from "../utils/auth";
 
 export default class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -40,8 +41,7 @@ export default class ErrorBoundary extends React.Component {
                 type="button"
                 className="rounded-lg border border-[#EAD6C0] px-4 py-2 text-sm font-medium text-[#4B2E2B] hover:bg-[#F8EFE4]"
                 onClick={() => {
-                  localStorage.removeItem("token");
-                  localStorage.removeItem("user");
+                  auth.clear();
                   window.dispatchEvent(new Event("auth:unauthorized"));
                 }}
               >

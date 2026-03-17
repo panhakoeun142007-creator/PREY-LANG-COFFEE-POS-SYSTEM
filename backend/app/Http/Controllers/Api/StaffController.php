@@ -110,7 +110,7 @@ class StaffController extends Controller
     {
         $validated = $request->validate([
             'search' => ['nullable', 'string', 'max:120'],
-            'is_active' => ['nullable', 'boolean'],
+            'is_active' => ['nullable', 'in:0,1,true,false'],
             'page' => ['nullable', 'integer', 'min:1'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);

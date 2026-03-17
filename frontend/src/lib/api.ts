@@ -1,9 +1,10 @@
 import { Order, OrderStatus, RecipeLog } from '../types';
+import { auth } from '../utils/auth';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) || '/api';
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = localStorage.getItem('token');
+  const token = auth.getToken();
   
   const response = await fetch(`${API_BASE_URL}${path}`, {
     headers: {

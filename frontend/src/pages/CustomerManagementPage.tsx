@@ -209,6 +209,19 @@ export default function StaffManagementPage() {
     }
   }
 
+  async function handleToggleStatus(staff: StaffApiItem) {
+    try {
+      setError(null);
+      const newStatus = !staff.is_active;
+      await updateStaff(staff.id, { is_active: newStatus });
+      setStaffs((prev) =>
+        prev.map((s) => (s.id === staff.id ? { ...s, is_active: newStatus } : s))
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update staff status");
+    }
+  }
+
   async function handleDelete(staff: StaffApiItem) {
     const confirmed = window.confirm(`Delete staff \"${staff.name}\"?`);
     if (!confirmed) return;
@@ -360,15 +373,19 @@ export default function StaffManagementPage() {
                       </TableCell>
                       <TableCell className="text-right">{money.format(Number(staff.salary || 0))}</TableCell>
                       <TableCell>
-                        <span
-                          className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
-                            staff.is_active
-                              ? "bg-emerald-50 text-emerald-700"
-                              : "bg-slate-100 text-slate-600"
-                          }`}
-                        >
-                          {staff.is_active ? "Active" : "Inactive"}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={staff.is_active}
+                            onCheckedChange={() => void handleToggleStatus(staff)}
+                          />
+                          <span
+                            className={`text-xs font-medium ${
+                              staff.is_active ? "text-emerald-700" : "text-slate-500"
+                            }`}
+                          >
+                            {staff.is_active ? "Active" : "Inactive"}
+                          </span>
+                        </div>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="inline-flex items-center gap-2">

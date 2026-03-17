@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { navGroups, pageTitleByPath } from "../data/mockData";
 import { useSettings } from "../context/SettingsContext";
-import { persistUserToLocalStorage } from "../utils/userStorage";
+import { auth } from "../utils/auth";
 import {
   fetchNotifications,
   fetchCurrentUser,
@@ -12,6 +12,7 @@ import {
   logoutAdmin,
   updateCurrentUser,
 } from "../services/api";
+import LogoutConfirmModal from "./LogoutConfirmModal";
 
 function statusClass(isActive: boolean, isDarkMode: boolean): string {
   if (isActive) {
@@ -45,7 +46,7 @@ export default function AppLayout() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notificationsPollingEnabled, setNotificationsPollingEnabled] = useState(true);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [accountName, setAccountName] = useState("");
@@ -56,6 +57,7 @@ export default function AppLayout() {
   const [accountSaving, setAccountSaving] = useState(false);
   const [accountError, setAccountError] = useState<string | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -84,8 +86,8 @@ export default function AppLayout() {
   }, [isDarkMode]);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (!storedUser) {
+    const user = auth.getUser();
+    if (!user) {
       setCurrentUser(null);
       setAccountName("");
       setAccountEmail("");
@@ -94,12 +96,10 @@ export default function AppLayout() {
     }
 
     try {
-      const parsed = JSON.parse(storedUser) as CurrentUser;
-      setCurrentUser(parsed);
-      setAccountName(parsed.name ?? "");
-      setAccountEmail(parsed.email ?? "");
-      setAccountImagePreview(parsed.profile_image_url ?? null);
-      persistUserToLocalStorage(parsed);
+      setCurrentUser(user);
+      setAccountName(user.name ?? "");
+      setAccountEmail(user.email ?? "");
+      setAccountImagePreview(user.profile_image_url ?? null);
     } catch (err) {
       console.error("Failed to parse stored user:", err);
       setCurrentUser(null);
@@ -145,7 +145,7 @@ export default function AppLayout() {
     return () => clearInterval(interval);
   }, [notificationsPollingEnabled]);
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  // We removed unreadCount because we are using total count in the bell
 
   const userRole = currentUser?.role === 'admin' ? 'admin' : 'staff';
   const filteredNavGroups = useMemo(() => {
@@ -174,11 +174,7 @@ export default function AppLayout() {
   );
 
   const sidebarWidth = collapsed ? "md:w-20" : "md:w-64";
-  const mainMargin = collapsed 
-    ? isDarkMode 
-      ? "md:ml-[calc(5rem+1px)]" 
-      : "md:ml-20" 
-    : "md:ml-64";
+  const mainMargin = collapsed ? "md:ml-20" : "md:ml-64";
 
   function roleLabel(role: string | undefined): string {
     if (role === 'staff') return 'Staff';
@@ -207,7 +203,7 @@ export default function AppLayout() {
     const email = accountEmail.trim();
 
     // Build update data - only include fields that have values
-    const updateData: { name?: string; email?: string; profile_image?: File; remove_profile_image?: boolean } = {};
+    const updateData: { name?: string; email?: string; profile_image?: File | null; remove_profile_image?: boolean } = {};
     
     if (name && name !== (currentUser?.name ?? "")) {
       updateData.name = name;
@@ -231,11 +227,11 @@ export default function AppLayout() {
     try {
       setAccountSaving(true);
       setAccountError(null);
-      await updateCurrentUser(updateData as any);
+      await updateCurrentUser(updateData);
       // Re-fetch from database to ensure refresh shows the saved data.
       const updated = await fetchCurrentUser();
       setCurrentUser(updated);
-      persistUserToLocalStorage(updated);
+      auth.setUser(updated);
       setAccountImageFile(null);
       setAccountRemoveImage(false);
       setAccountImagePreview(updated.profile_image_url ?? null);
@@ -280,22 +276,22 @@ export default function AppLayout() {
         ].join(" ")}
       >
         {/* Logo and User Info */}
-        <div className={`flex items-center gap-3 px-4 py-5 ${isDarkMode ? "border-b border-slate-800" : "border-b border-white/10"}`}>
-          <img
-            src="/img/logo-coffee.png"
-            alt="PREY LANG Logo"
-            className="h-11 w-11 rounded-lg bg-white/20 object-cover"
-          />
-          {!collapsed && (
-            <div className="leading-tight">
-              <p className="text-sm font-bold tracking-wide">{shopName}</p>
-              <p className="text-xs text-white/80">Dashboard</p>
-            </div>
-          )}
-        </div>
+         <div className={`flex items-center gap-3 px-4 py-5 ${isDarkMode ? "border-b border-slate-800" : "border-b border-white/10"}`}>
+           <img
+             src="/img/logo-coffee.png"
+             alt="PREY LANG Logo"
+             className="h-11 w-11 rounded-lg bg-white/20 object-cover"
+           />
+           {!collapsed && (
+             <div className="leading-tight">
+               <p className="text-sm font-bold tracking-wide">{shopName}</p>
+               <p className="text-xs text-white/80">Dashboard</p>
+             </div>
+           )}
+         </div>
 
         <div className={`px-4 py-4 ${isDarkMode ? "border-b border-slate-800" : "border-b border-white/10"}`}>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 -mx-2 px-2 py-2 rounded-lg">
             {currentUser?.profile_image_url ? (
               <img
                 src={currentUser.profile_image_url}
@@ -304,7 +300,16 @@ export default function AppLayout() {
               />
             ) : (
               <div className={`flex h-10 w-10 items-center justify-center rounded-full font-semibold ${isDarkMode ? "bg-slate-700 text-slate-100" : "bg-[#F5E6D3] text-[#4B2E2B]"}`}>
-                {currentUser?.initials ?? (currentUser?.role === 'staff' ? 'ST' : 'AD')}
+                {currentUser?.name
+                  ? currentUser.name
+                      .split(' ')
+                      .map(part => part[0])
+                      .join('')
+                      .toUpperCase()
+                      .substring(0, 2)
+                  : currentUser?.role === 'staff'
+                    ? 'ST'
+                    : 'AD'}
               </div>
             )}
             {!collapsed && (
@@ -348,26 +353,15 @@ export default function AppLayout() {
           </div>
         </nav>
 
-        <div className={`p-3 ${isDarkMode ? "border-t border-slate-800" : "border-t border-white/10"}`}>
+        {/* Logout button at bottom of sidebar */}
+        <div className={`px-3 pb-4 pt-2 ${isDarkMode ? "border-t border-slate-800" : "border-t border-white/10"}`}>
           <button
             type="button"
-            onClick={async () => {
-              try {
-                await logoutAdmin();
-              } catch (err) {
-                console.error("Failed to logout:", err);
-                } finally {
-                  localStorage.removeItem('token');
-                  localStorage.removeItem('user');
-                  window.dispatchEvent(new Event('auth:unauthorized'));
-                  navigate('/login', { replace: true });
-                }
-              }}
-            className={`flex w-full items-center rounded-xl px-3 py-2.5 text-sm transition ${
-              isDarkMode ? "text-slate-300 hover:bg-slate-800/70" : "text-white/80 hover:bg-white/10"
-            }`}
+            onClick={() => setShowLogoutConfirm(true)}
+            title={collapsed ? "Logout" : undefined}
+            className={`flex w-full items-center rounded-xl px-3 py-2.5 text-sm transition text-red-400 hover:bg-red-500/10 hover:text-red-300`}
           >
-            <LogOut size={18} />
+            <LogOut size={18} className="flex-shrink-0" />
             {!collapsed && <span className="ml-3">Logout</span>}
           </button>
         </div>
@@ -385,7 +379,22 @@ export default function AppLayout() {
           {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </button>
       </aside>
-
+      <LogoutConfirmModal
+        open={showLogoutConfirm}
+        isDarkMode={isDarkMode}
+        onCancel={() => setShowLogoutConfirm(false)}
+        onConfirm={async () => {
+          setShowLogoutConfirm(false);
+          try {
+            await logoutAdmin();
+          } catch (err) {
+            console.error("Failed to logout:", err);
+          } finally {
+            auth.clear();
+            navigate('/login', { replace: true });
+          }
+        }}
+      />
       <div className={`flex h-screen flex-col transition-all duration-300 ${mainMargin}`}>
         <header
           className={`sticky top-0 z-20 px-4 py-4 backdrop-blur md:px-8 ${
@@ -439,9 +448,9 @@ export default function AppLayout() {
                   aria-label="Notifications"
                 >
                   <Bell size={18} />
-                  {unreadCount > 0 && (
+                  {notifications.length > 0 && (
                     <span className="absolute right-1.5 top-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">
-                      {unreadCount}
+                      {notifications.length}
                     </span>
                   )}
                 </button>
@@ -496,11 +505,20 @@ export default function AppLayout() {
                       alt={currentUser.name}
                       className="h-8 w-8 rounded-full object-cover"
                     />
-                  ) : (
-                    <div className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold text-white ${isDarkMode ? "bg-slate-700" : "bg-[#4B2E2B]"}`}>
-                      {currentUser?.initials ?? (currentUser?.role === 'staff' ? 'ST' : 'AD')}
-                    </div>
-                  )}
+                   ) : (
+                     <div className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold text-white ${isDarkMode ? "bg-slate-700" : "bg-[#4B2E2B]"}`}>
+                       {currentUser?.name
+                         ? currentUser.name
+                             .split(' ')
+                             .map(part => part[0])
+                             .join('')
+                             .toUpperCase()
+                             .substring(0, 2)
+                         : currentUser?.role === 'staff'
+                           ? 'ST'
+                           : 'AD'}
+                     </div>
+                   )}
                   <div className="hidden text-left md:block">
                     <p className="text-sm font-semibold leading-tight">{currentUser?.name ?? 'User'}</p>
                     <p className={`text-xs ${isDarkMode ? "text-slate-400" : "text-[#7C5D58]"}`}>{currentUser?.email ?? 'user@preylang.com'}</p>
@@ -539,17 +557,9 @@ export default function AppLayout() {
                     )}
                     <button
                       type="button"
-                      onClick={async () => {
-                        try {
-                          await logoutAdmin();
-                        } catch (err) {
-                          console.error("Failed to logout:", err);
-                        } finally {
-                          localStorage.removeItem('token');
-                          localStorage.removeItem('user');
-                          window.dispatchEvent(new Event('auth:unauthorized'));
-                          navigate('/login', { replace: true });
-                        }
+                      onClick={() => {
+                        setProfileOpen(false);
+                        setShowLogoutConfirm(true);
                       }}
                       className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
                     >
@@ -592,9 +602,18 @@ export default function AppLayout() {
                         className="h-full w-full object-cover"
                       />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center text-2xl font-semibold text-white">
-                        {currentUser?.initials ?? "AD"}
-                      </div>
+                       <div className="flex h-full w-full items-center justify-center text-2xl font-semibold text-white">
+                         {currentUser?.name
+                           ? currentUser.name
+                               .split(' ')
+                               .map(part => part[0])
+                               .join('')
+                               .toUpperCase()
+                               .substring(0, 2)
+                           : currentUser?.role === 'staff'
+                             ? 'ST'
+                             : 'AD'}
+                       </div>
                     )}
                   </div>
                   <div className="flex-1">

@@ -15,6 +15,7 @@ import {
 import { motion } from 'framer-motion'; // Fixed import to match common usage
 import { Order, InventoryItem } from '../types';
 import { fetchNotifications, fetchDashboard, type Notification, type DashboardData } from '../services/api';
+import { auth } from '../utils/auth';
 
 type DashboardUser = {
   name?: string | null;
@@ -36,12 +37,7 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, onViewDetails, currentUse
   const [notificationCount, setNotificationCount] = useState(0);
 
   const storedUser: DashboardUser | null = useMemo(() => {
-    try {
-      const raw = localStorage.getItem('user');
-      return raw ? (JSON.parse(raw) as DashboardUser) : null;
-    } catch {
-      return null;
-    }
+    return auth.getUser() as DashboardUser | null;
   }, []);
 
   const user = currentUser ?? storedUser;

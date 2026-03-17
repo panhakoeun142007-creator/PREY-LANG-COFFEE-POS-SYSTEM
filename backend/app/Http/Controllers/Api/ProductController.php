@@ -110,9 +110,10 @@ class ProductController extends Controller
             'is_available' => 'nullable',
         ]);
 
-        // Convert is_available to boolean (handles FormData string "true"/"false")
+        // Convert is_available to boolean (handles JSON boolean, FormData string "true"/"false")
         if (isset($validated['is_available'])) {
-            $validated['is_available'] = in_array($validated['is_available'], ['true', '1', 'on', 'yes'], true);
+            $v = $validated['is_available'];
+            $validated['is_available'] = is_bool($v) ? $v : in_array($v, ['true', '1', 'on', 'yes'], true);
         } else {
             $validated['is_available'] = true;
         }
@@ -175,9 +176,10 @@ class ProductController extends Controller
             'is_available' => 'nullable',
         ]);
 
-        // Convert is_available to boolean (handles FormData string "true"/"false")
+        // Convert is_available to boolean (handles JSON boolean, FormData string "true"/"false")
         if (isset($validated['is_available'])) {
-            $validated['is_available'] = in_array($validated['is_available'], ['true', '1', 'on', 'yes'], true);
+            $v = $validated['is_available'];
+            $validated['is_available'] = is_bool($v) ? $v : in_array($v, ['true', '1', 'on', 'yes'], true);
         }
 
         $updateData = $validated;
@@ -300,16 +302,17 @@ class ProductController extends Controller
      */
     private function clearProductsCache(): void
     {
-        // Use cache tags for more efficient cache management
-        // Clear generic product caches
         Cache::forget('products_list');
-        
-        // Use a pattern-based approach - Laravel doesn't support wildcard forget
-        // So we'll clear known keys efficiently
-        // The cache keys are: products_list, products_list_cat_{id}, products_list_avail_{0/1}
-        
-        // Since we can't use wildcards, clear the main caches
-        // Categories will be cleared via their own controller
+        Cache::forget('products_list_avail_1');
+        Cache::forget('products_list_avail_0');
         Cache::forget('categories_list');
+
+        // Clear per-category product caches
+        $categoryIds = \App\Models\Category::pluck('id');
+        foreach ($categoryIds as $id) {
+            Cache::forget("products_list_cat_{$id}");
+            Cache::forget("products_list_cat_{$id}_avail_1");
+            Cache::forget("products_list_cat_{$id}_avail_0");
+        }
     }
 }

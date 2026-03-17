@@ -143,30 +143,29 @@ class UserController extends Controller
 
     private function resolveCurrentUser(): ?User
     {
-        // Always try to get user from the bearer token first
         $token = request()->bearerToken();
-        if ($token) {
-            // Try to find user by access token
-            $tokenModel = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
-            if ($tokenModel && $tokenModel->tokenable) {
-                return $tokenModel->tokenable;
-            }
-        }
-        
-        // Fallback: try to get authenticated user from session guard
-        $user = request()->user();
-        if ($user) {
-            return $user;
-        }
-        
-        // Final fallback: get first admin user
-        $hasAdminColumns = Schema::hasColumn('users', 'role') && Schema::hasColumn('users', 'is_active');
-        
-        if (!$hasAdminColumns) {
-            return User::query()->orderBy('id')->first();
+        if (!$token) {
+            return null;
         }
 
-        return User::query()->where('role', 'admin')->where('is_active', true)->orderBy('id')->first();
+        $session = \Illuminate\Support\Facades\Cache::get("api_auth_token:{$token}");
+        if (!$session || !is_array($session) || ($session['subject_type'] ?? null) !== 'admin') {
+            return null;
+        }
+
+        $userId = (int) ($session['subject_id'] ?? 0);
+        if ($userId <= 0) {
+            return null;
+        }
+
+        $hasAdminColumns = Schema::hasColumn('users', 'role') && Schema::hasColumn('users', 'is_active');
+        $user = User::query()->find($userId);
+
+        if (!$user || ($hasAdminColumns && (!$user->is_active || $user->role !== 'admin'))) {
+            return null;
+        }
+
+        return $user;
     }
 
     private function serializeUser(User $user): array

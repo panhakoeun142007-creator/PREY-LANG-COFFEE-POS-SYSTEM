@@ -4,7 +4,7 @@ import AppLayout from "./components/AppLayout";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import { CategoryProvider } from "./context/CategoryContext";
 import { SettingsProvider } from "./context/SettingsContext";
-import { persistUserToLocalStorage } from "./utils/userStorage";
+import { auth } from "./utils/auth";
 
 const AuthContext = createContext({
   isAuthenticated: false,
@@ -58,12 +58,22 @@ function CategoryLayout() {
   );
 }
 
-function ProtectedRoute({ children }) {
-  const auth = useContext(AuthContext);
+function ProtectedRoute({ children, requireAdmin = false }) {
+  const authCtx = useContext(AuthContext);
   const location = useLocation();
 
-  if (!auth.isAuthenticated) {
+  if (!authCtx.isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // Staff trying to access admin routes → redirect to staff dashboard
+  if (requireAdmin && authCtx.user?.role !== 'admin') {
+    return <Navigate to="/staff-dashboard" replace />;
+  }
+
+  // Admin trying to access staff dashboard → redirect to admin dashboard
+  if (!requireAdmin && location.pathname === '/staff-dashboard' && authCtx.user?.role === 'admin') {
+    return <Navigate to="/" replace />;
   }
 
   return (
@@ -74,16 +84,12 @@ function ProtectedRoute({ children }) {
 }
 
 function AdminRoute({ children }) {
-  const auth = useContext(AuthContext);
-  let role = auth.user?.role;
+  const authContext = useContext(AuthContext);
+  let role = authContext.user?.role;
 
   if (!role) {
-    try {
-      const stored = localStorage.getItem("user");
-      role = stored ? JSON.parse(stored)?.role : undefined;
-    } catch {
-      role = undefined;
-    }
+    const storedAuth = auth.getUser();
+    role = storedAuth?.role;
   }
 
   if (role !== "admin") {
@@ -91,6 +97,13 @@ function AdminRoute({ children }) {
   }
 
   return children;
+}
+
+function RoleRedirect() {
+  const authContext = useContext(AuthContext);
+  const role = authContext.user?.role || auth.getUser()?.role;
+  if (role === 'staff') return <Navigate to="/staff-dashboard" replace />;
+  return withSuspense(<DashboardPage />);
 }
 
 function AuthProvider({ children }) {
@@ -116,82 +129,70 @@ function AuthProvider({ children }) {
 
   const fetchUserData = useCallback(async (token, role) => {
     try {
-      const tryFetch = async (endpoint) => {
-        return fetch(endpoint, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        });
-      };
+      // Only call the correct endpoint based on role — never cross-check
+      const endpoint = role === 'staff'
+        ? `${API_BASE_URL}/staff/me`
+        : `${API_BASE_URL}/user/me`;
 
-      const primaryEndpoint = role === "staff" ? `${API_BASE_URL}/staff/me` : `${API_BASE_URL}/user/me`;
-      const secondaryEndpoint = role === "staff" ? `${API_BASE_URL}/user/me` : `${API_BASE_URL}/staff/me`;
-
-      let response = await tryFetch(primaryEndpoint);
-      if (!response.ok) {
-        response = await tryFetch(secondaryEndpoint);
-      }
+      const response = await fetch(endpoint, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
 
       if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
+          auth.clear();
           setIsAuthenticated(false);
           setUser(null);
           setUserFetched(false);
           return false;
         }
+        // Network/server error — keep existing cached user
         return true;
       }
 
       const data = await response.json();
       if (data && data.id) {
         setUser(data);
-        persistUserToLocalStorage(data);
+        auth.setUser(data);
         return true;
       }
       return false;
     } catch (error) {
-      console.error("User fetch error:", error);
+      console.error('User fetch error:', error);
       return true;
     }
   }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    const userData = localStorage.getItem("user");
+    const token = auth.getToken();
+    const userData = auth.getUser();
 
     if (token && userData) {
-      try {
-        const parsedUser = JSON.parse(userData);
-        setUser(parsedUser);
-        setIsAuthenticated(true);
+      setUser(userData);
+      setIsAuthenticated(true);
 
-        if (!userFetched) {
-          fetchUserData(token, parsedUser?.role).then((success) => {
-            if (!success) {
-              setIsAuthenticated(false);
-            }
-            setUserFetched(true);
-            setLoading(false);
-          });
-        } else {
+      if (!userFetched) {
+        fetchUserData(token, userData?.role).then((success) => {
+          if (!success) {
+            setIsAuthenticated(false);
+          }
+          setUserFetched(true);
           setLoading(false);
-        }
-      } catch {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
+        });
+      } else {
         setLoading(false);
       }
     } else {
+      auth.clear();
       setLoading(false);
     }
   }, [fetchUserData, userFetched]);
 
   const login = (token, userData, redirectPath = "/") => {
-    localStorage.setItem("token", token);
-    persistUserToLocalStorage(userData);
+    auth.setAuth(token, userData);
     setIsAuthenticated(true);
     setUser(userData);
     setUserFetched(true);
@@ -199,8 +200,7 @@ function AuthProvider({ children }) {
   };
 
   const logout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    auth.clear();
     setIsAuthenticated(false);
     setUser(null);
     setUserFetched(false);
@@ -209,7 +209,7 @@ function AuthProvider({ children }) {
 
   const updateUser = (newUser) => {
     setUser(newUser);
-    persistUserToLocalStorage(newUser);
+    auth.setUser(newUser);
   };
 
   if (loading) {
@@ -249,12 +249,14 @@ export default function App() {
 
         <Route
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requireAdmin>
               <AppLayout />
             </ProtectedRoute>
           }
         >
-          <Route index element={withSuspense(<DashboardPage />)} />
+          <Route index element={
+            <RoleRedirect />
+          } />
           <Route path="live-orders" element={withSuspense(<LiveOrders />)} />
           <Route path="order-history" element={withSuspense(<OrderHistory />)} />
           <Route path="receipts" element={withSuspense(<ReceiptsPage />)} />

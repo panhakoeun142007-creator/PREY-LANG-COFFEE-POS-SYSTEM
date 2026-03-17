@@ -45,6 +45,7 @@ const defaultData: DashboardData = {
   recentOrders: [],
   lowStockItems: [],
   notifications: [],
+  notification_count: 0,
 };
 
 export default function DashboardPage() {

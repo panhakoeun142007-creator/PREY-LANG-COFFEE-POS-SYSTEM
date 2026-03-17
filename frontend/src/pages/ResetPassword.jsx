@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { authService } from '../services/authService';
-import { persistUserToLocalStorage } from '../utils/userStorage';
+import { auth } from '../utils/auth';
 import '../style/index.css';
 
 export default function ResetPassword() {
@@ -59,9 +59,8 @@ export default function ResetPassword() {
           password: newPassword,
         });
 
-        if (loginData?.token) {
-          localStorage.setItem('token', loginData.token);
-          persistUserToLocalStorage(loginData.user);
+        if (loginData?.token && loginData?.user) {
+          auth.setAuth(loginData.token, loginData.user);
         }
       } catch (loginErr) {
         // If auto-login fails, user can still log in manually

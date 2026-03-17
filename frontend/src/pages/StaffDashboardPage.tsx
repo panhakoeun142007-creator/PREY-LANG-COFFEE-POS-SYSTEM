@@ -19,8 +19,9 @@ import { Input } from "../components/ui/input";
 import { deleteRecipeLog, getOrders, getRecipeLogs, updateOrderStatus as updateOrderStatusApi } from "../lib/api";
 import { buildOrderDisplayIdMap } from "../lib/orderDisplayId";
 import type { Order, RecipeLog } from "../types";
-import { fetchCurrentUser, fetchManager, type CurrentUser, type ManagerInfo, updateCurrentUser } from "../services/api";
-import { persistUserToLocalStorage } from "../utils/userStorage";
+import { fetchCurrentUser, fetchManager, type CurrentUser, type ManagerInfo, updateCurrentUser, logoutAdmin } from "../services/api";
+import { auth } from "../utils/auth";
+import LogoutConfirmModal from "../components/LogoutConfirmModal";
 
 export default function StaffDashboardPage() {
   const navigate = useNavigate();
@@ -38,18 +39,21 @@ export default function StaffDashboardPage() {
   const [recipeError, setRecipeError] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(() => {
-    try {
-      const stored = localStorage.getItem("user");
-      return stored ? (JSON.parse(stored) as CurrentUser) : null;
-    } catch {
-      return null;
-    }
+    return auth.getUser() as CurrentUser | null;
   });
   const [manager, setManager] = useState<ManagerInfo | null>(null);
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
   const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
   const [profileImagePreview, setProfileImagePreview] = useState<string | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+  async function doLogout() {
+    setShowLogoutConfirm(false);
+    try { await logoutAdmin(); } catch { /* ignore */ }
+    auth.clear();
+    navigate("/login", { replace: true });
+  }
 
   const orderDisplayIdMap = useMemo(() => {
     const safeOrders = Array.isArray(orders) ? orders : [];
@@ -103,7 +107,7 @@ export default function StaffDashboardPage() {
         const fresh = await fetchCurrentUser();
         if (cancelled) return;
         setCurrentUser(fresh);
-        persistUserToLocalStorage(fresh);
+        auth.setUser(fresh);
       } catch (error) {
         console.error(error);
       }
@@ -174,9 +178,7 @@ export default function StaffDashboardPage() {
   }
 
   function handleLogout() {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    navigate("/login", { replace: true });
+    setShowLogoutConfirm(true);
   }
 
   function openProfileDialog() {
@@ -207,7 +209,7 @@ export default function StaffDashboardPage() {
       setSavingProfile(true);
       const updated = await updateCurrentUser({ profile_image: profileImageFile });
       setCurrentUser(updated);
-      persistUserToLocalStorage(updated);
+      auth.setUser(updated);
       toast.success("Profile image updated.");
       setProfileDialogOpen(false);
       if (profileImagePreview?.startsWith("blob:")) {
@@ -228,7 +230,7 @@ export default function StaffDashboardPage() {
       setSavingProfile(true);
       const updated = await updateCurrentUser({ remove_profile_image: true });
       setCurrentUser(updated);
-      persistUserToLocalStorage(updated);
+      auth.setUser(updated);
       toast.success("Profile image removed.");
       setProfileImageFile(null);
       setProfileImagePreview(null);
@@ -291,6 +293,12 @@ export default function StaffDashboardPage() {
   return (
     <div className="staff-admin-typography min-h-screen w-full flex transition-colors duration-300 overflow-x-hidden">
       <Toaster position="top-right" />
+      <LogoutConfirmModal
+        open={showLogoutConfirm}
+        isDarkMode={isDark}
+        onCancel={() => setShowLogoutConfirm(false)}
+        onConfirm={doLogout}
+      />
 
       <Sidebar
         activeTab={activeTab}

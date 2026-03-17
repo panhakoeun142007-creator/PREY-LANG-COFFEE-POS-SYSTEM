@@ -18,29 +18,13 @@ class AdminApiTokenMiddleware
     public function handle(Request $request, Closure $next): Response
     {
         $token = $request->bearerToken();
-        $isAccountMeEndpoint = $request->is('api/user') || $request->is('api/user/me');
-        $allowAccountFallback = $isAccountMeEndpoint && $request->isMethod('GET');
 
         if (!$token) {
-            if ($allowAccountFallback) {
-                $fallbackAdmin = $this->resolveFallbackAdmin();
-                if ($fallbackAdmin) {
-                    Auth::setUser($fallbackAdmin);
-                    return $next($request);
-                }
-            }
             return response()->json(['message' => 'Unauthorized'], 401);
         }
 
         $session = Cache::get("api_auth_token:{$token}");
         if (!$session) {
-            if ($allowAccountFallback) {
-                $fallbackAdmin = $this->resolveFallbackAdmin();
-                if ($fallbackAdmin) {
-                    Auth::setUser($fallbackAdmin);
-                    return $next($request);
-                }
-            }
             return response()->json(['message' => 'Unauthorized'], 401);
         }
 
@@ -68,28 +52,12 @@ class AdminApiTokenMiddleware
             ($hasAdminColumns && (!$user->is_active || $user->role !== 'admin'))
         ) {
             Cache::forget("api_auth_token:{$token}");
-
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
         Auth::setUser($user);
-
         return $next($request);
     }
 
-    private function resolveFallbackAdmin(): ?User
-    {
-        $hasAdminColumns = Schema::hasColumn('users', 'role') && Schema::hasColumn('users', 'is_active');
-
-        if (!$hasAdminColumns) {
-            return User::query()->orderBy('id')->first();
-        }
-
-        return User::query()
-            ->where('role', 'admin')
-            ->where('is_active', true)
-            ->orderBy('id')
-            ->first();
-    }
 }
    
