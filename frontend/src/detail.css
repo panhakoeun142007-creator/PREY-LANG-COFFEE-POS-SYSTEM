@@ -234,6 +234,15 @@
   color: var(--text-secondary);
 }
 
+.milk-icon {
+  font-size: 1.25rem;
+  margin-bottom: 3px;
+}
+
+.milk-pill.active .milk-icon {
+  color: var(--accent-color);
+}
+
 .milk-pill.active {
   border-color: var(--accent-color);
   color: var(--accent-color);

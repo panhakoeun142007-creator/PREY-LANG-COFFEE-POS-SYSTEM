@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import "../detail.css";
-import { getPriceForSize } from "./Customer";
+import { getPriceForSize, getItemUnitPrice } from "./Customer";
+import { GiMilkCarton } from "react-icons/gi";
+import { FaLeaf, FaSeedling } from "react-icons/fa";
 
-function getItemUnitPrice(item) {
-  return getPriceForSize(item, item.selectedSize);
+// Preview price while user is still selecting options (not yet saved)
+function getPreviewUnitPrice(item, selectedSize, milkOption, extras) {
+  return getItemUnitPrice({ ...item, selectedSize, milkOption, extras });
 }
 
 const SIZE_OPTIONS = [
@@ -13,9 +16,9 @@ const SIZE_OPTIONS = [
 ];
 
 const MILK_OPTIONS = [
-  { id: "Whole", label: "Whole", priceText: "Included" },
-  { id: "Oat Milk", label: "Oat Milk", priceText: "+$0.75" },
-  { id: "Almond", label: "Almond", priceText: "+$0.50" },
+  { id: "Whole",    label: "Whole",    priceText: "Included", icon: GiMilkCarton },
+  { id: "Oat Milk", label: "Oat Milk", priceText: "+$0.75",   icon: FaSeedling },
+  { id: "Almond",  label: "Almond",   priceText: "+$0.50",   icon: FaLeaf },
 ];
 
 const EXTRA_OPTIONS = [
@@ -43,23 +46,20 @@ function Detail({
   const [extras, setExtras] = useState(
     item?.extras ?? {
       extraShot: false,
-      whippedCream: true,
+      whippedCream: false,
       cinnamonSprinkles: false,
     }
   );
 
   useEffect(() => {
-    if (!item) {
-      return;
-    }
-
+    if (!item) return;
     setSelectedSize(item.selectedSize ?? "M");
     setSugarLevel(item.sugarLevel ?? "100%");
     setMilkOption(item.milkOption ?? "Whole");
     setExtras(
       item.extras ?? {
         extraShot: false,
-        whippedCream: true,
+        whippedCream: false,
         cinnamonSprinkles: false,
       }
     );
@@ -77,12 +77,7 @@ function Detail({
       extras,
     });
   };
-  const previewUnitPrice = getItemUnitPrice({
-    ...item,
-    selectedSize,
-    milkOption,
-    extras,
-  });
+  const previewUnitPrice = getPreviewUnitPrice(item, selectedSize, milkOption, extras);
 
   return (
     <div className="detail-page">
@@ -130,7 +125,7 @@ function Detail({
 
         <div className="detail-tags">
           <span>{item.badge ?? "POPULAR"}</span>
-          <span>{item.category ?? "COFFEE"}</span>
+          <span>{item.category?.name ?? (typeof item.category === "string" ? item.category : "COFFEE")}</span>
         </div>
 
         <div className="detail-section-block">
@@ -171,6 +166,7 @@ function Detail({
                 className={milkOption === milk.id ? "milk-pill active" : "milk-pill"}
                 onClick={() => setMilkOption(milk.id)}
               >
+                <milk.icon className="milk-icon" />
                 <strong>{milk.label}</strong>
                 <small>{milk.priceText}</small>
               </button>

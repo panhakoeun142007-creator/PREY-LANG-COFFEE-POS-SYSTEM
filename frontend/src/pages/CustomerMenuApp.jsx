@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import Customer, { getPriceForSize } from "./Customer";
+import Customer, { getPriceForSize, getItemUnitPrice } from "./Customer";
 import Cart from "./cart";
 import Detail from "./Detail";
 import Checkout from "./checkout";
@@ -32,9 +32,13 @@ const readStoredState = () => {
 
 function getCartTotal(cartItems) {
   return cartItems.reduce((sum, item) => {
-    const price = getPriceForSize(item, item.selectedSize);
-    return sum + price * (item.quantity || 1);
+    return sum + getItemUnitPrice(item) * (item.quantity || 1);
   }, 0);
+}
+
+function getCartTotalWithTax(cartItems) {
+  const subtotal = getCartTotal(cartItems);
+  return Math.round(subtotal * 1.10 * 100) / 100;
 }
 
 export default function CustomerMenuApp() {
@@ -226,10 +230,9 @@ export default function CustomerMenuApp() {
     try {
       const items = cartItems.map((item) => ({
         product_id: item.id,
-        // Map S/M/L → small/medium/large as required by backend
         size: SIZE_MAP[item.selectedSize?.toUpperCase()] ?? "medium",
         qty: item.quantity,
-        price: getPriceForSize(item, item.selectedSize),
+        price: getItemUnitPrice(item),
       }));
 
       const response = await fetch(`${API_BASE}/api/customer/orders`, {
@@ -238,7 +241,7 @@ export default function CustomerMenuApp() {
         body: JSON.stringify({
           table_id: tableId ? Number(tableId) : 1,
           items,
-          total_price: getCartTotal(cartItems),
+          total_price: getCartTotalWithTax(cartItems),
           payment_type: paymentMethod === "card" ? "khqr" : "cash",
         }),
       });
@@ -314,7 +317,7 @@ export default function CustomerMenuApp() {
       )}
       {effectivePage === "qr-payment" && (
         <QRpayment
-          totalDue={getCartTotal(cartItems)}
+          totalDue={getCartTotalWithTax(cartItems)}
           orderNumber={qrOrderNumber}
           onBack={() => setCurrentPage("wait")}
         />

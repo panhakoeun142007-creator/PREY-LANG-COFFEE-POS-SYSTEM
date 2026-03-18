@@ -1,10 +1,7 @@
 import { useMemo, useState } from "react";
 import "../checkout.css";
-import { getPriceForSize } from "./Customer";
+import { getItemUnitPrice } from "./Customer";
 
-function getItemUnitPrice(item) {
-  return getPriceForSize(item, item.selectedSize);
-}
 function getItemLineTotal(item) {
   return getItemUnitPrice(item) * (item.quantity || 1);
 }
@@ -19,7 +16,9 @@ function Checkout({ cartItems = [], onBack, onConfirmOrder }) {
     () => getCartTotal(cartItems),
     [cartItems]
   );
-  const totalAmount = subtotal;
+  const TAX_RATE = 0.10;
+  const taxAmount = Math.round(subtotal * TAX_RATE * 100) / 100;
+  const totalAmount = Math.round((subtotal + taxAmount) * 100) / 100;
   const itemCount = useMemo(
     () => cartItems.reduce((total, item) => total + item.quantity, 0),
     [cartItems]
@@ -50,9 +49,7 @@ function Checkout({ cartItems = [], onBack, onConfirmOrder }) {
                 <div className="checkout-item-main">
                   <p className="checkout-item-name">{item.name}</p>
                   <p className="checkout-item-meta">
-                    {item.quantity > 1
-                      ? `Quantity: ${item.quantity} x $${getItemUnitPrice(item).toFixed(2)}`
-                      : `${item.selectedSize}, Hot`}
+                    Size: {item.selectedSize} &nbsp;·&nbsp; {item.quantity} x ${getItemUnitPrice(item).toFixed(2)}
                   </p>
                 </div>
                 <p className="checkout-item-price">${getItemLineTotal(item).toFixed(2)}</p>
@@ -65,6 +62,10 @@ function Checkout({ cartItems = [], onBack, onConfirmOrder }) {
           <div>
             <span>Subtotal</span>
             <span>${subtotal.toFixed(2)}</span>
+          </div>
+          <div>
+            <span>Tax (10%)</span>
+            <span>${taxAmount.toFixed(2)}</span>
           </div>
           <div className="checkout-total-row">
             <span>Total Amount</span>

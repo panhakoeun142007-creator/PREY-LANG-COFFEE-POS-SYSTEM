@@ -1,8 +1,8 @@
 import "../cart.css";
-import { getPriceForSize } from "./Customer";
+import { getItemUnitPrice } from "./Customer";
 
 function getItemLineTotal(item) {
-  return getPriceForSize(item, item.selectedSize) * (item.quantity || 1);
+  return getItemUnitPrice(item) * (item.quantity || 1);
 }
 function getCartTotal(items) {
   return items.reduce((sum, item) => sum + getItemLineTotal(item), 0);

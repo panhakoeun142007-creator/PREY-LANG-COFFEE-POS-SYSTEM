@@ -48,6 +48,25 @@ export function getPriceForSize(product, size) {
   return Number.isFinite(medium) ? medium : 0;
 }
 
+// Milk add-on prices
+const MILK_PRICES = { "Oat Milk": 0.75, "Almond": 0.50 };
+
+// Extras add-on prices
+const EXTRA_PRICES = { extraShot: 1.25, whippedCream: 0.50, cinnamonSprinkles: 0.25 };
+
+// Full unit price including size base + milk add-on + extras add-ons
+export function getItemUnitPrice(item) {
+  const base = getPriceForSize(item, item.selectedSize);
+  const milk = MILK_PRICES[item.milkOption] ?? 0;
+  const extras = item.extras
+    ? Object.entries(item.extras).reduce(
+        (sum, [key, on]) => sum + (on ? (EXTRA_PRICES[key] ?? 0) : 0),
+        0
+      )
+    : 0;
+  return base + milk + extras;
+}
+
 function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", onToggleTheme }) {
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
