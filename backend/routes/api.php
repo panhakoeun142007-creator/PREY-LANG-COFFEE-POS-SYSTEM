@@ -146,3 +146,10 @@ Route::middleware('staff.api')->group(function () {
 Route::middleware('api.cache')->group(function () {
     Route::get('/categories', [CategoryController::class, 'index']);
 });
+
+// Public customer-facing routes (no auth required)
+Route::prefix('customer')->group(function () {
+    Route::get('/products', [ProductController::class, 'index']);
+    Route::get('/categories', [CategoryController::class, 'index']);
+    Route::post('/orders', [OrderController::class, 'store']);
+});

@@ -79,7 +79,7 @@ export default function Login() {
               <div className="login-ref-aside-bottom">
                 <div className="login-ref-logo-wrap">
                   <img
-                    src="../imgs/image.png"
+                    src="/img/logo-coffee.png"
                     alt="Prey Lang Coffee logo"
                     className="login-ref-logo"
                   />

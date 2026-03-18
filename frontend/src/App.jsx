@@ -34,6 +34,7 @@ const VerifyCode = lazy(() => import("./pages/VerifyCode"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const VerifySuccessful = lazy(() => import("./pages/VerifySuccessful"));
 const SessionExpired = lazy(() => import("./pages/SessionExpired"));
+const CustomerMenuApp = lazy(() => import("./pages/CustomerMenuApp"));
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
 
@@ -230,6 +231,7 @@ export default function App() {
   return (
     <AuthProvider>
       <Routes>
+        <Route path="/menu" element={withSuspense(<CustomerMenuApp />)} />
         <Route path="/login" element={withSuspense(<Login />)} />
         <Route path="/forgot-password" element={withSuspense(<ForgotPassword />)} />
         <Route path="/verify-code" element={withSuspense(<VerifyCode />)} />
