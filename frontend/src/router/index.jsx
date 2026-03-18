@@ -1,14 +1,14 @@
 import React from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import ProtectedRoute from '../components/ProtectedRoute';
-import Dashboard from '../pages/Dashboard';
-import ForgotPassword from '../pages/ForgotPassword';
-import Login from '../pages/Login';
-import Register from '../pages/Register';
-import ResetPassword from '../pages/ResetPassword';
-import SessionExpired from '../pages/SessionExpired';
-import VerifyCode from '../pages/VerifyCode';
-import VerifySuccessful from '../pages/VerifySuccessful';
+import App from '../App.jsx';
+import ForgotPassword from '../pages/ForgotPassword.jsx';
+import Login from '../pages/Login.jsx';
+import Register from '../pages/Register.jsx';
+import ResetPassword from '../pages/ResetPassword.jsx';
+import SessionExpired from '../pages/SessionExpired.jsx';
+import VerifyCode from '../pages/VerifyCode.jsx';
+import VerifySuccessful from '../pages/VerifySuccessful.jsx';
 
 export default function AppRouter() {
   return (
@@ -22,14 +22,7 @@ export default function AppRouter() {
         <Route path="/verify-code" element={<VerifyCode />} />
         <Route path="/session-expired" element={<SessionExpired />} />
         <Route path="/verify-successful" element={<VerifySuccessful />} />
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/kiosk" element={<App />} />
       </Routes>
     </BrowserRouter>
   );

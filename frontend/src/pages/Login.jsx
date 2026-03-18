@@ -1,6 +1,5 @@
-import React, { useState, useContext } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { AuthContext } from '../App.jsx';
 import { authService } from '../services/authService';
 import '../style/index.css';
 
@@ -11,7 +10,6 @@ export default function Login() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const auth = useContext(AuthContext);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -41,10 +39,13 @@ export default function Login() {
 
         // Determine redirect path based on role
         const userRole = userData.role || 'staff';
-        const redirectPath = userRole === 'admin' ? '/' : '/staff-dashboard';
+        const redirectPath = userRole === 'admin' ? '/dashboard' : '/kiosk';
 
-        // Update auth context state and redirect
-        auth.login(token, userData, redirectPath);
+        // Store and redirect
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(userData));
+        auth.login(token, userData); // Update context
+        navigate(redirectPath);
         return;
       } else {
         console.log('No token or user in response');

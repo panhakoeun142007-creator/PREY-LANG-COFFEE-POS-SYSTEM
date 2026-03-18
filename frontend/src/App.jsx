@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import Customer from "./pages/Customer";
 import Cart from "./pages/cart";
-import Detail from "./pages/Detail";
 import Checkout from "./pages/checkout";
 import QRpayment from "./pages/QRpayment";
 import Paymantule from "./pages/paymantule";
 import Wait from "./pages/wait";
 import Ready from "./pages/ready";
+import Detail from "./pages/Detail";
 import ConfirmDialog from "./components/ConfirmDialog";
 import { getCartTotal } from "./utils/pricing";
 
@@ -52,17 +52,6 @@ function App() {
     const storedState = readStoredAppState();
     return typeof storedState?.currentPage === "string" ? storedState.currentPage : "menu";
   });
-  const [detailTarget, setDetailTarget] = useState(() => {
-    const storedState = readStoredAppState();
-    const target = storedState?.detailTarget;
-    if (!target || typeof target !== "object") {
-      return null;
-    }
-    if (typeof target.productKey !== "string" || typeof target.selectedSize !== "string") {
-      return null;
-    }
-    return target;
-  });
   const [qrOrderNumber, setQrOrderNumber] = useState(() => {
     const storedState = readStoredAppState();
     return typeof storedState?.qrOrderNumber === "string" ? storedState.qrOrderNumber : "#A-000";
@@ -79,11 +68,21 @@ function App() {
     onConfirm: null,
     onCancel: null,
   });
+  const [detailIndex, setDetailIndex] = useState(0);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("theme", theme);
   }, [theme]);
+
+  useEffect(() => {
+    setDetailIndex((prev) => {
+      if (cartItems.length === 0) {
+        return 0;
+      }
+      return Math.min(prev, cartItems.length - 1);
+    });
+  }, [cartItems.length]);
 
   // Reset to menu page when cart becomes empty, but allow cart page to show empty state
   useEffect(() => {
@@ -100,14 +99,13 @@ function App() {
       JSON.stringify({
         cartItems,
         currentPage: safePage,
-        detailTarget,
         qrOrderNumber,
       })
     );
-  }, [cartItems, currentPage, detailTarget, qrOrderNumber]);
+  }, [cartItems, currentPage, qrOrderNumber]);
 
   const effectivePage = cartItems.length === 0 && currentPage !== "menu" && currentPage !== "cart" ? "menu" : currentPage;
-  const effectiveDetailTarget = effectivePage === currentPage ? detailTarget : null;
+  const detailItem = cartItems[detailIndex];
 
   const handleAddToCart = ({ product, selectedSize, productKey }) => {
     const existingIndex = cartItems.findIndex(
@@ -195,90 +193,35 @@ function App() {
     );
   };
 
-  const openDetailPage = (productKey, selectedSize) => {
-    setDetailTarget({ productKey, selectedSize });
+  const openDetailForItem = (index) => {
+    if (!cartItems[index]) {
+      return;
+    }
+    setDetailIndex(index);
     setCurrentPage("detail");
   };
 
-  const moveDetailTarget = (direction) => {
-    if (!detailTarget || cartItems.length === 0) {
-      return;
-    }
+  const closeDetail = () => {
+    setCurrentPage("cart");
+  };
 
-    const currentIndex = cartItems.findIndex(
-      (item) =>
-        item.productKey === detailTarget.productKey &&
-        item.selectedSize === detailTarget.selectedSize
+  const handleDetailSave = (updates) => {
+    setCartItems((prev) =>
+      prev.map((item, idx) => (idx === detailIndex ? { ...item, ...updates } : item))
     );
+  };
 
-    if (currentIndex === -1) {
-      return;
-    }
+  const goToPrevDetail = () => {
+    setDetailIndex((prev) => Math.max(prev - 1, 0));
+  };
 
-    const nextIndex = currentIndex + direction;
-    if (nextIndex < 0 || nextIndex >= cartItems.length) {
-      return;
-    }
-
-    const nextItem = cartItems[nextIndex];
-    setDetailTarget({
-      productKey: nextItem.productKey,
-      selectedSize: nextItem.selectedSize,
+  const goToNextDetail = () => {
+    setDetailIndex((prev) => {
+      const maxIndex = Math.max(cartItems.length - 1, 0);
+      return Math.min(prev + 1, maxIndex);
     });
   };
 
-  const saveDetailChanges = (details) => {
-    if (!detailTarget) {
-      return;
-    }
-
-    const { productKey: targetKey, selectedSize: targetSize } = detailTarget;
-
-    setCartItems((prev) => {
-      const index = prev.findIndex(
-        (item) => item.productKey === targetKey && item.selectedSize === targetSize
-      );
-
-      if (index === -1) {
-        return prev;
-      }
-
-      const currentItem = prev[index];
-      const updatedItem = {
-        ...currentItem,
-        selectedSize: details.selectedSize,
-        sugarLevel: details.sugarLevel,
-        milkOption: details.milkOption,
-        extras: details.extras,
-      };
-
-      const remaining = prev.filter((_, i) => i !== index);
-      const mergeIndex = remaining.findIndex(
-        (item) =>
-          item.productKey === updatedItem.productKey &&
-          item.selectedSize === updatedItem.selectedSize
-      );
-
-      if (mergeIndex === -1) {
-        return [...remaining, updatedItem];
-      }
-
-      return remaining.map((item, i) =>
-        i === mergeIndex
-          ? {
-              ...item,
-              quantity: item.quantity + updatedItem.quantity,
-              sugarLevel: updatedItem.sugarLevel,
-              milkOption: updatedItem.milkOption,
-              extras: updatedItem.extras,
-            }
-          : item
-      );
-    });
-
-    setCurrentPage("checkout");
-    setDetailTarget(null);
-  };
 
   const handleBuyNow = () => {
     if (cartItems.length === 0) {
@@ -349,22 +292,6 @@ function App() {
     setCurrentPage("qr-payment");
   };
 
-  const activeDetailItem = effectiveDetailTarget
-    ? cartItems.find(
-        (item) =>
-          item.productKey === effectiveDetailTarget.productKey &&
-          item.selectedSize === effectiveDetailTarget.selectedSize
-      )
-    : null;
-
-  const activeDetailIndex = effectiveDetailTarget
-    ? cartItems.findIndex(
-        (item) =>
-          item.productKey === effectiveDetailTarget.productKey &&
-          item.selectedSize === effectiveDetailTarget.selectedSize
-      )
-    : -1;
-
   return (
     <div className="app-shell">
       {effectivePage === "menu" && (
@@ -390,21 +317,21 @@ function App() {
             updateCartItemQuantity(productKey, selectedSize, -1)
           }
           onRemove={removeCartItem}
-          onDetail={openDetailPage}
+          onViewDetails={openDetailForItem}
           onBuyNow={handleBuyNow}
         />
       )}
-      {effectivePage === "detail" && activeDetailItem && (
+      {effectivePage === "detail" && detailItem && (
         <Detail
-          item={activeDetailItem}
-          onBack={() => setCurrentPage("cart")}
-          onSave={saveDetailChanges}
-          onPrevItem={() => moveDetailTarget(-1)}
-          onNextItem={() => moveDetailTarget(1)}
-          canGoPrev={activeDetailIndex > 0}
-          canGoNext={activeDetailIndex > -1 && activeDetailIndex < cartItems.length - 1}
-          detailIndex={activeDetailIndex}
+          item={detailItem}
+          detailIndex={detailIndex}
           detailCount={cartItems.length}
+          onBack={closeDetail}
+          onSave={handleDetailSave}
+          onPrevItem={goToPrevDetail}
+          onNextItem={goToNextDetail}
+          canGoPrev={detailIndex > 0}
+          canGoNext={detailIndex < cartItems.length - 1}
         />
       )}
       {effectivePage === "checkout" && (

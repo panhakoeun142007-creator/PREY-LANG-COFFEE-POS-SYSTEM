@@ -6,8 +6,8 @@ function Cart({
   onBackToMenu,
 
   onRemove,
-  onDetail,
   onBuyNow,
+  onViewDetails = () => {},
 }) {
   const totalItems = cartItems.reduce((total, item) => total + item.quantity, 0);
   const subtotal = getCartTotal(cartItems);
@@ -37,8 +37,8 @@ function Cart({
         </div>
       ) : (
         <div className="cart-list">
-          {cartItems.map((item) => {
-            const itemId = `${item.productKey}-${item.selectedSize}`;
+          {cartItems.map((item, index) => {
+            const itemId = `${item.productKey}-${item.selectedSize}-${index}`;
 
             return (
               <div className="cart-item" key={itemId}>
@@ -51,12 +51,14 @@ function Cart({
                   <p className="cart-item-price">${getItemLineTotal(item).toFixed(2)}</p>
                   <div className="cart-item-actions">
                     <button
+                      type="button"
                       className="detail-btn"
-                      onClick={() => onDetail?.(item.productKey, item.selectedSize)}
+                      onClick={() => onViewDetails(index)}
                     >
                       Detail
                     </button>
                     <button
+                      type="button"
                       className="remove-btn"
                       onClick={() => onRemove(item.productKey, item.selectedSize)}
                     >
