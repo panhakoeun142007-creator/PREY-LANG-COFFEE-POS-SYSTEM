@@ -42,6 +42,7 @@ async function createRecipeLog(payload: { order_id: string; table_no: string; na
 
 interface OrderHistoryProps {
   orders: Order[];
+  onNotificationClick?: (notification: Notification) => void;
 }
 
 function ReceiptCard({ order, displayId }: { order: Order; displayId: string }) {
@@ -95,7 +96,7 @@ function ReceiptCard({ order, displayId }: { order: Order; displayId: string }) 
   );
 }
 
-const OrderHistory: React.FC<OrderHistoryProps> = ({ orders = [] }) => {
+const OrderHistory: React.FC<OrderHistoryProps> = ({ orders = [], onNotificationClick }) => {
   const [orderToPrint, setOrderToPrint] = useState<Order | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isSavingPrintLog, setIsSavingPrintLog] = useState(false);
@@ -493,6 +494,10 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ orders = [] }) => {
                     {notifications.map((notification) => (
                       <div
                         key={notification.id}
+                        onClick={() => {
+                          setShowNotifications(false);
+                          onNotificationClick?.(notification);
+                        }}
                         className="p-4 border-b border-slate-50 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
                       >
                         <div className="flex items-start gap-3">
@@ -507,9 +512,23 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ orders = [] }) => {
                               <p className="text-sm font-bold text-slate-900 dark:text-white">
                                 {notification.title || 'Notification'}
                               </p>
-                              <span className="text-[10px] text-slate-400 dark:text-slate-500">
-                                {notification.time || ''}
-                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                                  {notification.time || ''}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setNotifications((prev) => prev.filter((n) => n.id !== notification.id));
+                                    setNotificationCount((prev) => Math.max(0, prev - 1));
+                                  }}
+                                  className="p-1 hover:bg-slate-50 dark:hover:bg-white/5 rounded-lg transition-colors"
+                                  aria-label="Remove notification"
+                                >
+                                  <X size={14} className="text-slate-400 dark:text-slate-500" />
+                                </button>
+                              </div>
                             </div>
                             <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2">
                               {notification.message}

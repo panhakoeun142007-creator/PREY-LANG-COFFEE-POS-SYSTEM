@@ -48,13 +48,18 @@ type DashboardUser = {
 
 interface DashboardProps {
   orders: Order[];
+  historyOrders?: Order[];
   onViewDetails: (order: Order) => void;
   currentUser?: DashboardUser | null;
   onProfileClick?: () => void;
+  summaryCounts?: { live?: number; completed?: number; cancelled?: number };
+  onViewAllOrders?: () => void;
+  onNotificationClick?: (notification: Notification) => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ orders, onViewDetails, currentUser, onProfileClick }) => {
+const Dashboard: React.FC<DashboardProps> = ({ orders, historyOrders = [], onViewDetails, currentUser, onProfileClick, summaryCounts, onViewAllOrders, onNotificationClick }) => {
   const [activeTab, setActiveTab] = useState<'Live' | 'Completed' | 'Cancelled'>('Live');
+  const [showAllOrders, setShowAllOrders] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [notificationCount, setNotificationCount] = useState(0);
@@ -76,6 +81,9 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, onViewDetails, currentUse
 
   const activeOrdersCount = orders.filter(o => o.status !== 'Completed' && o.status !== 'Cancelled').length;
   const readyOrdersCount = orders.filter(o => o.status === 'Ready').length;
+  const liveCount = Number.isFinite(summaryCounts?.live) ? Number(summaryCounts?.live) : activeOrdersCount;
+  const completedCount = Number.isFinite(summaryCounts?.completed) ? Number(summaryCounts?.completed) : orders.filter(o => o.status === 'Completed').length;
+  const cancelledCount = Number.isFinite(summaryCounts?.cancelled) ? Number(summaryCounts?.cancelled) : orders.filter(o => o.status === 'Cancelled').length;
 
   useEffect(() => {
     let cancelled = false;
@@ -118,10 +126,14 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, onViewDetails, currentUse
 
   const filteredOrders = useMemo(() => {
     if (activeTab === 'Live') return orders.filter((o) => o.status !== 'Completed' && o.status !== 'Cancelled');
-    if (activeTab === 'Completed') return orders.filter((o) => o.status === 'Completed');
-    if (activeTab === 'Cancelled') return orders.filter((o) => o.status === 'Cancelled');
+    if (activeTab === 'Completed') return historyOrders.filter((o) => o.status === 'Completed');
+    if (activeTab === 'Cancelled') return historyOrders.filter((o) => o.status === 'Cancelled');
     return orders;
-  }, [orders, activeTab]);
+  }, [orders, historyOrders, activeTab]);
+
+  useEffect(() => {
+    setShowAllOrders(false);
+  }, [activeTab]);
 
   const mockInventory: InventoryItem[] = [
     { id: '1', name: 'Whole Milk (1L)', quantity: 2, unit: 'units', threshold: 5 },
@@ -210,10 +222,14 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, onViewDetails, currentUse
               {/* Notifications List */}
               <div className="max-h-96 overflow-y-auto">
                 {notifications.map((notification) => (
-                  <div
-                    key={notification.id}
-                    className="p-4 border-b border-slate-50 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
-                  >
+                      <div
+                        key={notification.id}
+                        onClick={() => {
+                          setShowNotifications(false);
+                          onNotificationClick?.(notification);
+                        }}
+                        className="p-4 border-b border-slate-50 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                      >
                     <div className="flex items-start gap-3">
                       {/* Icon based on type */}
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${notificationBubbleClass(notification.type)}`}>
@@ -226,9 +242,23 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, onViewDetails, currentUse
                           <p className="text-sm font-bold text-slate-900 dark:text-white">
                             {notification.title || 'Notification'}
                           </p>
-                          <span className="text-[10px] text-slate-400 dark:text-slate-500">
-                            {notification.time || ''}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                              {notification.time || ''}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setNotifications((prev) => prev.filter((n) => n.id !== notification.id));
+                                setNotificationCount((prev) => Math.max(0, prev - 1));
+                              }}
+                              className="p-1 rounded-md hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
+                              aria-label="Remove notification"
+                            >
+                              <X size={14} className="text-slate-400 dark:text-slate-500" />
+                            </button>
+                          </div>
                         </div>
                         <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2">
                           {notification.message}
@@ -318,11 +348,22 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, onViewDetails, currentUse
         <div className="p-6 border-b border-slate-50 dark:border-white/5">
           <div className="flex justify-between items-center mb-6">
             <h3 className="font-bold text-lg dark:text-white transition-colors">Order Status</h3>
-            <button className="text-[#BD5E0A] text-sm font-bold hover:underline">View All Orders</button>
+            <button
+              type="button"
+              onClick={onViewAllOrders}
+              className="text-[#BD5E0A] text-sm font-bold hover:underline"
+            >
+              View All Orders
+            </button>
           </div>
           
           <div className="flex gap-8 border-b border-slate-100 dark:border-white/5">
-            {(['Live', 'Completed', 'Cancelled'] as const).map((tab) => (
+            {(['Live', 'Completed', 'Cancelled'] as const).map((tab) => {
+              const count =
+                tab === 'Live' ? liveCount :
+                tab === 'Completed' ? completedCount :
+                cancelledCount;
+              return (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -331,6 +372,11 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, onViewDetails, currentUse
                 }`}
               >
                 {tab === 'Live' ? `Live Orders` : tab}
+                <span className={`ml-2 text-[10px] px-2 py-0.5 rounded-full ${
+                  activeTab === tab ? 'bg-orange-600 text-white' : 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-slate-500'
+                }`}>
+                  {count}
+                </span>
                 {activeTab === tab && (
                   <motion.div 
                     layoutId="activeTabUnderline"
@@ -338,7 +384,7 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, onViewDetails, currentUse
                   />
                 )}
               </button>
-            ))}
+            )})}
           </div>
         </div>
 
@@ -353,7 +399,7 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, onViewDetails, currentUse
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50 dark:divide-white/5">
-              {filteredOrders.slice(0, 5).map((order) => (
+              {filteredOrders.slice(0, showAllOrders ? filteredOrders.length : 5).map((order) => (
                 <tr key={order.id} className="hover:bg-slate-50/30 dark:hover:bg-white/5 transition-colors">
                   <td className="px-6 py-4 font-bold text-slate-700 dark:text-slate-300">{order.tableNo}</td>
                   <td className="px-6 py-4">
@@ -396,6 +442,16 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, onViewDetails, currentUse
               )}
             </tbody>
           </table>
+        </div>
+
+        <div className="px-6 py-5 border-t border-slate-50 dark:border-white/5 flex justify-center">
+          <button
+            type="button"
+            onClick={() => setShowAllOrders((prev) => !prev)}
+            className="px-5 py-2.5 rounded-xl border border-[#BD5E0A]/40 text-[#BD5E0A] font-bold text-xs uppercase tracking-widest hover:bg-[#BD5E0A] hover:text-white transition-colors"
+          >
+            {showAllOrders ? "Show Less" : "See More"}
+          </button>
         </div>
       </section>
 

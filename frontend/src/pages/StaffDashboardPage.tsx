@@ -27,6 +27,7 @@ import {
   type ApiOrder,
   type CurrentUser,
   type ManagerInfo,
+  type Notification,
 } from "../services/api";
 import { auth } from "../utils/auth";
 import LogoutConfirmModal from "../components/LogoutConfirmModal";
@@ -271,6 +272,11 @@ export default function StaffDashboardPage() {
   }, [activeTab, loadHistory]);
 
   useEffect(() => {
+    if (activeTab !== "dashboard") return;
+    void loadHistory();
+  }, [activeTab, loadHistory]);
+
+  useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
@@ -369,12 +375,26 @@ export default function StaffDashboardPage() {
     }
   }
 
-  const renderContent = () => {
-    if (isLoadingOrders) {
-      return <p className="text-slate-500 dark:text-slate-400 font-bold">Loading orders...</p>;
+  function handleNotificationClick(notification: Notification) {
+    setActiveTab("orders");
+    const rawId = String(notification.id ?? "");
+    const match = rawId.match(/(\d+)/);
+    if (!match) return;
+    const targetId = match[1];
+    const target =
+      orders.find((o) => o.id === targetId) ||
+      historyOrders.find((o) => o.id === targetId);
+    if (target) {
+      setSelectedOrder(target);
     }
+  }
+
+  const renderContent = () => {
     switch (activeTab) {
       case "orders":
+        if (isLoadingOrders) {
+          return <p className="text-slate-500 dark:text-slate-400 font-bold">Loading orders...</p>;
+        }
         return (
           <Orders
             orders={orders}
@@ -390,7 +410,7 @@ export default function StaffDashboardPage() {
         if (historyError) {
           return <p className="text-red-500 font-bold">{historyError}</p>;
         }
-        return <OrderHistory orders={historyOrders} />;
+        return <OrderHistory orders={historyOrders} onNotificationClick={handleNotificationClick} />;
       case "recipe":
         return (
           <RecipeView
@@ -404,9 +424,16 @@ export default function StaffDashboardPage() {
         return (
           <Dashboard
             orders={orders}
+            historyOrders={historyOrders}
             onViewDetails={setSelectedOrder}
             currentUser={currentUser}
             onProfileClick={openProfileDialog}
+            onNotificationClick={handleNotificationClick}
+            summaryCounts={{
+              live: orders.length,
+              completed: historySummary.completed,
+              cancelled: historySummary.cancelled,
+            }}
           />
         );
     }
