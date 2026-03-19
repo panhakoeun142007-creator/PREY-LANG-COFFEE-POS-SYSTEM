@@ -119,7 +119,6 @@ export default function CustomerMenuApp() {
       (item) => item.productKey === productKey && item.selectedSize === selectedSize
     );
     if (existingIndex === -1) {
-      if (!window.confirm(`${product.name} (Size: ${selectedSize}) - Add to cart?`)) return;
       setCartItems((prev) => [
         ...prev,
         {
@@ -133,13 +132,13 @@ export default function CustomerMenuApp() {
         },
       ]);
     } else {
-      if (!window.confirm(`${product.name} (Size: ${selectedSize}) - Increase quantity?`)) return;
       setCartItems((prev) =>
         prev.map((item, i) =>
           i === existingIndex ? { ...item, quantity: item.quantity + 1 } : item
         )
       );
     }
+    window.alert(`${product.name} (${selectedSize}) added to cart.`);
   };
 
   const updateCartItemQuantity = (productKey, selectedSize, change) => {
@@ -148,11 +147,6 @@ export default function CustomerMenuApp() {
     );
     if (!item) return;
     const newQty = Math.max(item.quantity + change, 0);
-    let message = "";
-    if (newQty === 0 && change < 0) message = `${item.name} (Size: ${selectedSize}) - Remove from cart?`;
-    else if (change > 0) message = `${item.name} (Size: ${selectedSize}) - Increase quantity?`;
-    else if (change < 0) message = `${item.name} (Size: ${selectedSize}) - Decrease quantity?`;
-    if (message && !window.confirm(message)) return;
     setCartItems((prev) =>
       prev
         .map((i) =>

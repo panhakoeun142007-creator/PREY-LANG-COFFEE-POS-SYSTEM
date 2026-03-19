@@ -91,6 +91,43 @@
   line-height: 1.35;
 }
 
+.cart-item-quantity {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.cart-item-quantity span {
+  min-width: 24px;
+  text-align: center;
+  font-weight: 700;
+}
+
+.cart-qty-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 1.2rem;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.cart-qty-btn:hover:not(:disabled) {
+  background: var(--surface-muted);
+}
+
+.cart-qty-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .cart-item-info p {
   margin: 0 0 9px;
   color: var(--text-secondary);

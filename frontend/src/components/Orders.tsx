@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Search, Clock, Coffee, CheckCircle2, X, ClipboardList } from 'lucide-react';
 import logo from '../assets/coffee.png'; 
-type OrderStatus = "Pending" | "Preparing" | "Brewing" | "Ready" | "Delayed" | "Completed" | "Cancelled";
+type OrderStatus = "Pending" | "Preparing" | "Brewing" | "Ready" | "Delayed" | "Completed" | "Cancelled" | "Draft";
 
 interface OrderItem {
   name: string;
@@ -239,11 +239,13 @@ const Orders: React.FC<OrdersProps> = ({ orders = [], updateStatus }) => {
                   <h3 className="text-lg font-black text-slate-900 dark:text-white">{orderDisplayIdMap[order.id] ?? order.id}</h3>
                 </div>
                 <span className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase ${
-                  order.status === 'Ready' 
+                  order.status === 'draft' 
+                    ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400' 
+                    : order.status === 'Ready' 
                     ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' 
                     : 'bg-orange-50 dark:bg-orange-500/10 text-[#BD5E0A]'
                 }`}>
-                  {order.status}
+                  {order.status === 'draft' ? 'Draft Cart' : order.status.replace(/([A-Z])/g, ' $1').trim()}
                 </span>
               </div>
 
@@ -272,7 +274,7 @@ const Orders: React.FC<OrdersProps> = ({ orders = [], updateStatus }) => {
                 >
                   Details
                 </button>
-                {activeTab === 'Live' && (
+{(activeTab === 'Live' && order.status !== 'draft') && (
                   <button 
                     onClick={() => {
                       let nextStatus: OrderStatus = 'Preparing';
@@ -321,25 +323,53 @@ const Orders: React.FC<OrdersProps> = ({ orders = [], updateStatus }) => {
               </div>
 
               <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                {selectedOrder.items.map((item, i) => (
+{selectedOrder.items.map((item, i) => (
                   <div key={i} className="p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/10">
-                    <div className="flex justify-between mb-2">
-                      <span className="font-black text-slate-900 dark:text-slate-200 text-sm">{item.quantity}x {item.name}</span>
+                    <div className={`flex justify-between items-center mb-2 ${
+                      item.is_cancelled 
+                        ? 'line-through text-red-500 opacity-60' 
+                        : 'font-black text-slate-900 dark:text-slate-200'
+                    }`}>
+                      <span className="text-sm">
+                        {(item.qty || item.quantity)}x {(item.product?.name || item.name)}
+                      </span>
+                      {item.is_cancelled && (
+                        <span className="ml-2 px-2 py-0.5 bg-red-100 text-red-800 text-xs font-bold rounded-full flex items-center gap-1">
+                          CANCELLED
+                          {item.cancelled_at && (
+                            <span className="text-red-600 text-[10px]">
+                              {new Date(item.cancelled_at).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}
+                            </span>
+                          )}
+                        </span>
+                      )}
                     </div>
-                    <div className="bg-white dark:bg-black/20 p-3 rounded-xl border border-slate-100 dark:border-white/5">
-                      <p className="text-[10px] font-black text-[#BD5E0A] uppercase tracking-wider mb-1">Customization</p>
-                      <p className="text-xs text-slate-600 dark:text-slate-400 font-bold italic leading-relaxed">
-                        {item.customization || 'No special requests'}
-                      </p>
-                    </div>
+                    {(item.customization || item.product?.description) && (
+                      <div className="bg-white dark:bg-black/20 p-3 rounded-xl border border-slate-100 dark:border-white/5 mt-2">
+                        <p className="text-[10px] font-bold text-[#BD5E0A] uppercase tracking-wider mb-1">
+                          {item.customization ? 'Customization' : 'Notes'}
+                        </p>
+                        <p className="text-xs text-slate-600 dark:text-slate-400 font-bold italic leading-relaxed">
+                          {item.customization || item.product?.description || 'No special requests'}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
 
               <div className="mt-8 pt-6 border-t border-slate-100 dark:border-white/10">
-                <div className="flex justify-between items-center mb-6">
+                <div className="space-y-2 mb-6">
+                  <div className="flex justify-between items-center">
                     <span className="text-[10px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-widest">Order ID</span>
                     <span className="text-sm font-black text-slate-900 dark:text-white">{orderDisplayIdMap[selectedOrder.id] ?? selectedOrder.id}</span>
+                  </div>
+                  {selectedOrder.total_price !== undefined && (
+                    <div className="flex justify-between items-center pt-2 border-t border-slate-200 dark:border-white/10">
+                      <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Total (excl. cancelled)</span>
+                      <span className="text-lg font-black text-[#BD5E0A]">${parseFloat(selectedOrder.total_price || 0).toFixed(2)}</span>
+                    </div>
+                  )}
                 </div>
                 <button 
                   onClick={() => setSelectedOrder(null)}

@@ -21,6 +21,7 @@ class OrderItem extends Model
         'size',
         'qty',
         'price',
+        'cancelled_at',
     ];
 
     /**
@@ -33,7 +34,32 @@ class OrderItem extends Model
         return [
             'qty' => 'integer',
             'price' => 'decimal:2',
+            'cancelled_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Scope a query to only include active (not cancelled) items.
+     */
+    public function scopeActive($query)
+    {
+        return $query->whereNull('cancelled_at');
+    }
+
+    /**
+     * Scope a query to cancelled items.
+     */
+    public function scopeCancelled($query)
+    {
+        return $query->whereNotNull('cancelled_at');
+    }
+
+    /**
+     * Check if item is cancelled.
+     */
+    public function getIsCancelledAttribute(): bool
+    {
+        return !is_null($this->cancelled_at);
     }
 
     /**

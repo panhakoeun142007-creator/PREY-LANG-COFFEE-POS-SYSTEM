@@ -73,7 +73,7 @@ function Paymantule({ cartItems = [], onDone }) {
       </div>
 
       <button className="paymantule-done" onClick={onDone}>
-       Wait to your coffee
+       Payment Complete - Check Order Status
       </button>
     </div>
   );

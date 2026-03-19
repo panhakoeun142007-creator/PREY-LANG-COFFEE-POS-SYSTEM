@@ -172,8 +172,10 @@ class OrderController extends Controller
         
         $orders = Cache::remember($cacheKey, self::CACHE_TTL_LIVE, function () {
             return Order::query()
-                ->with(['table', 'items.product'])
-                ->whereIn('status', ['pending', 'preparing', 'ready'])
+                ->with(['table', 'items' => function ($query) {
+                    $query->with('product');
+                }])
+            ->whereIn('status', ['draft', 'pending', 'preparing', 'ready', 'cancelled'])
                 ->orderBy('created_at', 'asc')
                 ->get();
         });
@@ -186,8 +188,10 @@ class OrderController extends Controller
      */
     public function history(Request $request): JsonResponse
     {
-        $query = Order::query()
-            ->with(['table', 'items.product'])
+$query = Order::query()
+            ->with(['table', 'items' => function ($query) {
+                    $query->with('product');
+                }])
             ->whereIn('status', ['completed', 'cancelled']);
 
         // Filter by status (completed or cancelled)
@@ -287,6 +291,124 @@ class OrderController extends Controller
         ]);
 
         $order->update(['status' => $validated['status']]);
+
+        return response()->json($order->fresh()->load(['table', 'items.product']));
+    }
+
+    /**
+     * Get customer order status by queue number (public).
+     */
+    public function customerStatus($queue_number): JsonResponse
+    {
+        $order = Order::where('queue_number', $queue_number)
+            ->with(['table', 'items.product'])
+            ->first();
+
+        if (!$order) {
+            return response()->json(['status' => 'pending'], 200);
+        }
+
+        $statusMap = [
+            'pending' => 'ordered',
+            'preparing' => 'preparing', 
+            'ready' => 'ready',
+            'completed' => 'ready',
+            'cancelled' => 'cancelled'
+        ];
+
+        return response()->json([
+            'status' => $statusMap[$order->status] ?? 'ordered',
+            'order' => $order,
+            'updated_at' => $order->updated_at->toISOString()
+        ]);
+    }
+
+    /**
+     * Allow customer to cancel their own order by queue number (public, early stages only).
+     */
+    public function customerCancel($queue_number): JsonResponse
+    {
+        $order = Order::where('queue_number', $queue_number)
+            ->whereIn('status', ['pending', 'preparing', 'draft'])
+            ->with(['table', 'items.product'])
+            ->first();
+
+        if (!$order) {
+            return response()->json(['message' => 'Order not found or cannot be cancelled'], 404);
+        }
+
+        $order->update(['status' => 'cancelled']);
+
+        return response()->json([
+            'message' => 'Order cancelled successfully',
+            'order' => $order->fresh()->load(['table', 'items.product'])
+        ]);
+    }
+
+    /**
+     * Create draft cart for customer table.
+     */
+    public function createDraft(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'table_id' => ['required', 'exists:dining_tables,id'],
+        ]);
+
+        $order = Order::create([
+            'table_id' => $validated['table_id'],
+            'status' => 'draft',
+            'payment_type' => null,
+            'queue_number' => null,
+            'total_price' => 0,
+        ]);
+
+        return response()->json($order->load(['table']), 201);
+    }
+
+    /**
+     * Update customer draft cart items.
+     */
+    public function updateDraft(Request $request, Order $order): JsonResponse
+    {
+        if ($order->status !== 'draft') {
+            return response()->json(['error' => 'Not a draft order'], 400);
+        }
+
+        $validated = $request->validate([
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.product_id' => ['required', 'exists:products,id'],
+            'items.*.size' => ['required', Rule::in(['small', 'medium', 'large'])],
+            'items.*.qty' => ['required', 'integer', 'min:1'],
+            'items.*.price' => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        DB::transaction(function () use ($order, $validated) {
+            $order->items()->delete();
+
+            $productIds = array_column($validated['items'], 'product_id');
+            $products = Product::whereIn('id', $productIds)->get()->keyBy('id');
+            $total = 0;
+
+            foreach ($validated['items'] as $item) {
+                $price = $item['price'] ?? match ($item['size']) {
+                    'small' => (float) $products[$item['product_id']]->price_small,
+                    'medium' => (float) $products[$item['product_id']]->price_medium,
+                    'large' => (float) $products[$item['product_id']]->price_large,
+                };
+
+                $total += $price * $item['qty'];
+
+                OrderItem::create([
+                    'order_id' => $order->id,
+                    'product_id' => $item['product_id'],
+                    'size' => $item['size'],
+                    'qty' => $item['qty'],
+                    'price' => $price,
+                ]);
+            }
+
+            $order->update(['total_price' => $total]);
+        });
 
         return response()->json($order->fresh()->load(['table', 'items.product']));
     }

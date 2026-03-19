@@ -34,6 +34,9 @@ function QRpayment({ totalDue = 0, orderNumber = "#A-000", onBack }) {
       <button className="qr-back-btn" onClick={onBack}>
         {"Go Back"} 
       </button>
+      <button className="qr-pay-btn" onClick={() => window.location.reload() || onPickupReady?.()}>
+        Payment Complete - Check Status
+      </button>
     </div>
   );
 }

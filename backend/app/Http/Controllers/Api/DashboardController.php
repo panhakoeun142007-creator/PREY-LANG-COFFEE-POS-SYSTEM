@@ -45,7 +45,8 @@ class DashboardController extends Controller
 
         $todayStats = Order::whereDate('created_at', $today)
             ->where('status', '!=', 'cancelled')
-            ->selectRaw('SUM(total_price) as revenue, COUNT(*) as orders')
+            ->withAvg('activeItems', 'price * qty as active_total')
+            ->selectRaw('SUM(COALESCE(activeItems.avg_active_total * orders.id, orders.total_price)) as revenue, COUNT(*) as orders')
             ->first();
 
         $todayRevenue = (float) ($todayStats->revenue ?? 0);
@@ -89,7 +90,10 @@ class DashboardController extends Controller
         $thirtyDaysAgo = now()->subDays(30);
         $categoryData = DB::table('categories')
             ->leftJoin('products', 'categories.id', '=', 'products.category_id')
-            ->leftJoin('order_items', 'products.id', '=', 'order_items.product_id')
+            ->leftJoin('order_items', function ($join) {
+                $join->on('products.id', '=', 'order_items.product_id')
+                     ->whereNull('order_items.cancelled_at');
+            })
             ->leftJoin('orders', function ($join) use ($thirtyDaysAgo) {
                 $join->on('order_items.order_id', '=', 'orders.id')
                     ->where('orders.status', '!=', 'cancelled')
@@ -259,7 +263,8 @@ class DashboardController extends Controller
         $revenues = Order::whereDate('created_at', $today)
             ->orWhereDate('created_at', $yesterday)
             ->where('status', '!=', 'cancelled')
-            ->selectRaw('DATE(created_at) as date, SUM(total_price) as revenue')
+            ->withSum('activeItems as active_revenue', DB::raw('qty * price'))
+            ->selectRaw('DATE(created_at) as date, COALESCE(activeItems_sum_active_revenue, total_price) as revenue')
             ->groupBy('date')
             ->get()
             ->keyBy('date');

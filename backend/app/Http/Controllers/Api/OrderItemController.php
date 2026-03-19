@@ -69,6 +69,38 @@ class OrderItemController extends Controller
     }
 
     /**
+     * Cancel customer order item by queue number (public).
+     */
+    public function cancelCustomerItem($queue_number, OrderItem $orderItem): JsonResponse
+    {
+        // Find order by queue number
+        $order = \App\Models\Order::where('queue_number', $queue_number)
+            ->whereIn('status', ['pending', 'preparing', 'draft'])
+            ->firstOrFail();
+
+        // Verify item belongs to order
+        if ($orderItem->order_id !== $order->id) {
+            return response()->json(['message' => 'Item not found in this order'], 404);
+        }
+
+        // Prevent double cancel
+        if ($orderItem->cancelled_at) {
+            return response()->json(['message' => 'Item already cancelled']);
+        }
+
+        DB::transaction(function () use ($orderItem, $order) {
+            $orderItem->update(['cancelled_at' => now()]);
+            $order->recalculateTotalPrice();
+        });
+
+        return response()->json([
+            'message' => 'Item cancelled successfully',
+            'order' => $order->fresh()->load(['table', 'items.product']),
+            'item' => $orderItem->fresh()->load('product'),
+        ]);
+    }
+
+    /**
      * Remove the specified order item.
      */
     public function destroy(OrderItem $orderItem): JsonResponse
@@ -78,3 +110,4 @@ class OrderItemController extends Controller
         return response()->json(['message' => 'Order item deleted']);
     }
 }
+

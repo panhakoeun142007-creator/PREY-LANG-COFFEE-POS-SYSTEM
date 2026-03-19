@@ -8,7 +8,11 @@ export default defineConfig({
     include: []
   },
   server: {
-    port: 5173,
+  port: 5174,
+    headers: {
+      'X-Frame-Options': 'ALLOWALL',
+      'Access-Control-Allow-Origin': '*'
+    },
     proxy: {
       "/api": {
         target: "http://127.0.0.1:8000",

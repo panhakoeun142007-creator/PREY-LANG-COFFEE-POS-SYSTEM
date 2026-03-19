@@ -11,7 +11,8 @@ function getCartTotal(items) {
 function Cart({
   cartItems = [],
   onBackToMenu,
-
+  onDecrease,
+  onIncrease,
   onRemove,
   onDetail,
   onBuyNow,
@@ -53,6 +54,26 @@ function Cart({
                 <div className="cart-item-info">
                   <h3>{item.name}</h3>
                   <p>Size: {item.selectedSize}</p>
+                  <div className="cart-item-quantity">
+                    <button
+                      type="button"
+                      onClick={() => onDecrease?.(item.productKey, item.selectedSize)}
+                      className="cart-qty-btn"
+                      aria-label="Decrease quantity"
+                      disabled={item.quantity <= 1}
+                    >
+                      –
+                    </button>
+                    <span>{item.quantity}</span>
+                    <button
+                      type="button"
+                      onClick={() => onIncrease?.(item.productKey, item.selectedSize)}
+                      className="cart-qty-btn"
+                      aria-label="Increase quantity"
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
                 <div className="cart-item-right">
                   <p className="cart-item-price">${getItemLineTotal(item).toFixed(2)}</p>

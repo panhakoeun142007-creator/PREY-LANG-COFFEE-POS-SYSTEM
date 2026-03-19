@@ -205,6 +205,8 @@ export interface ApiOrderItem {
   size: RecipeSize | string | null;
   qty: number;
   price: number | string;
+  cancelled_at?: string | null;
+  is_cancelled?: boolean;
   created_at?: string;
   updated_at?: string;
   product?: ApiProduct;
@@ -645,3 +647,23 @@ export const updateRecipeBoardStatus = async (id: number, status: string): Promi
   apiRequest(`/recipes-board/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) });
 export const deleteRecipeBoard = async (id: number, size: string): Promise<any> =>
   apiRequest(`/recipes-board/${id}/${size}`, { method: "DELETE" });
+
+export const createCustomerDraftCart = async (tableId: number): Promise<ApiOrder> =>
+  apiRequest('/customer/carts', {
+    method: 'POST',
+    body: JSON.stringify({ table_id: tableId })
+  });
+
+export const updateCustomerDraftCart = async (orderId: number, items: Array<any>): Promise<ApiOrder> =>
+  apiRequest(`/customer/carts/${orderId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ items })
+  });
+
+/**
+ * Cancel a specific order item for customer.
+ */
+export const cancelCustomerOrderItem = async (queueNumber: string | number, itemId: number): Promise<any> =>
+  apiRequest(`/customer/orders/${queueNumber}/items/${itemId}/cancel`, {
+    method: 'POST'
+  });

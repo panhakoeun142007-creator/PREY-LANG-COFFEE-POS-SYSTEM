@@ -152,4 +152,10 @@ Route::prefix('customer')->group(function () {
     Route::get('/products', [ProductController::class, 'index']);
     Route::get('/categories', [CategoryController::class, 'index']);
     Route::post('/orders', [OrderController::class, 'store']);
+    Route::get('/orders/{queue_number}/status', [OrderController::class, 'customerStatus']);
+    Route::post('/orders/{queue_number}/cancel', [OrderController::class, 'customerCancel']);
+    Route::post('/orders/{queue_number}/items/{order_item}/cancel', [OrderItemController::class, 'cancelCustomerItem']);
+    Route::post('/carts', [OrderController::class, 'createDraft']);
+    Route::patch('/carts/{order}', [OrderController::class, 'updateDraft']);
 });
+

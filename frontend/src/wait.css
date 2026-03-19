@@ -191,6 +191,47 @@
   cursor: pointer;
 }
 
+.wait-order-status-btn {
+  width: 100%;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  font-weight: 600;
+  padding: 10px 14px;
+  margin-top: 6px;
+  cursor: pointer;
+  transition: transform 150ms ease, opacity 150ms ease;
+}
+
+.wait-order-status-btn:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+
+.wait-cancel-btn {
+  width: 100%;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.24);
+  color: #fff;
+  font-weight: 700;
+  padding: 10px 14px;
+  margin-top: 6px;
+  cursor: pointer;
+  transition: transform 150ms ease, opacity 150ms ease;
+}
+
+.wait-cancel-btn:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+
+.wait-cancel-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .wait-preparing-list {
   display: flex;
   flex-direction: column;

@@ -1,8 +1,21 @@
 import { useMemo } from "react";
 import "../wait.css";
 
-function Wait({ cartItems = [], onPickUpNow, onBackToMenu, onBack }) {
-  const orderStatus = useMemo(() => {
+function Wait({
+  cartItems = [],
+  qrOrderNumber = '#A-000',
+  onPickUpNow,
+  onViewOrderStatus,
+  onCancelOrder,
+  isCancelingOrder = false,
+  onBackToMenu,
+  onBack,
+  orderStatus = 'preparing',
+}) {
+  const isReady = orderStatus === 'ready';
+  const isPreparing = orderStatus === 'preparing';
+  
+  const localOrderStatus = useMemo(() => {
     const expandedItems = cartItems.flatMap((item) => {
       const quantity = Number.isFinite(Number(item.quantity)) ? Math.max(0, Number(item.quantity)) : 0;
       return Array.from({ length: quantity }, () => ({
@@ -10,11 +23,8 @@ function Wait({ cartItems = [], onPickUpNow, onBackToMenu, onBack }) {
       }));
     });
 
-    const withStatus = expandedItems.map((item, index) => {
-      const cycleIndex = index % 3;
-      const status = cycleIndex === 0 ? "ordered" : cycleIndex === 1 ? "preparing" : "ready";
-      return { ...item, status };
-    });
+    const status = isReady ? 'ready' : isPreparing ? 'preparing' : 'ordered';
+    const withStatus = expandedItems.map((item) => ({ ...item, status }));
 
     const groupedByNameAndStatus = withStatus.reduce((map, item) => {
       const key = `${item.status}|${item.name}`;
@@ -43,8 +53,8 @@ function Wait({ cartItems = [], onPickUpNow, onBackToMenu, onBack }) {
   }, [cartItems]);
 
   const combinedProgressItems = [
-    ...orderStatus.preparingItems,
-    ...orderStatus.orderedItems,
+    ...localOrderStatus.preparingItems,
+    ...localOrderStatus.orderedItems,
   ];
 
   return (
@@ -71,15 +81,15 @@ function Wait({ cartItems = [], onPickUpNow, onBackToMenu, onBack }) {
       <section className="wait-queue-grid">
         <div className="wait-queue-card">
           <small>ORDERED</small>
-          <strong>{String(orderStatus.queue.ordered).padStart(2, "0")}</strong>
+          <strong>{String(localOrderStatus.queue.ordered).padStart(2, "0")}</strong>
         </div>
         <div className="wait-queue-card">
           <small>PREPARING</small>
-          <strong>{String(orderStatus.queue.preparing).padStart(2, "0")}</strong>
+          <strong>{String(localOrderStatus.queue.preparing).padStart(2, "0")}</strong>
         </div>
         <div className="wait-queue-card ready">
           <small>READY</small>
-          <strong>{String(orderStatus.queue.ready).padStart(2, "0")}</strong>
+          <strong>{String(localOrderStatus.queue.ready).padStart(2, "0")}</strong>
         </div>
       </section>
 
@@ -117,6 +127,25 @@ function Wait({ cartItems = [], onPickUpNow, onBackToMenu, onBack }) {
         >
           PICK UP NOW
         </button>
+        {onViewOrderStatus && (
+          <button
+            className="wait-order-status-btn"
+            type="button"
+            onClick={onViewOrderStatus}
+          >
+            View Order Status
+          </button>
+        )}
+        {onCancelOrder && (
+          <button
+            className="wait-cancel-btn"
+            type="button"
+            onClick={onCancelOrder}
+            disabled={isCancelingOrder}
+          >
+            {isCancelingOrder ? "Cancelling..." : "Cancel Order"}
+          </button>
+        )}
       </section>
 
       <section className="wait-preparing-list">

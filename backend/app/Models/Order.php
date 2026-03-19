@@ -52,4 +52,27 @@ class Order extends Model
     {
         return $this->hasMany(OrderItem::class);
     }
+
+    /**
+     * Get active (non-cancelled) line items for the order.
+     */
+    public function activeItems(): HasMany
+    {
+        return $this->hasMany(OrderItem::class)->active();
+    }
+
+    /**
+     * Recalculate total_price based on active items + tax.
+     */
+    public function recalculateTotalPrice(): void
+    {
+        $settings = \App\Support\AppSettings::getMerged();
+        $taxRate = (float) (($settings['payment']['tax_rate'] ?? 0) / 100);
+
+        $subtotal = $this->activeItems()->sum(DB::raw('qty * price'));
+        $taxAmount = round($subtotal * $taxRate, 2);
+        $total = round($subtotal + $taxAmount, 2);
+
+        $this->update(['total_price' => $total]);
+    }
 }
