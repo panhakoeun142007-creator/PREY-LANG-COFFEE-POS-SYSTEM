@@ -12,7 +12,7 @@ import {
   Check
 } from 'lucide-react';
 import { motion } from 'framer-motion'; // Fixed import to match common usage
-import { fetchNotifications, fetchDashboard, type Notification } from '../services/api';
+import { fetchNotifications, fetchDashboard, dismissNotification, type Notification } from '../services/api';
 import { auth } from '../utils/auth';
 
 interface OrderItem {
@@ -79,6 +79,48 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, historyOrders = [], onVie
       .map((part) => part[0]?.toUpperCase() ?? '')
       .join('') || 'ST';
 
+  const seenStorageKey = useMemo(() => {
+    const id = (auth.getUser() as { id?: number | string } | null)?.id ?? 'unknown';
+    return `prey-lang-pos:notifications:seen:${id}`;
+  }, []);
+  const dismissedStorageKey = useMemo(() => {
+    const id = (auth.getUser() as { id?: number | string } | null)?.id ?? 'unknown';
+    return `prey-lang-pos:notifications:dismissed:${id}`;
+  }, []);
+
+  const readSeen = useMemo(() => {
+    return () => {
+      try {
+        const raw = localStorage.getItem(seenStorageKey);
+        const parsed = raw ? JSON.parse(raw) : [];
+        return Array.isArray(parsed) ? parsed.map(String) : [];
+      } catch {
+        return [];
+      }
+    };
+  }, [seenStorageKey]);
+  const writeSeen = useMemo(() => {
+    return (keys: string[]) => {
+      localStorage.setItem(seenStorageKey, JSON.stringify(keys));
+    };
+  }, [seenStorageKey]);
+  const readDismissed = useMemo(() => {
+    return () => {
+      try {
+        const raw = localStorage.getItem(dismissedStorageKey);
+        const parsed = raw ? JSON.parse(raw) : [];
+        return Array.isArray(parsed) ? parsed.map(String) : [];
+      } catch {
+        return [];
+      }
+    };
+  }, [dismissedStorageKey]);
+  const writeDismissed = useMemo(() => {
+    return (keys: string[]) => {
+      localStorage.setItem(dismissedStorageKey, JSON.stringify(keys));
+    };
+  }, [dismissedStorageKey]);
+
   const activeOrdersCount = orders.filter(o => o.status !== 'Completed' && o.status !== 'Cancelled').length;
   const readyOrdersCount = orders.filter(o => o.status === 'Ready').length;
   const liveCount = Number.isFinite(summaryCounts?.live) ? Number(summaryCounts?.live) : activeOrdersCount;
@@ -92,11 +134,10 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, historyOrders = [], onVie
       try {
         const payload = await fetchDashboard();
         if (cancelled) return;
-        setNotificationCount(payload.notification_count || 0);
+        // keep for dashboard stats; badge handled by loadNotifications
       } catch (err) {
         console.error('Failed to load dashboard:', err);
         if (cancelled) return;
-        setNotificationCount(0);
       }
     }
 
@@ -104,11 +145,17 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, historyOrders = [], onVie
       try {
         const payload = await fetchNotifications();
         if (cancelled) return;
-        setNotifications(payload.notifications || []);
+        const dismissed = new Set(readDismissed());
+        const list = (payload.notifications || []).filter((n) => !dismissed.has(String(n.id ?? '')));
+        const seen = new Set(readSeen());
+        const unseenCount = list.filter((n) => !seen.has(String(n.id ?? ''))).length;
+        setNotifications(list);
+        setNotificationCount(unseenCount);
       } catch (err) {
         console.error('Failed to load notifications:', err);
         if (cancelled) return;
         setNotifications([]);
+        setNotificationCount(0);
       }
     }
 
@@ -117,7 +164,7 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, historyOrders = [], onVie
     const interval = setInterval(() => {
       loadDashboard();
       loadNotifications();
-    }, 30000);
+    }, 10000);
     return () => {
       cancelled = true;
       clearInterval(interval);
@@ -188,7 +235,16 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, historyOrders = [], onVie
         <div className="flex items-center gap-3 relative">
           {/* Notification Bell */}
           <button
-            onClick={() => setShowNotifications(!showNotifications)}
+            onClick={() => {
+              const next = !showNotifications;
+              setShowNotifications(next);
+              if (next) {
+                const keys = notifications.map((n) => String(n.id ?? ''));
+                const merged = Array.from(new Set([...readSeen(), ...keys]));
+                writeSeen(merged);
+                setNotificationCount(0);
+              }
+            }}
             className="relative p-2 bg-white dark:bg-[#1A110B] rounded-full border border-slate-100 dark:border-white/10 shadow-sm transition-colors hover:scale-105 active:scale-95"
           >
             <Bell size={20} className="text-slate-600 dark:text-slate-300" />
@@ -248,8 +304,18 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, historyOrders = [], onVie
                             </span>
                             <button
                               type="button"
-                              onClick={(e) => {
+                              onClick={async (e) => {
                                 e.stopPropagation();
+                                const key = String(notification.id ?? "");
+                                try {
+                                  if (key) await dismissNotification(key);
+                                } catch {
+                                  // ignore API errors
+                                }
+                                const mergedSeen = Array.from(new Set([...readSeen(), key]));
+                                writeSeen(mergedSeen);
+                                const mergedDismissed = Array.from(new Set([...readDismissed(), key]));
+                                writeDismissed(mergedDismissed);
                                 setNotifications((prev) => prev.filter((n) => n.id !== notification.id));
                                 setNotificationCount((prev) => Math.max(0, prev - 1));
                               }}
@@ -280,7 +346,13 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, historyOrders = [], onVie
               <div className="p-3 border-t border-slate-100 dark:border-white/5">
                 <button
                   type="button"
-                  onClick={() => setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))}
+                  onClick={() => {
+                    const keys = notifications.map((n) => String(n.id ?? ''));
+                    const mergedSeen = Array.from(new Set([...readSeen(), ...keys]));
+                    writeSeen(mergedSeen);
+                    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+                    setNotificationCount(0);
+                  }}
                   className="w-full text-center text-sm text-[#BD5E0A] font-bold hover:underline"
                 >
                   Mark all as read

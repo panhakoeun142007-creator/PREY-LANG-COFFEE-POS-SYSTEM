@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom';
 import { Printer, Search, Bell, X, Hash, Info } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import coffeeLogo from '../assets/coffee.png';
-import { fetchNotifications, type Notification } from '../services/api';
+import { fetchNotifications, dismissNotification, type Notification } from '../services/api';
+import { auth } from '../utils/auth';
 
 interface OrderItem {
   name: string;
@@ -106,6 +107,48 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ orders = [], onNotification
   const [notificationCount, setNotificationCount] = useState(0);
   const orderDisplayIdMap = useMemo(() => buildOrderDisplayIdMap(orders.map((order) => order.id)), [orders]);
 
+  const seenStorageKey = useMemo(() => {
+    const id = (auth.getUser() as { id?: number | string } | null)?.id ?? 'unknown';
+    return `prey-lang-pos:notifications:seen:${id}`;
+  }, []);
+  const dismissedStorageKey = useMemo(() => {
+    const id = (auth.getUser() as { id?: number | string } | null)?.id ?? 'unknown';
+    return `prey-lang-pos:notifications:dismissed:${id}`;
+  }, []);
+
+  const readSeen = useMemo(() => {
+    return () => {
+      try {
+        const raw = localStorage.getItem(seenStorageKey);
+        const parsed = raw ? JSON.parse(raw) : [];
+        return Array.isArray(parsed) ? parsed.map(String) : [];
+      } catch {
+        return [];
+      }
+    };
+  }, [seenStorageKey]);
+  const writeSeen = useMemo(() => {
+    return (keys: string[]) => {
+      localStorage.setItem(seenStorageKey, JSON.stringify(keys));
+    };
+  }, [seenStorageKey]);
+  const readDismissed = useMemo(() => {
+    return () => {
+      try {
+        const raw = localStorage.getItem(dismissedStorageKey);
+        const parsed = raw ? JSON.parse(raw) : [];
+        return Array.isArray(parsed) ? parsed.map(String) : [];
+      } catch {
+        return [];
+      }
+    };
+  }, [dismissedStorageKey]);
+  const writeDismissed = useMemo(() => {
+    return (keys: string[]) => {
+      localStorage.setItem(dismissedStorageKey, JSON.stringify(keys));
+    };
+  }, [dismissedStorageKey]);
+
   const notificationBubbleClass = (type: string) => {
     switch (type) {
       case 'order':
@@ -143,8 +186,12 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ orders = [], onNotification
       try {
         const payload = await fetchNotifications();
         if (cancelled) return;
-        setNotifications(payload.notifications || []);
-        setNotificationCount(payload.notifications?.filter((n: Notification) => !n.read).length || 0);
+        const dismissed = new Set(readDismissed());
+        const list = (payload.notifications || []).filter((n: Notification) => !dismissed.has(String(n.id ?? '')));
+        const seen = new Set(readSeen());
+        const unseenCount = list.filter((n: Notification) => !seen.has(String(n.id ?? ''))).length;
+        setNotifications(list);
+        setNotificationCount(unseenCount);
       } catch (err) {
         console.error('Failed to load notifications:', err);
         if (cancelled) return;
@@ -154,7 +201,7 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ orders = [], onNotification
     };
 
     loadNotifications();
-    const interval = setInterval(loadNotifications, 30000);
+    const interval = setInterval(loadNotifications, 10000);
     return () => {
       cancelled = true;
       clearInterval(interval);
@@ -463,7 +510,16 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ orders = [], onNotification
             </div>
             <div className="relative">
               <button
-                onClick={() => setShowNotifications(!showNotifications)}
+                onClick={() => {
+                  const next = !showNotifications;
+                  setShowNotifications(next);
+                  if (next) {
+                    const keys = notifications.map((n) => String(n.id ?? ''));
+                    const merged = Array.from(new Set([...readSeen(), ...keys]));
+                    writeSeen(merged);
+                    setNotificationCount(0);
+                  }
+                }}
                 className="relative p-2 bg-white dark:bg-[#1A110B] rounded-full border border-slate-100 dark:border-white/10 shadow-sm transition-colors hover:scale-105 active:scale-95"
               >
                 <Bell size={20} className="text-slate-600 dark:text-slate-300" />
@@ -518,8 +574,18 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ orders = [], onNotification
                                 </span>
                                 <button
                                   type="button"
-                                  onClick={(e) => {
+                                  onClick={async (e) => {
                                     e.stopPropagation();
+                                    const key = String(notification.id ?? "");
+                                    try {
+                                      if (key) await dismissNotification(key);
+                                    } catch {
+                                      // ignore API errors
+                                    }
+                                    const mergedSeen = Array.from(new Set([...readSeen(), key]));
+                                    writeSeen(mergedSeen);
+                                    const mergedDismissed = Array.from(new Set([...readDismissed(), key]));
+                                    writeDismissed(mergedDismissed);
                                     setNotifications((prev) => prev.filter((n) => n.id !== notification.id));
                                     setNotificationCount((prev) => Math.max(0, prev - 1));
                                   }}
@@ -550,7 +616,13 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ orders = [], onNotification
                   <div className="p-3 border-t border-slate-100 dark:border-white/5">
                     <button
                       type="button"
-                      onClick={() => setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))}
+                      onClick={() => {
+                        const keys = notifications.map((n) => String(n.id ?? ''));
+                        const mergedSeen = Array.from(new Set([...readSeen(), ...keys]));
+                        writeSeen(mergedSeen);
+                        setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+                        setNotificationCount(0);
+                      }}
                       className="w-full text-center text-sm text-[#BD5E0A] font-bold hover:underline"
                     >
                       Mark all as read

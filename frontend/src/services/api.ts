@@ -433,6 +433,11 @@ export const fetchNotifications = async (): Promise<{ notifications: Notificatio
   return apiRequest("/notifications");
 };
 
+export const dismissNotification = async (key: string): Promise<{ message?: string }> => {
+  const encoded = encodeURIComponent(key);
+  return apiRequest(`/notifications/${encoded}`, { method: "DELETE" });
+};
+
 export const fetchDashboard = async (): Promise<DashboardData> => {
   return apiRequest("/dashboard");
 };
