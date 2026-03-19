@@ -6,11 +6,31 @@ use App\Http\Controllers\Controller;
 use App\Models\DiningTable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class DiningTableController extends Controller
 {
+    private function customerMenuBaseUrl(): string
+    {
+        return rtrim((string) config('app.frontend_url', env('FRONTEND_URL', config('app.url'))), '/');
+    }
+
+    private function buildCustomerMenuUrl(int $tableId, string $tableName): string
+    {
+        return $this->customerMenuBaseUrl() . '/menu?table=' . $tableId . '&name=' . rawurlencode($tableName);
+    }
+
+    private function resolveQrCode(DiningTable $table): string
+    {
+        $qrCode = $table->qr_code;
+
+        if (is_string($qrCode) && $qrCode !== '') {
+            return $qrCode;
+        }
+
+        return $this->buildCustomerMenuUrl((int) $table->id, $table->name);
+    }
+
     /**
      * Map DB table shape to frontend table shape.
      *
@@ -23,7 +43,7 @@ class DiningTableController extends Controller
             'name' => $table->name,
             'capacity' => (int) $table->seats,
             'status' => $table->is_active ? 'active' : 'inactive',
-            'qrCode' => $table->qr_code ?: ('QR-TBL-' . str_pad((string) $table->id, 3, '0', STR_PAD_LEFT)),
+            'qrCode' => $this->resolveQrCode($table),
             // Keep raw fields for compatibility with existing consumers.
             'seats' => (int) $table->seats,
             'is_active' => (bool) $table->is_active,
@@ -89,8 +109,14 @@ class DiningTableController extends Controller
             'seats' => $seats,
             'status' => $validated['status'] ?? 'available',
             'is_active' => $validated['is_active'] ?? true,
-            'qr_code' => $validated['qr_code'] ?? ('QR-' . Str::upper(Str::random(10))),
+            'qr_code' => $validated['qr_code'] ?? '',
         ]);
+
+        if (blank($table->qr_code)) {
+            $table->forceFill([
+                'qr_code' => $this->buildCustomerMenuUrl((int) $table->id, $table->name),
+            ])->save();
+        }
 
         return response()->json($this->transform($table), 201);
     }
@@ -131,6 +157,13 @@ class DiningTableController extends Controller
         if (array_key_exists('status', $validated) && in_array($validated['status'], ['active', 'inactive'], true)) {
             $validated['is_active'] = $validated['status'] === 'active';
             unset($validated['status']);
+        }
+
+        if (
+            ! array_key_exists('qr_code', $validated)
+            && array_key_exists('name', $validated)
+        ) {
+            $validated['qr_code'] = $this->buildCustomerMenuUrl((int) $table->id, $validated['name']);
         }
 
         $table->update($validated);

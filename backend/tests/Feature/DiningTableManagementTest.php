@@ -12,6 +12,14 @@ class DiningTableManagementTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config()->set('app.url', 'http://127.0.0.1:8000');
+        config()->set('app.frontend_url', 'http://pos.test');
+    }
+
     public function test_create_table_accepts_active_status_and_qr_code_alias(): void
     {
         $admin = User::factory()->create([
@@ -81,6 +89,36 @@ class DiningTableManagementTest extends TestCase
             'id' => $table->id,
             'is_active' => false,
             'qr_code' => 'QR-NEW-2',
+        ]);
+    }
+
+    public function test_create_table_generates_customer_menu_qr_url_by_default(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'admin',
+            'is_active' => true,
+        ]);
+
+        $token = 'test-admin-token';
+        Cache::put("api_auth_token:{$token}", $admin->id, now()->addHours(1));
+
+        $response = $this
+            ->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/tables', [
+                'name' => 'Window Table',
+                'capacity' => 4,
+            ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('name', 'Window Table')
+            ->assertJsonPath('qrCode', 'http://pos.test/menu?table=1&name=Window%20Table')
+            ->assertJsonPath('qr_code', 'http://pos.test/menu?table=1&name=Window%20Table');
+
+        $this->assertDatabaseHas('dining_tables', [
+            'id' => 1,
+            'name' => 'Window Table',
+            'qr_code' => 'http://pos.test/menu?table=1&name=Window%20Table',
         ]);
     }
 }

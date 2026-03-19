@@ -23,13 +23,43 @@ import {
   updateTable,
 } from "../services/api";
 
+function resolveCustomerMenuBaseUrl(): string {
+  const configuredBaseUrl = (import.meta.env.VITE_FRONTEND_URL as string | undefined)?.trim();
+  return (configuredBaseUrl || window.location.origin).replace(/\/+$/, "");
+}
+
+function isLocalHostname(hostname: string): boolean {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+}
+
 function createQrCode(id: number, name: string): string {
-  const baseUrl = window.location.origin;
-  return `${baseUrl}/menu?table=${id}&name=${encodeURIComponent(name)}`;
+  return `${resolveCustomerMenuBaseUrl()}/menu?table=${id}&name=${encodeURIComponent(name)}`;
 }
 
 function getQrValue(table: ApiTable): string {
-  return table.qrCode ?? table.qr_code ?? "No QR";
+  const generatedQrValue = createQrCode(table.id, table.name);
+  const configuredBaseUrl = (import.meta.env.VITE_FRONTEND_URL as string | undefined)?.trim();
+
+  if (configuredBaseUrl) {
+    return generatedQrValue;
+  }
+
+  const qrValue = table.qrCode ?? table.qr_code;
+
+  if (typeof qrValue === "string") {
+    try {
+      const parsedUrl = new URL(qrValue);
+      const currentUrl = new URL(window.location.origin);
+      if (isLocalHostname(parsedUrl.hostname) && !isLocalHostname(currentUrl.hostname)) {
+        return generatedQrValue;
+      }
+      return parsedUrl.toString();
+    } catch {
+      // Fall through to a generated menu URL for legacy placeholder values.
+    }
+  }
+
+  return generatedQrValue;
 }
 
 export default function Tables() {
