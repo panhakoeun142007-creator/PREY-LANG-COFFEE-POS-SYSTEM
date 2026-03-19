@@ -152,4 +152,6 @@ Route::prefix('customer')->group(function () {
     Route::get('/products', [ProductController::class, 'index']);
     Route::get('/categories', [CategoryController::class, 'index']);
     Route::post('/orders', [OrderController::class, 'store']);
+    Route::get('/orders/{order}', [OrderController::class, 'customerStatus']);
+    Route::post('/orders/{order}/pickup', [OrderController::class, 'pickup']);
 });

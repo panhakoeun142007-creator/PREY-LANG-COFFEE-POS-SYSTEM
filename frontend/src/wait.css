@@ -191,6 +191,22 @@
   cursor: pointer;
 }
 
+.wait-pickup-btn[disabled],
+.wait-pickup-btn[aria-disabled="true"] {
+  background: #cbd5e1;
+  color: #64748b;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.wait-pickup-note {
+  margin-top: 8px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: #ffd8b2;
+  text-align: center;
+}
+
 .wait-preparing-list {
   display: flex;
   flex-direction: column;

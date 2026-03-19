@@ -34,7 +34,7 @@ const navGroups = [
   },
   {
     group: 'Inventory',
-    items: [{ id: 'recipe', label: 'Recipe', icon: BookOpen }],
+    items: [{ id: 'recipe', label: 'Receipt', icon: BookOpen }],
   },
 ];
 

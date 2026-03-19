@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import "../wait.css";
 
-function Wait({ cartItems = [], onPickUpNow, onBackToMenu, onBack }) {
+function Wait({ cartItems = [], onPickUpNow, onBackToMenu, onBack, canPickUp = false, pickupHint }) {
   const orderStatus = useMemo(() => {
     const expandedItems = cartItems.flatMap((item) => {
       const quantity = Number.isFinite(Number(item.quantity)) ? Math.max(0, Number(item.quantity)) : 0;
@@ -113,10 +113,18 @@ function Wait({ cartItems = [], onPickUpNow, onBackToMenu, onBack }) {
         <button
           className="wait-pickup-btn"
           type="button"
-          onClick={onPickUpNow ?? onBackToMenu}
+          onClick={canPickUp ? (onPickUpNow ?? onBackToMenu) : undefined}
+          disabled={!canPickUp}
+          aria-disabled={!canPickUp}
+          title={canPickUp ? "Pick up now" : (pickupHint || "Wait for staff to mark Ready")}
         >
           PICK UP NOW
         </button>
+        {!canPickUp && (
+          <p className="wait-pickup-note">
+            {pickupHint || "Please wait until staff marks your order as READY."}
+          </p>
+        )}
       </section>
 
       <section className="wait-preparing-list">

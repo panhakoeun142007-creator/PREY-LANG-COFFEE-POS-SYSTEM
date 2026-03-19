@@ -75,9 +75,15 @@ export default function CustomerMenuApp() {
     const s = readStoredState();
     return typeof s?.qrOrderNumber === "string" ? s.qrOrderNumber : "#A-000";
   });
+  const [lastOrderId, setLastOrderId] = useState(() => {
+    const s = readStoredState();
+    const value = Number(s?.lastOrderId);
+    return Number.isFinite(value) && value > 0 ? value : null;
+  });
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem("customer-theme") === "dark" ? "dark" : "light";
   });
+  const [orderStatus, setOrderStatus] = useState(null);
 
   useEffect(() => {
     localStorage.setItem("customer-theme", theme);
@@ -94,9 +100,9 @@ export default function CustomerMenuApp() {
       cartItems.length === 0 && currentPage !== "menu" ? "menu" : currentPage;
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ cartItems, currentPage: safePage, detailTarget, qrOrderNumber })
+      JSON.stringify({ cartItems, currentPage: safePage, detailTarget, qrOrderNumber, lastOrderId })
     );
-  }, [cartItems, currentPage, detailTarget, qrOrderNumber]);
+  }, [cartItems, currentPage, detailTarget, qrOrderNumber, lastOrderId]);
 
   // Store the full item snapshot in detailTarget so lookup never fails
   const activeDetailItem = detailTarget ?? null;
@@ -251,7 +257,10 @@ export default function CustomerMenuApp() {
         console.error("Order failed:", data);
         return null;
       }
-      return data.queue_number ?? data.id ?? null;
+      return {
+        orderId: data.id ?? null,
+        queueNumber: data.queue_number ?? data.id ?? null,
+      };
     } catch (error) {
       console.error("Error submitting order:", error);
       return null;
@@ -260,11 +269,14 @@ export default function CustomerMenuApp() {
 
   const confirmCheckout = async (paymentMethod = "card") => {
     if (cartItems.length === 0) { setCurrentPage("menu"); return; }
-    const queueNumber = await submitOrderToBackend(paymentMethod);
-    if (queueNumber) {
-      setQrOrderNumber(`#A-${String(queueNumber).padStart(3, "0")}`);
+    const result = await submitOrderToBackend(paymentMethod);
+    if (result?.queueNumber) {
+      setQrOrderNumber(`#A-${String(result.queueNumber).padStart(3, "0")}`);
     } else {
       setQrOrderNumber(`#A-${Math.floor(Math.random() * 900 + 100)}`);
+    }
+    if (result?.orderId) {
+      setLastOrderId(Number(result.orderId));
     }
     if (paymentMethod === "card") {
       setCurrentPage("qr-payment");
@@ -272,6 +284,58 @@ export default function CustomerMenuApp() {
     }
     setCurrentPage("counter-payment");
   };
+
+  const markOrderPickedUp = async () => {
+    if (!lastOrderId) return;
+    try {
+      await fetch(`${API_BASE}/api/customer/orders/${lastOrderId}/pickup`, {
+        method: "POST",
+      });
+    } catch (error) {
+      console.error("Error confirming pickup:", error);
+    }
+  };
+
+  const handleEnjoyCoffee = async () => {
+    await markOrderPickedUp();
+    setCartItems([]);
+    setCurrentPage("menu");
+    setLastOrderId(null);
+    setQrOrderNumber("#A-000");
+    setOrderStatus(null);
+  };
+
+  const fetchCustomerOrderStatus = async () => {
+    if (!lastOrderId) return;
+    try {
+      const response = await fetch(`${API_BASE}/api/customer/orders/${lastOrderId}`);
+      if (!response.ok) return;
+      const data = await response.json();
+      const status = typeof data?.status === "string" ? data.status.toLowerCase() : null;
+      if (status) setOrderStatus(status);
+    } catch (error) {
+      console.error("Error fetching order status:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (!lastOrderId) return;
+    if (currentPage !== "wait" && currentPage !== "ready") return;
+    void fetchCustomerOrderStatus();
+    const interval = setInterval(() => {
+      void fetchCustomerOrderStatus();
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [lastOrderId, currentPage]);
+
+  const canPickUp = orderStatus === "ready" || orderStatus === "completed";
+  const pickupHint = orderStatus === "ready"
+    ? "Ready for pickup"
+    : orderStatus === "preparing"
+      ? "Your order is preparing"
+      : orderStatus === "pending"
+        ? "Order received. Please wait."
+        : "Please wait until staff marks your order as READY.";
 
   return (
     <div className="customer-menu-shell" data-theme={theme}>
@@ -332,15 +396,23 @@ export default function CustomerMenuApp() {
         <Wait
           cartItems={cartItems}
           onBack={() => setCurrentPage("counter-payment")}
-          onPickUpNow={() => setCurrentPage("ready")}
+          onPickUpNow={() => {
+            if (!canPickUp) {
+              window.alert("Please wait. Staff has not marked your order as READY yet.");
+              return;
+            }
+            setCurrentPage("ready");
+          }}
           onBackToMenu={() => { setCartItems([]); setCurrentPage("menu"); }}
+          canPickUp={canPickUp}
+          pickupHint={pickupHint}
         />
       )}
       {effectivePage === "ready" && (
         <Ready
           tableNumber={tableName}
           onBack={() => setCurrentPage("wait")}
-          onEnjoyCoffee={() => { setCartItems([]); setCurrentPage("menu"); }}
+          onEnjoyCoffee={() => { void handleEnjoyCoffee(); }}
         />
       )}
     </div>

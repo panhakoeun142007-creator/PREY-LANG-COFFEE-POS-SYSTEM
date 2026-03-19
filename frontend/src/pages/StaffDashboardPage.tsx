@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Toaster, toast } from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import Dashboard from "../components/Dashboard";
 import Orders from "../components/Orders";
 import OrderHistory from "../components/OrderHistory";
+import RecipeView from "../components/RecipeView";
 import { Button } from "../components/ui/button";
 import {
   Dialog,
@@ -17,6 +18,7 @@ import {
 import { Input } from "../components/ui/input";
 import {
   fetchLiveOrders,
+  fetchOrderHistory,
   updateOrderStatus as updateOrderStatusApi,
   fetchCurrentUser,
   fetchManager,
@@ -48,6 +50,13 @@ interface UiOrder {
   timestamp: string;
   total: number;
   paymentMethod?: "KHQR" | "Cash" | "Card";
+}
+
+interface RecipeLog {
+  id: string;
+  orderId: string;
+  tableNo: string;
+  name: string;
 }
 
 function toUiStatus(raw: string): OrderStatus {
@@ -112,6 +121,16 @@ export default function StaffDashboardPage() {
   const [orders, setOrders] = useState<UiOrder[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<UiOrder | null>(null);
+  const [recipeLogs, setRecipeLogs] = useState<RecipeLog[]>([]);
+  const [recipeLoading, setRecipeLoading] = useState(false);
+  const [recipeError, setRecipeError] = useState<string | null>(null);
+  const [historyOrders, setHistoryOrders] = useState<UiOrder[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historySummary, setHistorySummary] = useState<{ completed: number; cancelled: number }>({
+    completed: 0,
+    cancelled: 0,
+  });
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(() => auth.getUser() as CurrentUser | null);
   const [manager, setManager] = useState<ManagerInfo | null>(null);
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
@@ -119,6 +138,8 @@ export default function StaffDashboardPage() {
   const [profileImagePreview, setProfileImagePreview] = useState<string | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const lastOrderIdsRef = useRef<Set<string>>(new Set());
+  const didInitOrdersRef = useRef(false);
 
   const orderDisplayIdMap = buildDisplayIdMap(orders.map((o) => o.id));
 
@@ -133,7 +154,21 @@ export default function StaffDashboardPage() {
     setIsLoadingOrders(true);
     try {
       const data = await fetchLiveOrders();
-      setOrders(data.map(mapApiOrder));
+      const mapped = data.map(mapApiOrder);
+      setOrders(mapped);
+
+      const nextIds = new Set(mapped.map((o) => o.id));
+      if (didInitOrdersRef.current) {
+        let newCount = 0;
+        nextIds.forEach((id) => {
+          if (!lastOrderIdsRef.current.has(id)) newCount += 1;
+        });
+        if (newCount > 0) {
+          toast.success(`${newCount} new order${newCount > 1 ? "s" : ""} received.`);
+        }
+      }
+      lastOrderIdsRef.current = nextIds;
+      didInitOrdersRef.current = true;
     } catch {
       toast.error("Unable to load orders.");
     } finally {
@@ -145,7 +180,95 @@ export default function StaffDashboardPage() {
     document.documentElement.classList.toggle("dark", isDark);
   }, [isDark]);
 
-  useEffect(() => { void loadOrders(); }, [loadOrders]);
+  useEffect(() => {
+    void loadOrders();
+    const interval = setInterval(() => {
+      void loadOrders();
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [loadOrders]);
+
+  const loadHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      const payload = await fetchOrderHistory({ status: "completed", sort_by: "updated_at", sort_order: "desc" });
+      const rows = Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : [];
+      setHistoryOrders(rows.map(mapApiOrder));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to load order history.";
+      setHistoryError(message);
+      setHistoryOrders([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  const loadHistorySummary = useCallback(async () => {
+    try {
+      const payload = await fetchOrderHistory({ page: 1 });
+      const summary = payload?.summary || {};
+      const completed = Number(summary.completed_count ?? 0);
+      const cancelled = Number(summary.cancelled_count ?? 0);
+      setHistorySummary({
+        completed: Number.isFinite(completed) ? completed : 0,
+        cancelled: Number.isFinite(cancelled) ? cancelled : 0,
+      });
+    } catch {
+      setHistorySummary({ completed: 0, cancelled: 0 });
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadHistorySummary();
+    const interval = setInterval(() => {
+      void loadHistorySummary();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [loadHistorySummary]);
+
+  const loadRecipeLogs = useCallback(async () => {
+    setRecipeLoading(true);
+    setRecipeError(null);
+    try {
+      const response = await fetch("/api/recipe-logs");
+      if (!response.ok) throw new Error("Failed to load receipt history.");
+      const payload = await response.json();
+      const mapped: RecipeLog[] = (Array.isArray(payload) ? payload : []).map((log) => ({
+        id: String(log.id),
+        orderId: String(log.order_id ?? log.orderId ?? ""),
+        tableNo: String(log.table_no ?? log.tableNo ?? ""),
+        name: String(log.name ?? ""),
+      }));
+      setRecipeLogs(mapped);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to load receipt history.";
+      setRecipeError(message);
+      setRecipeLogs([]);
+    } finally {
+      setRecipeLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "recipe") {
+      void loadRecipeLogs();
+    }
+  }, [activeTab, loadRecipeLogs]);
+
+  useEffect(() => {
+    if (activeTab !== "history") return;
+    void loadHistory();
+    const interval = setInterval(() => {
+      void loadHistory();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [activeTab, loadHistory]);
+
+  useEffect(() => {
+    if (activeTab !== "orders") return;
+    void loadHistory();
+  }, [activeTab, loadHistory]);
 
   useEffect(() => {
     let cancelled = false;
@@ -182,6 +305,20 @@ export default function StaffDashboardPage() {
     } catch {
       toast.error(`Failed to update order ${orderDisplayIdMap[id] ?? id}.`);
     }
+  }
+
+  async function handleDeleteRecipeLog(logId: string) {
+    const token = localStorage.getItem("auth_token");
+    const res = await fetch(`/api/recipe-logs/${logId}`, {
+      method: "DELETE",
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+    if (!res.ok) {
+      throw new Error("Failed to delete receipt log.");
+    }
+    setRecipeLogs((prev) => prev.filter((log) => log.id !== logId));
   }
 
   function openProfileDialog() {
@@ -238,9 +375,31 @@ export default function StaffDashboardPage() {
     }
     switch (activeTab) {
       case "orders":
-        return <Orders orders={orders} updateStatus={handleUpdateOrderStatus} />;
+        return (
+          <Orders
+            orders={orders}
+            historyOrders={historyOrders}
+            updateStatus={handleUpdateOrderStatus}
+            summaryCounts={historySummary}
+          />
+        );
       case "history":
-        return <OrderHistory orders={orders} />;
+        if (historyLoading) {
+          return <p className="text-slate-500 dark:text-slate-400 font-bold">Loading order history...</p>;
+        }
+        if (historyError) {
+          return <p className="text-red-500 font-bold">{historyError}</p>;
+        }
+        return <OrderHistory orders={historyOrders} />;
+      case "recipe":
+        return (
+          <RecipeView
+            history={recipeLogs}
+            isLoading={recipeLoading}
+            error={recipeError}
+            onDeleteLog={handleDeleteRecipeLog}
+          />
+        );
       default:
         return (
           <Dashboard

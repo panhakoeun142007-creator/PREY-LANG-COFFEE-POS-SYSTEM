@@ -18,7 +18,7 @@ class OrderController extends Controller
     /**
      * Cache TTL for live orders (30 seconds).
      */
-    private const CACHE_TTL_LIVE = 30;
+    private const CACHE_TTL_LIVE = 5;
 
     /**
      * Cache TTL for order history (2 minutes).
@@ -167,8 +167,8 @@ class OrderController extends Controller
      */
     public function live(): JsonResponse
     {
-        // Cache live orders for 30 seconds to reduce database load
-        $cacheKey = 'orders_live_' . now()->format('Y-m-d-H-i');
+        // Cache live orders briefly to reduce database load
+        $cacheKey = 'orders_live_' . now()->format('Y-m-d-H-i-s');
         
         $orders = Cache::remember($cacheKey, self::CACHE_TTL_LIVE, function () {
             return Order::query()
@@ -289,5 +289,41 @@ class OrderController extends Controller
         $order->update(['status' => $validated['status']]);
 
         return response()->json($order->fresh()->load(['table', 'items.product']));
+    }
+
+    /**
+     * Customer pickup confirmation (public).
+     */
+    public function pickup(Order $order): JsonResponse
+    {
+        if ($order->status === 'cancelled') {
+            return response()->json(['message' => 'Order has been cancelled.'], 409);
+        }
+
+        if ($order->status === 'completed') {
+            return response()->json($order->fresh()->load(['table', 'items.product']));
+        }
+
+        if ($order->status !== 'ready') {
+            return response()->json(['message' => 'Order is not ready for pickup yet.'], 409);
+        }
+
+        $order->update(['status' => 'completed']);
+
+        return response()->json($order->fresh()->load(['table', 'items.product']));
+    }
+
+    /**
+     * Customer order status (public).
+     */
+    public function customerStatus(Order $order): JsonResponse
+    {
+        return response()->json([
+            'id' => $order->id,
+            'status' => $order->status,
+            'queue_number' => $order->queue_number,
+            'table' => $order->table?->name,
+            'updated_at' => $order->updated_at,
+        ]);
     }
 }

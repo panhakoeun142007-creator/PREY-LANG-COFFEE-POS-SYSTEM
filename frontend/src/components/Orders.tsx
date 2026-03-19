@@ -30,16 +30,22 @@ function buildOrderDisplayIdMap(ids: string[]): Record<string, string> {
 interface OrdersProps {
   orders: Order[];
   updateStatus: (id: string, newStatus: OrderStatus) => void;
+  summaryCounts?: { completed?: number; cancelled?: number };
+  historyOrders?: Order[];
 }
 
-const Orders: React.FC<OrdersProps> = ({ orders = [], updateStatus }) => {
+const Orders: React.FC<OrdersProps> = ({ orders = [], updateStatus, summaryCounts, historyOrders = [] }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'list' | 'tables'>('list');
   const [activeTab, setActiveTab] = useState<'Live' | 'Completed' | 'Cancelled'>('Live');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const orderDisplayIdMap = useMemo(
-    () => buildOrderDisplayIdMap((Array.isArray(orders) ? orders : []).map((order) => order.id)),
-    [orders],
+    () => buildOrderDisplayIdMap(
+      (Array.isArray(orders) ? orders : [])
+        .concat(Array.isArray(historyOrders) ? historyOrders : [])
+        .map((order) => order.id)
+    ),
+    [orders, historyOrders],
   );
 
   const allTables = ['Table 01', 'Table 02', 'Table 03', 'Table 04', 'Table 05', 'Table 06', 'Table 07', 'Table 08', 'Table 09', 'Table 10', 'Table 11', 'Table 12'];
@@ -83,9 +89,12 @@ const Orders: React.FC<OrdersProps> = ({ orders = [], updateStatus }) => {
     return sources;
   }, [orders]);
 
-  const filteredOrders = orders.filter(order => {
-    const matchesTab = 
-      activeTab === 'Live' 
+  const completedOrders = historyOrders.filter((o) => o.status === 'Completed');
+  const cancelledOrders = historyOrders.filter((o) => o.status === 'Cancelled');
+
+  const filteredOrders = (activeTab === 'Live' ? orders : activeTab === 'Completed' ? completedOrders : cancelledOrders).filter(order => {
+    const matchesTab =
+      activeTab === 'Live'
         ? (order.status !== 'Completed' && order.status !== 'Cancelled')
         : order.status === activeTab;
 
@@ -98,6 +107,14 @@ const Orders: React.FC<OrdersProps> = ({ orders = [], updateStatus }) => {
 
   const getTabCount = (tab: string) => {
     if (tab === 'Live') return orders.filter(o => o.status !== 'Completed' && o.status !== 'Cancelled').length;
+    if (tab === 'Completed') {
+      const value = summaryCounts?.completed;
+      if (Number.isFinite(value)) return Number(value);
+    }
+    if (tab === 'Cancelled') {
+      const value = summaryCounts?.cancelled;
+      if (Number.isFinite(value)) return Number(value);
+    }
     return orders.filter(o => o.status === tab).length;
   };
 
