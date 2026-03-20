@@ -70,6 +70,12 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, historyOrders = [], onVie
 
   const user = currentUser ?? storedUser;
   const userName = (user?.name ?? 'Staff').toString();
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 18) return "Good afternoon";
+    return "Good evening";
+  }, []);
   const userRole = (user?.role ?? 'staff').toString().toUpperCase();
   const userInitials =
     userName
@@ -213,7 +219,7 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, historyOrders = [], onVie
       {/* Header with Auto-Date and Profile */}
       <header className="flex justify-between items-end">
         <div>
-          <h2 className="text-3xl font-bold text-slate-900 dark:text-white transition-colors">Good morning, Barista!</h2>
+          <h2 className="text-3xl font-bold text-slate-900 dark:text-white transition-colors">{greeting}, {userName}!</h2>
           <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mt-1">
             <Clock size={16} />
             <span className="text-sm font-medium">

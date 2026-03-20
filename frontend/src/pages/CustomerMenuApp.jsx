@@ -216,6 +216,7 @@ export default function CustomerMenuApp() {
         sugarLevel: details.sugarLevel,
         milkOption: details.milkOption,
         extras: details.extras,
+        quantity: Math.max(1, Number(details.quantity ?? prev[index].quantity ?? 1)),
       };
       const remaining = prev.filter((_, i) => i !== index);
       const mergeIndex = remaining.findIndex(

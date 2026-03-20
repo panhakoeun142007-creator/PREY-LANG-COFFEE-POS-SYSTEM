@@ -43,6 +43,7 @@ function Detail({
   const [selectedSize, setSelectedSize] = useState(item?.selectedSize ?? "M");
   const [sugarLevel, setSugarLevel] = useState(item?.sugarLevel ?? "100%");
   const [milkOption, setMilkOption] = useState(item?.milkOption ?? "Whole");
+  const [quantity, setQuantity] = useState(Math.max(1, Number(item?.quantity ?? 1)));
   const [extras, setExtras] = useState(
     item?.extras ?? {
       extraShot: false,
@@ -56,6 +57,7 @@ function Detail({
     setSelectedSize(item.selectedSize ?? "M");
     setSugarLevel(item.sugarLevel ?? "100%");
     setMilkOption(item.milkOption ?? "Whole");
+    setQuantity(Math.max(1, Number(item.quantity ?? 1)));
     setExtras(
       item.extras ?? {
         extraShot: false,
@@ -75,6 +77,7 @@ function Detail({
       sugarLevel,
       milkOption,
       extras,
+      quantity,
     });
   };
   const previewUnitPrice = getPreviewUnitPrice(item, selectedSize, milkOption, extras);
@@ -117,6 +120,27 @@ function Detail({
         <div className="detail-headline">
           <h3>{item.name}</h3>
           <p>${previewUnitPrice.toFixed(2)}</p>
+        </div>
+
+        <div className="detail-section-block">
+          <h4>Quantity</h4>
+          <div className="detail-qty">
+            <button
+              className="detail-qty-btn"
+              onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+              aria-label="Decrease quantity"
+            >
+              -
+            </button>
+            <span className="detail-qty-value">{quantity}</span>
+            <button
+              className="detail-qty-btn"
+              onClick={() => setQuantity((q) => q + 1)}
+              aria-label="Increase quantity"
+            >
+              +
+            </button>
+          </div>
         </div>
 
         <p className="detail-description-text">
