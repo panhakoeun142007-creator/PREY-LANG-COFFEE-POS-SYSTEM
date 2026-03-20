@@ -47,6 +47,14 @@ interface OrderHistoryProps {
 }
 
 function ReceiptCard({ order, displayId }: { order: Order; displayId: string }) {
+  const receiptDate = new Date(order.timestamp || Date.now());
+  const receiptDateText = receiptDate.toLocaleString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
   return (
     <div className="receipt-card">
       <div className="receipt-head">
@@ -61,6 +69,10 @@ function ReceiptCard({ order, displayId }: { order: Order; displayId: string }) 
         <div className="receipt-meta-row">
           <span className="receipt-label">RECEIPT NO</span>
           <span className="receipt-value">{displayId}</span>
+        </div>
+        <div className="receipt-meta-row">
+          <span className="receipt-label">DATE</span>
+          <span className="receipt-value">{receiptDateText}</span>
         </div>
         <div className="receipt-meta-row">
           <span className="receipt-label">TABLE</span>
