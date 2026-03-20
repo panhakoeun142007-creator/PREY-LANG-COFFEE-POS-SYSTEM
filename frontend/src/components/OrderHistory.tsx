@@ -59,52 +59,62 @@ function ReceiptCard({ order, displayId }: { order: Order; displayId: string }) 
     <div className="receipt-card">
       <div className="receipt-head">
         <img src={coffeeLogo} className="receipt-logo" alt="logo" />
-        <h2 className="receipt-title">PREY LANG COFFEE</h2>
-        <p className="receipt-sub">Street 371, Phnom Penh</p>
+        <div className="receipt-brand">
+          <h2 className="receipt-title">Prey Lang Coffee</h2>
+          <p className="receipt-sub">Street 371, Phnom Penh</p>
+        </div>
       </div>
 
-      <div className="receipt-line" />
+      <div className="receipt-divider" />
 
       <div className="receipt-meta">
         <div className="receipt-meta-row">
-          <span className="receipt-label">RECEIPT NO</span>
+          <span className="receipt-label">Receipt</span>
           <span className="receipt-value">{displayId}</span>
         </div>
         <div className="receipt-meta-row">
-          <span className="receipt-label">DATE</span>
+          <span className="receipt-label">Date</span>
           <span className="receipt-value">{receiptDateText}</span>
         </div>
         <div className="receipt-meta-row">
-          <span className="receipt-label">TABLE</span>
+          <span className="receipt-label">Table</span>
           <span className="receipt-value">{order.tableNo}</span>
         </div>
       </div>
 
-      <div className="receipt-line" />
+      <div className="receipt-divider soft" />
 
       <div className="receipt-items">
+        <div className="receipt-items-head">
+          <span className="receipt-items-label">Item</span>
+          <span className="receipt-items-label">Amount</span>
+        </div>
         {(order.items || []).map((item, i) => (
           <div key={i} className="receipt-item">
             <div className="receipt-item-row">
-              <p className="receipt-item-name">{item.name.toUpperCase()}</p>
+              <p className="receipt-item-name">{item.name}</p>
               <p className="receipt-item-price">
                 ${(item.quantity * (item.price || 0)).toFixed(2)}
               </p>
             </div>
             <p className="receipt-item-sub">
-              {item.quantity}x @ ${(item.price || 0).toFixed(2)}
+              {item.quantity} x ${(item.price || 0).toFixed(2)}
             </p>
           </div>
         ))}
       </div>
 
+      <div className="receipt-divider" />
+
       <div className="receipt-total">
-        <span className="receipt-total-label">TOTAL</span>
+        <span className="receipt-total-label">Total</span>
         <span className="receipt-total-value">${(order.total || 0).toFixed(2)}</span>
       </div>
 
-      <p className="receipt-thanks">THANK YOU FOR YOUR VISIT!</p>
-      <div className="receipt-cut" />
+      <div className="receipt-footer">
+        <p className="receipt-thanks">Thank you for your visit</p>
+        <p className="receipt-note">Save this receipt for future reference.</p>
+      </div>
     </div>
   );
 }
@@ -287,53 +297,64 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ orders = [], onNotification
 
           .receipt-card {
             width: min(92vw, 380px);
-            background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
-            border: 1px solid #e5e7eb;
-            border-radius: 22px;
-            padding: 24px 20px;
-            color: #0f172a;
+            background: #ffffff;
+            border: 1px solid #e6e3de;
+            border-radius: 18px;
+            padding: 22px 20px;
+            color: #1f2937;
             box-shadow:
-              0 24px 55px -22px rgba(15, 23, 42, 0.55),
-              0 12px 24px -14px rgba(15, 23, 42, 0.35);
+              0 18px 38px -20px rgba(15, 23, 42, 0.35),
+              0 10px 20px -16px rgba(15, 23, 42, 0.28);
             font-family: "Segoe UI", Tahoma, sans-serif;
           }
 
           .receipt-head {
-            text-align: center;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            justify-content: center;
             margin-bottom: 6px;
           }
 
           .receipt-logo {
-            width: 48px;
-            height: 48px;
+            width: 40px;
+            height: 40px;
             object-fit: contain;
             display: block;
-            margin: 0 auto 8px;
           }
 
           .receipt-title {
             margin: 0;
-            font-size: 22px;
-            line-height: 1.05;
-            font-weight: 900;
-            letter-spacing: 0.4px;
+            font-size: 20px;
+            line-height: 1.1;
+            font-weight: 800;
+            letter-spacing: 0.3px;
           }
 
           .receipt-sub {
-            margin: 8px 0 0;
-            font-size: 12px;
-            color: #64748b;
+            margin: 4px 0 0;
+            font-size: 11px;
+            color: #6b7280;
             font-weight: 600;
           }
 
-          .receipt-line {
-            border-top: 1px solid #dbe1ea;
-            margin: 14px 0;
+          .receipt-brand {
+            text-align: left;
+          }
+
+          .receipt-divider {
+            border-top: 1px solid #e6e3de;
+            margin: 12px 0;
+          }
+
+          .receipt-divider.soft {
+            border-top-style: dashed;
+            border-top-color: #ece9e3;
           }
 
           .receipt-meta {
             display: grid;
-            gap: 8px;
+            gap: 6px;
           }
 
           .receipt-meta-row {
@@ -344,18 +365,18 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ orders = [], onNotification
           }
 
           .receipt-label {
-            color: #94a3b8;
-            font-size: 12px;
-            font-weight: 800;
+            color: #9ca3af;
+            font-size: 11px;
+            font-weight: 700;
             letter-spacing: 0.2px;
             max-width: 90px;
           }
 
           .receipt-value {
-            color: #0f172a;
-            font-size: 16px;
-            line-height: 1.2;
-            font-weight: 900;
+            color: #1f2937;
+            font-size: 14px;
+            line-height: 1.3;
+            font-weight: 700;
             text-align: right;
             word-break: break-word;
             max-width: 210px;
@@ -364,6 +385,16 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ orders = [], onNotification
           .receipt-items {
             display: grid;
             gap: 10px;
+          }
+
+          .receipt-items-head {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            font-weight: 700;
+            color: #9ca3af;
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
           }
 
           .receipt-item-row {
@@ -376,22 +407,21 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ orders = [], onNotification
           .receipt-item-name,
           .receipt-item-price {
             margin: 0;
-            font-size: 18px;
-            line-height: 1.1;
-            font-weight: 900;
+            font-size: 15px;
+            line-height: 1.2;
+            font-weight: 700;
           }
 
           .receipt-item-sub {
             margin: 5px 0 0;
-            color: #64748b;
-            font-size: 12px;
+            color: #6b7280;
+            font-size: 11px;
             font-weight: 600;
           }
 
           .receipt-total {
-            margin-top: 12px;
-            padding-top: 14px;
-            border-top: 2px solid #17213a;
+            margin-top: 6px;
+            padding-top: 6px;
             display: flex;
             justify-content: space-between;
             align-items: flex-end;
@@ -399,27 +429,41 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ orders = [], onNotification
           }
 
           .receipt-total-label {
-            font-size: 28px;
-            line-height: 1.05;
-            font-weight: 900;
-            color: #0f172a;
+            font-size: 18px;
+            line-height: 1.1;
+            font-weight: 800;
+            color: #1f2937;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
           }
 
           .receipt-total-value {
-            font-size: 42px;
-            line-height: 0.95;
+            font-size: 28px;
+            line-height: 1;
             font-weight: 900;
-            color: #b65d0a;
+            color: #b45309;
             white-space: nowrap;
           }
 
-          .receipt-thanks {
-            margin: 14px 0 0;
+          .receipt-footer {
             text-align: center;
-            font-size: 14px;
-            line-height: 1.15;
-            font-weight: 900;
-            letter-spacing: 0.8px;
+            margin-top: 12px;
+          }
+
+          .receipt-thanks {
+            margin: 0;
+            font-size: 13px;
+            line-height: 1.2;
+            font-weight: 800;
+            letter-spacing: 0.4px;
+            color: #1f2937;
+          }
+
+          .receipt-note {
+            margin: 6px 0 0;
+            font-size: 10px;
+            color: #9ca3af;
+            font-weight: 600;
           }
 
           @media (max-width: 430px) {
@@ -429,27 +473,22 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ orders = [], onNotification
             }
 
             .receipt-value {
-              font-size: 16px;
+              font-size: 13px;
               max-width: 190px;
             }
 
             .receipt-item-name,
             .receipt-item-price {
-              font-size: 17px;
+              font-size: 14px;
             }
 
             .receipt-total-label {
-              font-size: 24px;
+              font-size: 16px;
             }
 
             .receipt-total-value {
-              font-size: 34px;
+              font-size: 24px;
             }
-          }
-
-          .receipt-cut {
-            border-top: 1px dashed #cbd5e1;
-            margin-top: 16px;
           }
 
           #print-preview-actions {
