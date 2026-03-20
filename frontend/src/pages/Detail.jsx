@@ -16,9 +16,9 @@ const SIZE_OPTIONS = [
 ];
 
 const MILK_OPTIONS = [
-  { id: "Whole",    label: "Whole",    priceText: "Included", icon: GiMilkCarton },
-  { id: "Oat Milk", label: "Oat Milk", priceText: "+$0.75",   icon: FaSeedling },
-  { id: "Almond",  label: "Almond",   priceText: "+$0.50",   icon: FaLeaf },
+  { id: "Whole", label: "Whole", priceText: "Included", icon: GiMilkCarton },
+  { id: "Oat Milk", label: "Oat Milk", priceText: "+$0.75", icon: FaSeedling },
+  { id: "Almond", label: "Almond", priceText: "+$0.50", icon: FaLeaf },
 ];
 
 const EXTRA_OPTIONS = [
@@ -81,6 +81,17 @@ function Detail({
     });
   };
   const previewUnitPrice = getPreviewUnitPrice(item, selectedSize, milkOption, extras);
+  const totalPrice = previewUnitPrice * quantity;
+
+  // Handler for direct quantity input change
+  const handleQuantityChange = (e) => {
+    const val = parseInt(e.target.value, 10);
+    if (!isNaN(val) && val > 0) {
+      setQuantity(val);
+    } else if (e.target.value === '') {
+      setQuantity(1);
+    }
+  };
 
   return (
     <div className="detail-page">
@@ -119,7 +130,12 @@ function Detail({
 
         <div className="detail-headline">
           <h3>{item.name}</h3>
-          <p>${previewUnitPrice.toFixed(2)}</p>
+          <div className="detail-price-container">
+            {quantity > 1 && (
+              <p className="detail-unit-price">${previewUnitPrice.toFixed(2)} each</p>
+            )}
+            <p className="detail-total-price">${totalPrice.toFixed(2)}</p>
+          </div>
         </div>
 
         <div className="detail-section-block">
@@ -132,7 +148,13 @@ function Detail({
             >
               -
             </button>
-            <span className="detail-qty-value">{quantity}</span>
+            <input
+              type="number"
+              className="detail-qty-input"
+              value={quantity}
+              onChange={handleQuantityChange}
+              min="1"
+            />
             <button
               className="detail-qty-btn"
               onClick={() => setQuantity((q) => q + 1)}
@@ -221,7 +243,7 @@ function Detail({
         </div>
 
         <button className="detail-save-btn" onClick={save}>
-          Save
+          Add to Order - ${totalPrice.toFixed(2)}
         </button>
       </div>
     </div>

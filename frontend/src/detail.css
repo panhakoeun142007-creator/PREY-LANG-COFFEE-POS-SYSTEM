@@ -134,6 +134,24 @@
   font-size: 1.05rem;
 }
 
+.detail-price-container {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.detail-unit-price {
+  font-size: 0.75rem !important;
+  color: var(--text-secondary) !important;
+  font-weight: 500 !important;
+}
+
+.detail-total-price {
+  font-size: 1.25rem !important;
+  color: var(--accent-color) !important;
+}
+
 .detail-description-text {
   margin-top: 6px;
   color: var(--text-secondary);
@@ -210,6 +228,24 @@
   text-align: center;
   font-weight: 700;
   color: var(--text-primary);
+}
+
+.detail-qty-input {
+  width: 50px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  outline: none;
+  -moz-appearance: textfield;
+}
+
+.detail-qty-input::-webkit-outer-spin-button,
+.detail-qty-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .size-option {
