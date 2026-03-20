@@ -6,7 +6,6 @@ import { useSettings } from "../context/SettingsContext";
 import { auth } from "../utils/auth";
 import {
   fetchNotifications,
-  fetchCurrentUser,
   Notification,
   CurrentUser,
   logoutAdmin,
@@ -227,9 +226,7 @@ export default function AppLayout() {
     try {
       setAccountSaving(true);
       setAccountError(null);
-      await updateCurrentUser(updateData);
-      // Re-fetch from database to ensure refresh shows the saved data.
-      const updated = await fetchCurrentUser();
+      const updated = await updateCurrentUser(updateData);
       setCurrentUser(updated);
       auth.setUser(updated);
       setAccountImageFile(null);

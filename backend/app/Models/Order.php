@@ -52,4 +52,12 @@ class Order extends Model
     {
         return $this->hasMany(OrderItem::class);
     }
+
+    /**
+     * Get action timeline entries for the order.
+     */
+    public function actions(): HasMany
+    {
+        return $this->hasMany(OrderAction::class)->latest();
+    }
 }

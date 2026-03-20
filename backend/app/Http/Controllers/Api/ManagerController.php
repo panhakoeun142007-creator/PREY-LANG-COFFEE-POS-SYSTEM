@@ -32,7 +32,7 @@ class ManagerController extends Controller
                 $imageUrl = $manager->profile_image;
             } else {
                 $base = request()->getSchemeAndHttpHost();
-                $imageUrl = $base . '/storage/' . ltrim($manager->profile_image, '/');
+                $imageUrl = $base . '/media/' . ltrim($manager->profile_image, '/');
             }
         }
 
@@ -45,4 +45,3 @@ class ManagerController extends Controller
         ]);
     }
 }
-

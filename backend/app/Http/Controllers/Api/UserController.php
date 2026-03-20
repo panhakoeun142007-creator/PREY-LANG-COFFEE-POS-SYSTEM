@@ -194,7 +194,7 @@ class UserController extends Controller
                 $imageUrl = $user->profile_image;
             } else {
                 $base = request()->getSchemeAndHttpHost();
-                $imageUrl = $base . '/storage/' . ltrim($user->profile_image, '/');
+                $imageUrl = $base . '/media/' . ltrim($user->profile_image, '/');
             }
         }
 

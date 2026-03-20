@@ -151,7 +151,7 @@ Route::middleware('api.cache')->group(function () {
 Route::prefix('customer')->group(function () {
     Route::get('/products', [ProductController::class, 'index']);
     Route::get('/categories', [CategoryController::class, 'index']);
-    Route::post('/orders', [OrderController::class, 'store']);
+    Route::post('/orders', [OrderController::class, 'customerStore']);
     Route::get('/orders/{order}', [OrderController::class, 'customerStatus']);
     Route::post('/orders/{order}/pickup', [OrderController::class, 'pickup']);
 });

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\DiningTable;
 use App\Models\Order;
+use App\Models\Staff;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
@@ -143,5 +144,138 @@ class OrderHistorySummaryTest extends TestCase
         $searchByTableResponse->assertOk();
         $searchByTableResponse->assertJsonCount(1, 'data');
         $searchByTableResponse->assertJsonPath('data.0.table.name', 'Beta Corner');
+    }
+
+    public function test_history_filters_by_payment_type_and_date_range(): void
+    {
+        $headers = $this->authHeader();
+
+        $oldCompleted = Order::query()->create([
+            'queue_number' => 1,
+            'status' => 'completed',
+            'total_price' => 11.00,
+            'payment_type' => 'cash',
+        ]);
+        $oldCompleted->forceFill([
+            'created_at' => now()->subDays(5),
+            'updated_at' => now()->subDays(5),
+        ])->save();
+
+        $matchingOrder = Order::query()->create([
+            'queue_number' => 2,
+            'status' => 'completed',
+            'total_price' => 22.00,
+            'payment_type' => 'khqr',
+        ]);
+        $matchingOrder->forceFill([
+            'created_at' => now()->subDays(1),
+            'updated_at' => now()->subDays(1),
+        ])->save();
+
+        $oldCancelled = Order::query()->create([
+            'queue_number' => 3,
+            'status' => 'cancelled',
+            'total_price' => 33.00,
+            'payment_type' => 'khqr',
+        ]);
+        $oldCancelled->forceFill([
+            'created_at' => now()->subDays(10),
+            'updated_at' => now()->subDays(10),
+        ])->save();
+
+        $dateFrom = now()->subDays(2)->toDateString();
+        $dateTo = now()->toDateString();
+
+        $response = $this->withHeaders($headers)->getJson(
+            "/api/orders/history?payment_type=khqr&date_from={$dateFrom}&date_to={$dateTo}"
+        );
+
+        $response->assertOk();
+        $response->assertJsonCount(1, 'data');
+        $response->assertJsonPath('data.0.id', $matchingOrder->id);
+        $response->assertJsonPath('summary.completed_count', 1);
+        $response->assertJsonPath('summary.cancelled_count', 0);
+        $response->assertJsonPath('summary.total_revenue', 22);
+    }
+
+    public function test_updating_order_status_moves_order_from_live_to_history(): void
+    {
+        $headers = $this->authHeader();
+
+        $order = Order::query()->create([
+            'queue_number' => 55,
+            'status' => 'ready',
+            'total_price' => 18.50,
+            'payment_type' => 'cash',
+            'created_at' => now()->subMinutes(30),
+            'updated_at' => now()->subMinutes(30),
+        ]);
+
+        $this->withHeaders($headers)
+            ->patchJson("/api/orders/{$order->id}/status", ['status' => 'completed'])
+            ->assertOk()
+            ->assertJsonPath('status', 'completed');
+
+        $this->withHeaders($headers)
+            ->getJson('/api/orders/live')
+            ->assertOk()
+            ->assertJsonMissing(['id' => $order->id]);
+
+        $this->withHeaders($headers)
+            ->getJson('/api/orders/history?status=completed')
+            ->assertOk()
+            ->assertJsonFragment(['id' => $order->id, 'status' => 'completed']);
+    }
+
+    public function test_history_rejects_invalid_filters(): void
+    {
+        $headers = $this->authHeader();
+
+        $this->withHeaders($headers)
+            ->getJson('/api/orders/history?status=pending&date_from=2026-03-20&date_to=2026-03-19')
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['status', 'date_to']);
+    }
+
+    public function test_admin_history_includes_staff_action_timeline(): void
+    {
+        $adminHeaders = $this->authHeader();
+
+        $staff = Staff::query()->create([
+            'name' => 'Staff Timeline',
+            'email' => 'staff.timeline@example.com',
+            'password' => 'staff123',
+            'password_plain' => 'staff123',
+            'salary' => 200,
+            'is_active' => true,
+        ]);
+
+        $staffToken = 'test-staff-token';
+        Cache::put("api_auth_token:{$staffToken}", [
+            'subject_type' => 'staff',
+            'subject_id' => $staff->id,
+        ], now()->addHours(1));
+
+        $order = Order::query()->create([
+            'queue_number' => 77,
+            'status' => 'ready',
+            'total_price' => 25.00,
+            'payment_type' => 'cash',
+        ]);
+
+        $this->withHeaders(['Authorization' => "Bearer {$staffToken}"])
+            ->patchJson("/api/orders/{$order->id}/status", ['status' => 'completed'])
+            ->assertOk();
+
+        $response = $this->withHeaders($adminHeaders)
+            ->getJson('/api/orders/history?status=completed&search=77');
+
+        $response->assertOk();
+        $response->assertJsonPath('data.0.id', $order->id);
+        $response->assertJsonPath('data.0.actions.0.actor_type', 'staff');
+        $response->assertJsonPath('data.0.actions.0.actor_name', 'Staff Timeline');
+        $response->assertJsonPath('data.0.actions.0.action_type', 'status_changed');
+        $response->assertJsonPath('data.0.actions.0.from_status', 'ready');
+        $response->assertJsonPath('data.0.actions.0.to_status', 'completed');
     }
 }

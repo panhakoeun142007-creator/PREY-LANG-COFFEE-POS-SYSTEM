@@ -316,7 +316,7 @@ class StaffController extends Controller
                 $payload['profile_image_url'] = $staff->profile_image;
             } else {
                 $base = request()->getSchemeAndHttpHost();
-                $payload['profile_image_url'] = $base . '/storage/' . ltrim($staff->profile_image, '/');
+                $payload['profile_image_url'] = $base . '/media/' . ltrim($staff->profile_image, '/');
             }
         }
         

@@ -37,6 +37,11 @@ class IngredientSeeder extends Seeder
             ['description' => 'Flavor syrups', 'is_active' => true]
         );
 
+        $pastriesCategory = Category::firstOrCreate(
+            ['name' => 'Pastries'],
+            ['description' => 'Fresh baked pastries', 'is_active' => true]
+        );
+
         // Create ingredients
         $ingredients = [
             // Coffee ingredients
@@ -61,9 +66,9 @@ class IngredientSeeder extends Seeder
             ['name' => 'Chocolate Syrup', 'category_id' => $syrupsCategory->id, 'unit' => 'bottle', 'stock_qty' => 15, 'min_stock' => 3, 'unit_cost' => 7.00],
             
             // Bakery - use existing Pastries category
-            ['name' => 'Croissant Dough', 'category_id' => 3, 'unit' => 'pcs', 'stock_qty' => 50, 'min_stock' => 10, 'unit_cost' => 2.00],
-            ['name' => 'Muffin Batter', 'category_id' => 3, 'unit' => 'pcs', 'stock_qty' => 40, 'min_stock' => 8, 'unit_cost' => 1.50],
-            ['name' => 'Bread Dough', 'category_id' => 3, 'unit' => 'pcs', 'stock_qty' => 30, 'min_stock' => 5, 'unit_cost' => 1.00],
+            ['name' => 'Croissant Dough', 'category_id' => $pastriesCategory->id, 'unit' => 'pcs', 'stock_qty' => 50, 'min_stock' => 10, 'unit_cost' => 2.00],
+            ['name' => 'Muffin Batter', 'category_id' => $pastriesCategory->id, 'unit' => 'pcs', 'stock_qty' => 40, 'min_stock' => 8, 'unit_cost' => 1.50],
+            ['name' => 'Bread Dough', 'category_id' => $pastriesCategory->id, 'unit' => 'pcs', 'stock_qty' => 30, 'min_stock' => 5, 'unit_cost' => 1.00],
         ];
 
         foreach ($ingredients as $ingredient) {

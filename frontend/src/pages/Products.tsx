@@ -63,7 +63,8 @@ const initialFormData: ProductFormData = {
 };
 
 // Get image URL - handles both local uploads and external URLs
-const getImageUrl = (image: string | null | undefined): string => {
+const getImageUrl = (image: string | null | undefined, imageUrl?: string | null): string => {
+  if (imageUrl) return imageUrl;
   if (!image) return "";
   // If it's already a full URL, return it
   if (image.startsWith("http://") || image.startsWith("https://")) {
@@ -93,7 +94,7 @@ const ProductRow = memo(function ProductRow({
     return "$0.00";
   };
 
-  const imageUrl = getImageUrl(product.image);
+  const imageUrl = getImageUrl(product.image, product.image_url);
 
   return (
     <TableRow className="border-b border-[#E5E7EB] hover:bg-[#F9FAFB]">
@@ -168,6 +169,27 @@ export default function Products() {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { categories: apiCategories, refreshCategories } = useCategoryContext();
+
+  const previewImage = useMemo(() => {
+    if (formData.imageFile) {
+      return URL.createObjectURL(formData.imageFile);
+    }
+    if (formData.image_url) {
+      return formData.image_url;
+    }
+    if (formData.image) {
+      return getImageUrl(formData.image);
+    }
+    return "";
+  }, [formData.image, formData.image_url, formData.imageFile]);
+
+  useEffect(() => {
+    return () => {
+      if (previewImage.startsWith("blob:")) {
+        URL.revokeObjectURL(previewImage);
+      }
+    };
+  }, [previewImage]);
 
   const categories = useMemo(() => {
     return apiCategories
@@ -397,23 +419,10 @@ export default function Products() {
     setEditingProduct(null);
     setFormData(initialFormData);
     setImageInputMode('upload');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
-
-  // Preview image from file or URL
-  const getPreviewImage = (): string => {
-    if (formData.imageFile) {
-      return URL.createObjectURL(formData.imageFile);
-    }
-    if (formData.image_url) {
-      return formData.image_url;
-    }
-    if (formData.image) {
-      return getImageUrl(formData.image);
-    }
-    return "";
-  };
-
-  const previewImage = getPreviewImage();
 
   if (loading) {
     return (

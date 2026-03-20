@@ -32,9 +32,12 @@ function getCategoryIcon(name = "") {
   return CATEGORY_ICONS[key] ?? FaUtensils;
 }
 
-function normalizeImage(url) {
-  if (!url || typeof url !== "string" || url.trim() === "") return null;
-  const v = url.trim();
+function normalizeImage(imageUrl, imagePath) {
+  const source = typeof imageUrl === "string" && imageUrl.trim() !== ""
+    ? imageUrl
+    : imagePath;
+  if (!source || typeof source !== "string" || source.trim() === "") return null;
+  const v = source.trim();
   if (/^(https?:\/\/|data:|blob:)/i.test(v)) return v;
   return `${API_BASE}${v.startsWith("/") ? v : `/${v}`}`;
 }
@@ -97,7 +100,10 @@ function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", o
         setProducts(
           list
             .filter((p) => p.is_available !== false)
-            .map((p) => ({ ...p, image: normalizeImage(p.image) }))
+            .map((p) => ({
+              ...p,
+              image: normalizeImage(p.image_url, p.image),
+            }))
         );
         setLoading(false);
       })

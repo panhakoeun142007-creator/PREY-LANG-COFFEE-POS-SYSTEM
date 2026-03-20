@@ -79,7 +79,7 @@ class AdminAccountUpdateTest extends TestCase
         /** @var \Illuminate\Filesystem\FilesystemAdapter $fakeDisk */
         $fakeDisk = Storage::disk('public');
         $fakeDisk->assertExists($admin->profile_image);
-        $response->assertJsonPath('profile_image_url', "http://localhost/storage/{$admin->profile_image}");
+        $response->assertJsonPath('profile_image_url', "http://localhost/media/{$admin->profile_image}");
     }
 
     public function test_admin_update_requires_authentication(): void

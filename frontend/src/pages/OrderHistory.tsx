@@ -9,8 +9,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Receipt,
+  RefreshCw,
 } from "lucide-react"
+import { toast } from "react-hot-toast"
 import { fetchOrderHistory, LiveOrder, OrderHistoryParams, PaginatedOrderHistoryResponse, OrderHistorySummary } from "../services/api"
+import { updateOrderStatus } from "../services/api"
 import { StatusBadge } from "../components/StatusBadge"
 import { Button } from "../components/ui/button"
 import { Card, CardContent } from "../components/ui/card"
@@ -48,6 +51,7 @@ export default function OrderHistory() {
   const [error, setError] = useState<string | null>(null)
   const [selectedOrder, setSelectedOrder] = useState<LiveOrder | null>(null)
   const [showDetails, setShowDetails] = useState(false)
+  const [updatingOrderId, setUpdatingOrderId] = useState<number | null>(null)
   
   // Filter states
   const [searchQuery, setSearchQuery] = useState("")
@@ -150,6 +154,13 @@ export default function OrderHistory() {
     setCurrentPage(1)
   }
 
+  const formatActorType = (actorType?: string | null) => {
+    if (!actorType) return "Unknown"
+    return actorType.charAt(0).toUpperCase() + actorType.slice(1)
+  }
+
+  const latestActionFor = (order: LiveOrder) => order.actions?.[0] ?? null
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
     return date.toLocaleDateString("en-US", {
@@ -179,6 +190,32 @@ export default function OrderHistory() {
   const handleViewDetails = (order: LiveOrder) => {
     setSelectedOrder(order)
     setShowDetails(true)
+  }
+
+  const handleHistoryStatusChange = async (
+    order: LiveOrder,
+    nextStatus: "completed" | "cancelled",
+  ) => {
+    if (order.status === nextStatus) return
+
+    try {
+      setUpdatingOrderId(order.id)
+      const updated = await updateOrderStatus(order.id, nextStatus)
+
+      setOrders((prev) =>
+        prev.map((current) => (current.id === order.id ? { ...current, ...updated } : current)),
+      )
+      setSelectedOrder((current) =>
+        current?.id === order.id ? { ...current, ...updated } : current,
+      )
+
+      toast.success(`Order #${order.queue_number} marked as ${nextStatus}.`)
+      await loadOrders()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update order history status.")
+    } finally {
+      setUpdatingOrderId(null)
+    }
   }
 
   return (
@@ -343,6 +380,7 @@ export default function OrderHistory() {
                     <TableHead>Payment</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Date</TableHead>
+                    <TableHead>Last Action</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -378,13 +416,53 @@ export default function OrderHistory() {
                         {formatDate(order.created_at)}
                       </TableCell>
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleViewDetails(order)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
+                        {latestActionFor(order) ? (
+                          <div className="text-xs leading-5">
+                            <p className="font-medium text-gray-800">
+                              {latestActionFor(order)?.actor_name}
+                            </p>
+                            <p className="text-gray-500">
+                              {formatActorType(latestActionFor(order)?.actor_type)}
+                            </p>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-gray-400">No actions yet</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleViewDetails(order)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant={order.status === "completed" ? "default" : "outline"}
+                            size="sm"
+                            disabled={updatingOrderId === order.id}
+                            onClick={() => void handleHistoryStatusChange(order, "completed")}
+                          >
+                            {updatingOrderId === order.id && order.status !== "completed" ? (
+                              <RefreshCw className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <CheckCircle className="h-4 w-4" />
+                            )}
+                          </Button>
+                          <Button
+                            variant={order.status === "cancelled" ? "destructive" : "outline"}
+                            size="sm"
+                            disabled={updatingOrderId === order.id}
+                            onClick={() => void handleHistoryStatusChange(order, "cancelled")}
+                          >
+                            {updatingOrderId === order.id && order.status !== "cancelled" ? (
+                              <RefreshCw className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <XCircle className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -457,6 +535,10 @@ export default function OrderHistory() {
                   <StatusBadge status={selectedOrder.status} />
                 </div>
                 <div>
+                  <p className="text-sm text-gray-500">Last Updated</p>
+                  <p className="font-medium">{formatDate(selectedOrder.updated_at)}</p>
+                </div>
+                <div>
                   <p className="text-sm text-gray-500">Total</p>
                   <p className="font-bold text-lg text-blue-600">
                     {formatCurrency(selectedOrder.total_price)}
@@ -493,6 +575,73 @@ export default function OrderHistory() {
                     ))}
                   </TableBody>
                 </Table>
+              </div>
+
+              <div className="flex items-center justify-end gap-3">
+                <Button
+                  variant="outline"
+                  disabled={updatingOrderId === selectedOrder.id || selectedOrder.status === "completed"}
+                  onClick={() => void handleHistoryStatusChange(selectedOrder, "completed")}
+                >
+                  {updatingOrderId === selectedOrder.id && selectedOrder.status !== "completed" ? (
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                  )}
+                  Mark Completed
+                </Button>
+                <Button
+                  variant="destructive"
+                  disabled={updatingOrderId === selectedOrder.id || selectedOrder.status === "cancelled"}
+                  onClick={() => void handleHistoryStatusChange(selectedOrder, "cancelled")}
+                >
+                  {updatingOrderId === selectedOrder.id && selectedOrder.status !== "cancelled" ? (
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <XCircle className="h-4 w-4 mr-2" />
+                  )}
+                  Mark Cancelled
+                </Button>
+              </div>
+
+              <div>
+                <h4 className="font-semibold mb-2">Action Timeline</h4>
+                {selectedOrder.actions && selectedOrder.actions.length > 0 ? (
+                  <div className="space-y-3">
+                    {selectedOrder.actions.map((action) => (
+                      <div
+                        key={action.id}
+                        className="rounded-lg border border-gray-200 bg-white p-3"
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <p className="font-medium text-gray-900">
+                              {action.actor_name}
+                              <span className="ml-2 text-xs font-normal uppercase tracking-wide text-gray-500">
+                                {formatActorType(action.actor_type)}
+                              </span>
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              {action.description || "Order action recorded."}
+                            </p>
+                            {(action.from_status || action.to_status) && (
+                              <p className="mt-1 text-xs text-gray-500">
+                                {action.from_status ?? "unknown"} to {action.to_status ?? "unknown"}
+                              </p>
+                            )}
+                          </div>
+                          <p className="whitespace-nowrap text-xs text-gray-500">
+                            {formatDate(action.created_at)}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500">
+                    No recorded staff/admin actions for this order yet.
+                  </p>
+                )}
               </div>
             </div>
           )}

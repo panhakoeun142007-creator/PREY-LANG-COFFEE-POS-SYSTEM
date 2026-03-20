@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             CategorySeeder::class,
             ProductSeeder::class,
+            DiningTableSeeder::class,
             IngredientSeeder::class,
             RecipeSeeder::class,
             OrderSeeder::class,

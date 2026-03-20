@@ -66,12 +66,14 @@ class ProductController extends Controller
             return $query->orderBy('name')->get();
         });
 
+        $serializedProducts = $products->map(fn (Product $product) => $this->serializeProduct($product));
+
         return response()->json([
-            'data' => $products,
+            'data' => $serializedProducts,
             'current_page' => 1,
             'last_page' => 1,
-            'per_page' => $products->count(),
-            'total' => $products->count(),
+            'per_page' => $serializedProducts->count(),
+            'total' => $serializedProducts->count(),
         ]);
     }
 
@@ -129,7 +131,7 @@ class ProductController extends Controller
         // Clear product cache on create
         $this->clearProductsCache();
 
-        return response()->json($product, 201);
+        return response()->json($this->serializeProduct($product), 201);
     }
 
     /**
@@ -138,7 +140,7 @@ class ProductController extends Controller
     public function show(Product $product): JsonResponse
     {
         $product->load('category');
-        return response()->json($product);
+        return response()->json($this->serializeProduct($product));
     }
 
     /**
@@ -196,7 +198,7 @@ class ProductController extends Controller
         // Clear product cache on update
         $this->clearProductsCache();
 
-        return response()->json($product);
+        return response()->json($this->serializeProduct($product));
     }
 
     /**
@@ -340,5 +342,26 @@ class ProductController extends Controller
         }
 
         return array_values(array_filter($columns, fn (string $column) => isset($availableColumns[$column])));
+    }
+
+    private function serializeProduct(Product $product): array
+    {
+        $payload = $product->toArray();
+        $payload['image_url'] = $this->buildImageUrl($product->image);
+
+        return $payload;
+    }
+
+    private function buildImageUrl(?string $image): ?string
+    {
+        if (!$image) {
+            return null;
+        }
+
+        if (str_starts_with($image, 'http://') || str_starts_with($image, 'https://') || str_starts_with($image, 'data:')) {
+            return $image;
+        }
+
+        return request()->getSchemeAndHttpHost() . '/media/' . ltrim($image, '/');
     }
 }

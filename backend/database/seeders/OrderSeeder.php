@@ -14,11 +14,6 @@ class OrderSeeder extends Seeder
 {
     public function run(): void
     {
-        // Avoid duplicate seed data
-        if (Order::query()->exists()) {
-            return;
-        }
-
         $tableNames = ['Table A1', 'Table A4', 'Table B1', 'Table B3', 'Table C2', 'Table D2'];
         $tablesByName = [];
 
@@ -27,6 +22,11 @@ class OrderSeeder extends Seeder
                 ['name' => $name],
                 ['seats' => 4, 'status' => 'available', 'is_active' => true]
             );
+        }
+
+        // Avoid duplicate order seed data but keep table setup available.
+        if (Order::query()->exists()) {
+            return;
         }
 
         $seedOrders = [

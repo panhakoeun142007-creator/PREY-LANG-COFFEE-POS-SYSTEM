@@ -137,6 +137,7 @@ export interface ApiProduct {
   description?: string | null;
   sku: string | null;
   image: string | null;
+  image_url?: string | null;
   price_small: number | string | null;
   price_medium: number | string | null;
   price_large: number | string | null;
@@ -256,6 +257,19 @@ export interface ApiOrderItem {
   product?: ApiProduct;
 }
 
+export interface OrderAction {
+  id: number;
+  order_id: number;
+  actor_type: string;
+  actor_id: number | null;
+  actor_name: string;
+  action_type: string;
+  from_status: string | null;
+  to_status: string | null;
+  description?: string | null;
+  created_at: string;
+}
+
 export interface ApiOrder {
   id: number;
   table_id: number | null;
@@ -267,6 +281,7 @@ export interface ApiOrder {
   updated_at: string;
   table?: ApiTable | { id: number; name: string } | null;
   items: ApiOrderItem[];
+  actions?: OrderAction[];
 }
 
 export type LiveOrder = ApiOrder;
@@ -523,7 +538,10 @@ export const updateCurrentUser = async (data: {
 
   const contentType = response.headers.get("content-type") || "";
   if (contentType.includes("application/json") || contentType.includes("+json")) {
-    return (await response.json()) as CurrentUser;
+    const payload = (await response.json()) as CurrentUser;
+    clearApiCache((key) => key.includes("/user/me") || key.includes("/staff/me") || key.includes("/manager"));
+    auth.setUser(payload);
+    return payload;
   }
 
   const text = await response.text().catch(() => "");
