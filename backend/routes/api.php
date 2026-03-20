@@ -129,6 +129,7 @@ Route::middleware('staff.api')->group(function () {
     Route::get('/orders/history', [OrderController::class, 'history']);
     Route::get('/orders/live', [OrderController::class, 'live']);
     Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus']);
+    Route::patch('/orders/{order}/pickup', [OrderController::class, 'staffPickup']);
     Route::apiResource('orders', OrderController::class);
     Route::apiResource('order-items', OrderItemController::class);
     Route::get('/receipts', [ReceiptController::class, 'index']);

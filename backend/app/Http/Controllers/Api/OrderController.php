@@ -300,8 +300,27 @@ class OrderController extends Controller
 
     /**
      * Customer pickup confirmation (public).
+     * Allows pickup regardless of status for customer convenience.
      */
     public function pickup(Order $order): JsonResponse
+    {
+        if ($order->status === 'cancelled') {
+            return response()->json(['message' => 'Order has been cancelled.'], 409);
+        }
+
+        if ($order->status === 'completed') {
+            return response()->json($order->fresh()->load($this->orderRelations()));
+        }
+
+        // Allow pickup even if not 'ready' - for customer convenience
+        // Staff should have marked it as ready, but we allow pickup anyway
+        return $this->completePickup($order, 'customer');
+    }
+
+    /**
+     * Staff pickup confirmation (authenticated).
+     */
+    public function staffPickup(Request $request, Order $order): JsonResponse
     {
         if ($order->status === 'cancelled') {
             return response()->json(['message' => 'Order has been cancelled.'], 409);
@@ -315,6 +334,16 @@ class OrderController extends Controller
             return response()->json(['message' => 'Order is not ready for pickup yet.'], 409);
         }
 
+        $pickedBy = $request->input('picked_by', 'staff');
+
+        return $this->completePickup($order, $pickedBy);
+    }
+
+    /**
+     * Complete the pickup process.
+     */
+    private function completePickup(Order $order, string $pickedBy): JsonResponse
+    {
         $fromStatus = (string) $order->status;
 
         $order->update(['status' => 'completed']);
@@ -324,7 +353,9 @@ class OrderController extends Controller
             'picked_up',
             $fromStatus,
             'completed',
-            sprintf('Customer pickup completed for order #%d.', $order->queue_number ?? $order->id)
+            sprintf('%s pickup completed for order #%d.', 
+                $pickedBy === 'customer' ? 'Customer' : 'Staff',
+                $order->queue_number ?? $order->id)
         );
 
         $this->clearOrderCaches();

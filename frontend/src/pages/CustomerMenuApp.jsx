@@ -5,7 +5,7 @@ import {
   fetchCustomerOrderStatus as fetchCustomerOrderStatusApi,
   markCustomerOrderPickedUp,
 } from "../services/api";
-import Customer, { getPriceForSize, getItemUnitPrice } from "./Customer";
+import Customer, { getItemUnitPrice } from "./Customer";
 import Cart from "./cart";
 import Detail from "./Detail";
 import Checkout from "./checkout";
@@ -77,8 +77,11 @@ export default function CustomerMenuApp() {
   });
   const [lastOrderId, setLastOrderId] = useState(() => {
     const s = readStoredState();
-    const value = Number(s?.lastOrderId);
-    return Number.isFinite(value) && value > 0 ? value : null;
+    const value = s?.lastOrderId;
+    // Handle both numeric IDs and UUIDs
+    if (typeof value === 'string' && value.length > 0) return value;
+    if (typeof value === 'number' && Number.isFinite(value) && value > 0) return value;
+    return null;
   });
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem("customer-theme") === "dark" ? "dark" : "light";
@@ -89,6 +92,7 @@ export default function CustomerMenuApp() {
     localStorage.setItem("customer-theme", theme);
   }, [theme]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     if (cartItems.length === 0 && currentPage !== "menu" && currentPage !== "cart") {
       setCurrentPage("menu");
@@ -266,7 +270,8 @@ export default function CustomerMenuApp() {
       setQrOrderNumber(`#A-${Math.floor(Math.random() * 900 + 100)}`);
     }
     if (result?.orderId) {
-      setLastOrderId(Number(result.orderId));
+      // Keep as string for UUID or number for numeric IDs
+      setLastOrderId(result.orderId);
     }
     if (paymentMethod === "card") {
       setCurrentPage("qr-payment");
@@ -276,11 +281,28 @@ export default function CustomerMenuApp() {
   };
 
   const markOrderPickedUp = async () => {
-    if (!lastOrderId) return;
+    if (!lastOrderId) {
+      console.log('No lastOrderId, skipping pickup API call');
+      return null;
+    }
     try {
-      await markCustomerOrderPickedUp(lastOrderId);
+      const result = await markCustomerOrderPickedUp(lastOrderId);
+      console.log("Pickup confirmed:", result);
+      return result;
     } catch (error) {
       console.error("Error confirming pickup:", error);
+      // Check for specific error messages
+      if (error instanceof Error) {
+        if (error.message.includes("not ready")) {
+          window.alert("Your order is not ready for pickup yet. Please wait.");
+        } else if (error.message.includes("cancelled")) {
+          window.alert("Your order has been cancelled.");
+        } else {
+          window.alert("Failed to confirm pickup. Please try again.");
+        }
+      }
+      // Don't throw - allow user to continue anyway
+      return null;
     }
   };
 
@@ -294,16 +316,27 @@ export default function CustomerMenuApp() {
   };
 
   const fetchCustomerOrderStatus = async () => {
-    if (!lastOrderId) return;
+    if (!lastOrderId) {
+      console.log('No lastOrderId to fetch status');
+      return;
+    }
     try {
+      console.log('Fetching order status for:', lastOrderId);
       const data = await fetchCustomerOrderStatusApi(lastOrderId);
+      console.log('Order status response:', data);
       const status = typeof data?.status === "string" ? data.status.toLowerCase() : null;
-      if (status) setOrderStatus(status);
+      console.log('Parsed status:', status);
+      if (status) {
+        setOrderStatus(status);
+      } else {
+        console.log('Status is null, not setting orderStatus');
+      }
     } catch (error) {
       console.error("Error fetching order status:", error);
     }
   };
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     if (!lastOrderId) return;
     if (currentPage !== "wait" && currentPage !== "ready") return;
@@ -312,16 +345,20 @@ export default function CustomerMenuApp() {
       void fetchCustomerOrderStatus();
     }, 15000);
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastOrderId, currentPage]);
 
-  const canPickUp = orderStatus === "ready" || orderStatus === "completed";
+  // Allow pickup if status is ready/completed, OR if we have an order ID (fallback)
+  const canPickUp = orderStatus === "ready" || orderStatus === "completed" || (!!lastOrderId && !orderStatus);
   const pickupHint = orderStatus === "ready"
     ? "Ready for pickup"
-    : orderStatus === "preparing"
-      ? "Your order is preparing"
-      : orderStatus === "pending"
-        ? "Order received. Please wait."
-        : "Please wait until staff marks your order as READY.";
+    : orderStatus === "completed"
+      ? "Order completed"
+      : orderStatus === "preparing"
+        ? "Your order is preparing"
+        : orderStatus === "pending"
+          ? "Order received. Please wait."
+          : lastOrderId ? "Click to confirm pickup" : "Please wait until staff marks your order as READY.";
 
   return (
     <div className="customer-menu-shell" data-theme={theme}>
@@ -381,6 +418,7 @@ export default function CustomerMenuApp() {
       {effectivePage === "wait" && (
         <Wait
           cartItems={cartItems}
+          hasOrderId={!!lastOrderId}
           onBack={() => setCurrentPage("counter-payment")}
           onPickUpNow={() => {
             if (!canPickUp) {

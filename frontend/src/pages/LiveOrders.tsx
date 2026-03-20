@@ -14,7 +14,7 @@ import {
   Check,
   AlertCircle,
 } from "lucide-react"
-import { fetchLiveOrders, updateOrderStatus, LiveOrder } from "../services/api"
+import { fetchLiveOrders, updateOrderStatus, staffMarkOrderPickedUp, LiveOrder } from "../services/api"
 import { useSettings } from "../context/SettingsContext"
 import { StatusBadge } from "../components/StatusBadge"
 import { Button } from "../components/ui/button"
@@ -158,7 +158,12 @@ export default function LiveOrders() {
   const handleStatusChange = async (orderId: number, newStatus: string) => {
     try {
       setError(null)
-      await updateOrderStatus(orderId, newStatus)
+      // For completed status from ready, use staff pickup API
+      if (newStatus === 'completed') {
+        await staffMarkOrderPickedUp(orderId, 'staff')
+      } else {
+        await updateOrderStatus(orderId, newStatus)
+      }
       await loadOrders()
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to update order status"
@@ -392,12 +397,12 @@ export default function LiveOrders() {
                           {order.status === "ready" && (
                             <>
                               <Button
-                                variant="default"
+                                variant="success"
                                 size="sm"
                                 onClick={() => handleStatusChange(order.id, "completed")}
                               >
                                 <Check className="mr-1 h-4 w-4" />
-                                Complete
+                                Picked Up
                               </Button>
                               <Button
                                 variant="outline"

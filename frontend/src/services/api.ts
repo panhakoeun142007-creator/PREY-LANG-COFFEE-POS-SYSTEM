@@ -1,6 +1,13 @@
 // Use in-memory auth instead of localStorage
 import { auth } from "../utils/auth";
 
+// Simple fetch options interface
+interface FetchOptions {
+  method?: string;
+  headers?: Record<string, string>;
+  body?: string | FormData;
+}
+
 const pendingGetRequests = new Map<string, Promise<unknown>>();
 const cachedGetResponses = new Map<string, { expiresAt: number; data: unknown }>();
 
@@ -25,7 +32,7 @@ function buildGetCacheKey(path: string): string {
   return `GET:${path}`;
 }
 
-function clearApiCache(matcher?: (key: string) => boolean): void {
+function clearApiCache(matcher?: (_key: string) => boolean): void {
   for (const key of cachedGetResponses.keys()) {
     if (!matcher || matcher(key)) {
       cachedGetResponses.delete(key);
@@ -287,6 +294,7 @@ export interface ApiOrder {
 export type LiveOrder = ApiOrder;
 
 export interface OrderHistoryParams {
+  [key: string]: unknown;
   page?: number;
   status?: string;
   date_from?: string;
@@ -397,7 +405,7 @@ function withQuery(path: string, params?: Record<string, unknown>): string {
   return qs ? `${path}?${qs}` : path;
 }
 
-export async function safeFetch(path: string, options: RequestInit = {}): Promise<Response> {
+export async function safeFetch(path: string, options: FetchOptions = {}): Promise<Response> {
   const token = auth.getToken();
   const headers = new Headers(options.headers || {});
 
@@ -421,9 +429,11 @@ export async function safeFetch(path: string, options: RequestInit = {}): Promis
   });
 }
 
-export async function apiRequest<T = any>(path: string, options: RequestInit = {}): Promise<T> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function apiRequest<T = any>(path: string, options: FetchOptions = {}): Promise<T> {
   const response = await safeFetch(path, options);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async function readPayload(): Promise<any> {
     const contentType = response.headers.get("content-type") || "";
     if (contentType.includes("application/json") || contentType.includes("+json")) {
@@ -449,6 +459,7 @@ export async function apiRequest<T = any>(path: string, options: RequestInit = {
     if (typeof payload === "string" && payload.trim().startsWith("<!doctype")) {
       throw new Error(`API returned HTML (check VITE_API_URL). Status: ${response.status}`);
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     throw new Error((payload as any)?.message || `Request failed: ${response.status}`);
   }
 
@@ -508,6 +519,7 @@ export const fetchDashboard = async (): Promise<DashboardData> => {
   return apiGetCached("/dashboard", 10000);
 };
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const logoutAdmin = async (): Promise<any> => {
   clearApiCache();
   return apiRequest("/logout", { method: "POST" });
@@ -558,16 +570,19 @@ export const updateCurrentUser = async (data: {
 
 export const fetchCategories = async (): Promise<CategoryApiItem[]> => apiRequest("/categories");
 export const fetchCachedCategories = async (): Promise<CategoryApiItem[]> => apiGetCached("/categories", 60000);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const createCategory = async (data: any): Promise<CategoryApiItem> =>
   apiRequest("/categories", { method: "POST", body: JSON.stringify(data) }).then((payload) => {
     clearApiCache((key) => key.includes("/categories"));
     return payload;
   });
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const updateCategory = async (id: number, data: any): Promise<CategoryApiItem> =>
   apiRequest(`/categories/${id}`, { method: "PUT", body: JSON.stringify(data) }).then((payload) => {
     clearApiCache((key) => key.includes("/categories"));
     return payload;
   });
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const deleteCategory = async (id: number): Promise<any> =>
   apiRequest(`/categories/${id}`, { method: "DELETE" }).then((payload) => {
     clearApiCache((key) => key.includes("/categories"));
@@ -576,6 +591,7 @@ export const deleteCategory = async (id: number): Promise<any> =>
 
 export const fetchProducts = async (): Promise<PaginatedResponse<ApiProduct>> => apiGetCached("/products", 30000);
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const createProduct = async (data: any): Promise<ApiProduct> => {
   // Check if there's a file to upload
   if (data.imageFile instanceof File) {
@@ -605,6 +621,7 @@ export const createProduct = async (data: any): Promise<ApiProduct> => {
   });
 };
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const updateProduct = async (id: number, data: any): Promise<ApiProduct> => {
   // Check if there's a file to upload
   if (data.imageFile instanceof File) {
@@ -632,6 +649,7 @@ export const updateProduct = async (id: number, data: any): Promise<ApiProduct> 
     return payload;
   });
 };
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const deleteProduct = async (id: number): Promise<any> =>
   apiRequest(`/products/${id}`, { method: "DELETE" }).then((payload) => {
     clearApiCache((key) => key.includes("/products") || key.includes("/categories"));
@@ -639,18 +657,24 @@ export const deleteProduct = async (id: number): Promise<any> =>
   });
 
 export const fetchIngredients = async (): Promise<IngredientApiItem[]> => apiRequest("/ingredients");
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const createIngredient = async (data: any): Promise<IngredientApiItem> =>
   apiRequest("/ingredients", { method: "POST", body: JSON.stringify(data) });
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const updateIngredient = async (id: number, data: any): Promise<IngredientApiItem> =>
   apiRequest(`/ingredients/${id}`, { method: "PUT", body: JSON.stringify(data) });
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const deleteIngredient = async (id: number): Promise<any> =>
   apiRequest(`/ingredients/${id}`, { method: "DELETE" });
 
 export const fetchTables = async (): Promise<PaginatedResponse<ApiTable>> => apiRequest("/tables");
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const createTable = async (data: any): Promise<ApiTable> =>
   apiRequest("/tables", { method: "POST", body: JSON.stringify(data) });
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const updateTable = async (id: number, data: any): Promise<ApiTable> =>
   apiRequest(`/tables/${id}`, { method: "PUT", body: JSON.stringify(data) });
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const deleteTable = async (id: number): Promise<any> =>
   apiRequest(`/tables/${id}`, { method: "DELETE" });
 
@@ -706,6 +730,7 @@ export const updateStaff = async (
   });
 };
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const deleteStaff = async (id: number): Promise<any> =>
   apiRequest(`/staffs/${id}`, { method: "DELETE" }).then((payload) => {
     clearApiCache((key) => key.includes("/staffs"));
@@ -713,11 +738,13 @@ export const deleteStaff = async (id: number): Promise<any> =>
   });
 
 export const fetchOrders = async (): Promise<PaginatedResponse<ApiOrder>> => apiRequest("/orders");
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const createOrder = async (data: any): Promise<ApiOrder> =>
   apiRequest("/orders", { method: "POST", body: JSON.stringify(data) }).then((payload) => {
     clearApiCache((key) => key.includes("/orders") || key.includes("/dashboard") || key.includes("/notifications"));
     return payload;
   });
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const updateOrder = async (id: number, data: any): Promise<ApiOrder> =>
   apiRequest(`/orders/${id}`, { method: "PUT", body: JSON.stringify(data) }).then((payload) => {
     clearApiCache((key) => key.includes("/orders") || key.includes("/dashboard") || key.includes("/notifications"));
@@ -725,8 +752,15 @@ export const updateOrder = async (id: number, data: any): Promise<ApiOrder> =>
   });
 
 export const fetchLiveOrders = async (): Promise<LiveOrder[]> => apiGetCached("/orders/live", 4000);
-export const updateOrderStatus = async (id: number, status: string): Promise<LiveOrder> =>
+export const updateOrderStatus = async (id: string | number, status: string): Promise<LiveOrder> =>
   apiRequest(`/orders/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }).then((payload) => {
+    clearApiCache((key) => key.includes("/orders") || key.includes("/dashboard") || key.includes("/notifications"));
+    return payload;
+  });
+
+// Staff: Mark order as picked up
+export const staffMarkOrderPickedUp = async (id: string | number, pickedBy: string = 'staff'): Promise<LiveOrder> =>
+  apiRequest(`/orders/${id}/pickup`, { method: 'PATCH', body: JSON.stringify({ picked_by: pickedBy }) }).then((payload) => {
     clearApiCache((key) => key.includes("/orders") || key.includes("/dashboard") || key.includes("/notifications"));
     return payload;
   });
@@ -753,24 +787,33 @@ export const fetchSalesAnalyticsData = async (): Promise<{
 
 export const fetchExpenses = async (params: { category?: ExpenseCategory; page?: number } = {}): Promise<PaginatedResponse<ExpenseApiItem>> =>
   apiRequest(withQuery("/expenses", params));
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const createExpense = async (data: any): Promise<ExpenseApiItem> =>
   apiRequest("/expenses", { method: "POST", body: JSON.stringify(data) });
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const updateExpense = async (id: number, data: any): Promise<ExpenseApiItem> =>
   apiRequest(`/expenses/${id}`, { method: "PUT", body: JSON.stringify(data) });
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const deleteExpense = async (id: number): Promise<any> =>
   apiRequest(`/expenses/${id}`, { method: "DELETE" });
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const fetchIncomeTransactions = async (params: Record<string, unknown> = {}): Promise<any> =>
   apiRequest(withQuery("/finance/income", params));
 
 export const fetchRecipeBoards = async (): Promise<{ data: RecipeBoardRow[] }> => apiRequest("/recipes-board");
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const fetchRecipeBoard = async (id: number): Promise<any> => apiRequest(`/recipes/${id}`);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const createRecipeBoard = async (data: any): Promise<any> =>
   apiRequest("/recipes-board", { method: "POST", body: JSON.stringify(data) });
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const updateRecipeBoard = async (id: number, data: any): Promise<any> =>
   apiRequest(`/recipes-board/${id}`, { method: "PUT", body: JSON.stringify(data) });
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const updateRecipeBoardStatus = async (id: number, status: string): Promise<any> =>
   apiRequest(`/recipes-board/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) });
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const deleteRecipeBoard = async (id: number, size: string): Promise<any> =>
   apiRequest(`/recipes-board/${id}/${size}`, { method: "DELETE" });
 
@@ -787,13 +830,13 @@ export const createCustomerOrder = async (data: {
   payment_type: string;
 }): Promise<ApiOrder> => apiRequest("/customer/orders", { method: "POST", body: JSON.stringify(data) });
 
-export const fetchCustomerOrderStatus = async (orderId: number): Promise<{
+export const fetchCustomerOrderStatus = async (orderId: string | number): Promise<{
   id: number;
   status: string;
   queue_number: number | null;
   table: string | null;
   updated_at: string;
-}> => apiGetCached(`/customer/orders/${orderId}`, 4000);
+}> => apiRequest(`/customer/orders/${orderId}`, { method: 'GET' });
 
-export const markCustomerOrderPickedUp = async (orderId: number): Promise<ApiOrder> =>
+export const markCustomerOrderPickedUp = async (orderId: string | number): Promise<ApiOrder> =>
   apiRequest(`/customer/orders/${orderId}/pickup`, { method: "POST" });
