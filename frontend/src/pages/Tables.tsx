@@ -339,13 +339,6 @@ export default function Tables() {
                   </Button>
                   <Button
                     variant="outline"
-                    className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
-                    onClick={() => window.open(getQrValue(table), '_blank')}
-                  >
-                    📱 Test Menu
-                  </Button>
-                  <Button
-                    variant="outline"
                     className="border-[#EAD6C0] text-[#4B2E2B]"
                     onClick={() => regenerateQR(table.id)}
                     disabled={updatingIds.has(table.id)}
@@ -509,14 +502,7 @@ export default function Tables() {
                   {getQrValue(previewTable)}
                 </a>
               </div>
-                <div className="grid grid-cols-2 gap-3">
-                <Button 
-                  variant="outline" 
-                  className="border-emerald-200 text-emerald-700 hover:bg-emerald-50" 
-                  onClick={() => window.open(getQrValue(previewTable), '_blank')}
-                >
-                  📱 Open Menu
-                </Button>
+              <div className="grid grid-cols-2 gap-3">
                 <Button variant="outline" className="border-[#EAD6C0] text-[#4B2E2B]" onClick={handleDownloadPreview}>
                   <Download className="h-4 w-4 mr-2" />
                   Download
