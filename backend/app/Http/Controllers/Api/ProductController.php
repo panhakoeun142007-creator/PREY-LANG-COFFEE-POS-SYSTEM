@@ -358,10 +358,12 @@ class ProductController extends Controller
             return null;
         }
 
+        // If it's already a full URL or data URI, return as-is
         if (str_starts_with($image, 'http://') || str_starts_with($image, 'https://') || str_starts_with($image, 'data:')) {
             return $image;
         }
 
-        return request()->getSchemeAndHttpHost() . '/media/' . ltrim($image, '/');
+        // For local files stored in public disk, use /storage/ path
+        return request()->getSchemeAndHttpHost() . '/storage/' . ltrim($image, '/');
     }
 }

@@ -45,4 +45,36 @@ class ReceiptController extends Controller
             'receipts' => $receipts,
         ]);
     }
+
+    /**
+     * Delete a receipt (soft delete the order).
+     */
+    public function destroy(Request $request, $id)
+    {
+        $order = Order::find($id);
+        
+        if (!$order) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Receipt not found'
+            ], 404);
+        }
+        
+        // Only allow deleting completed orders
+        if ($order->status !== 'completed') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only completed orders can be deleted'
+            ], 400);
+        }
+        
+        // Delete the order items first, then the order
+        $order->items()->delete();
+        $order->delete();
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Receipt deleted successfully'
+        ]);
+    }
 }

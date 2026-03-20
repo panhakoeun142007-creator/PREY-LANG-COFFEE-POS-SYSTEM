@@ -373,11 +373,16 @@ export interface ReceiptSettingsData {
   show_customer_name: boolean;
 }
 
+export interface OrderSettingsData {
+  live_orders_auto_refresh: boolean;
+}
+
 export interface AppSettings {
   general: GeneralSettingsData;
   notifications: NotificationSettingsData;
   payment: PaymentSettingsData;
   receipt: ReceiptSettingsData;
+  orders: OrderSettingsData;
 }
 
 function withQuery(path: string, params?: Record<string, unknown>): string {
@@ -728,6 +733,9 @@ export const updateOrderStatus = async (id: number, status: string): Promise<Liv
 
 export const fetchOrderHistory = async (params: OrderHistoryParams = {}): Promise<PaginatedOrderHistoryResponse> =>
   apiGetCached(withQuery("/orders/history", params), 4000);
+
+export const deleteReceipt = async (orderId: number): Promise<{ success: boolean; message: string }> =>
+  apiRequest(`/receipts/${orderId}`, { method: "DELETE" });
 
 export const fetchSettings = async (): Promise<AppSettings> => apiGetCached("/settings", 60000);
 export const updateSettings = async (data: Partial<AppSettings>): Promise<AppSettings> =>

@@ -132,6 +132,7 @@ Route::middleware('staff.api')->group(function () {
     Route::apiResource('orders', OrderController::class);
     Route::apiResource('order-items', OrderItemController::class);
     Route::get('/receipts', [ReceiptController::class, 'index']);
+    Route::delete('/receipts/{id}', [ReceiptController::class, 'destroy']);
     Route::get('/settings', [SettingController::class, 'show'])->middleware('api.cache');
     // Products - allow both admin and staff to manage
     Route::apiResource('products', ProductController::class);

@@ -74,7 +74,7 @@ function formatTimeInStatus(status: string, updatedAt: string): string {
 }
 
 export default function LiveOrders() {
-  const { currency } = useSettings()
+  const { currency, settings } = useSettings()
   const money = useMemo(
     () =>
       new Intl.NumberFormat("en-US", {
@@ -86,7 +86,7 @@ export default function LiveOrders() {
   const [orders, setOrders] = useState<LiveOrder[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [autoRefresh, setAutoRefresh] = useState(true)
+  const [autoRefresh, setAutoRefresh] = useState<boolean>(settings?.orders?.live_orders_auto_refresh ?? false)
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedOrder, setSelectedOrder] = useState<LiveOrder | null>(null)
@@ -467,7 +467,7 @@ export default function LiveOrders() {
                         </div>
                       </div>
                       <span className="font-medium text-[#4B2E2B]">
-                        {money.format(item.price * item.qty)}
+                        {money.format(Number(item.price) * item.qty)}
                       </span>
                     </div>
                   ))}

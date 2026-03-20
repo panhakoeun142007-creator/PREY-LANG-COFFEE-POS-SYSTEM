@@ -62,6 +62,9 @@ class AppSettings
                 'show_order_number' => true,
                 'show_customer_name' => false,
             ],
+            'orders' => [
+                'live_orders_auto_refresh' => false,
+            ],
         ];
     }
 
