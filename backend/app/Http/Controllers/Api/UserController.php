@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
@@ -14,6 +15,10 @@ use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
+    private ?User $resolvedCurrentUser = null;
+
+    private bool $didResolveCurrentUser = false;
+
     /**
      * Get the current authenticated user.
      */
@@ -143,12 +148,25 @@ class UserController extends Controller
 
     private function resolveCurrentUser(): ?User
     {
+        if ($this->didResolveCurrentUser) {
+            return $this->resolvedCurrentUser;
+        }
+
+        $this->didResolveCurrentUser = true;
+
         $token = request()->bearerToken();
         if (!$token) {
             return null;
         }
 
-        $session = \Illuminate\Support\Facades\Cache::get("api_auth_token:{$token}");
+        $session = Cache::get("api_auth_token:{$token}");
+        if (is_int($session) || (is_string($session) && ctype_digit($session))) {
+            $session = [
+                'subject_type' => 'admin',
+                'subject_id' => (int) $session,
+            ];
+        }
+
         if (!$session || !is_array($session) || ($session['subject_type'] ?? null) !== 'admin') {
             return null;
         }
@@ -158,14 +176,14 @@ class UserController extends Controller
             return null;
         }
 
-        $hasAdminColumns = Schema::hasColumn('users', 'role') && Schema::hasColumn('users', 'is_active');
+        $hasAdminColumns = $this->hasAdminColumns();
         $user = User::query()->find($userId);
 
         if (!$user || ($hasAdminColumns && (!$user->is_active || $user->role !== 'admin'))) {
             return null;
         }
 
-        return $user;
+        return $this->resolvedCurrentUser = $user;
     }
 
     private function serializeUser(User $user): array
@@ -192,7 +210,7 @@ class UserController extends Controller
 
     private function unauthorizedResponse(): JsonResponse
     {
-        $hasAdminColumns = Schema::hasColumn('users', 'role') && Schema::hasColumn('users', 'is_active');
+        $hasAdminColumns = $this->hasAdminColumns();
         $hasActiveAdmin = $hasAdminColumns
             ? User::query()->where('role', 'admin')->where('is_active', true)->exists()
             : User::query()->exists();
@@ -204,6 +222,17 @@ class UserController extends Controller
         }
 
         return response()->json(['message' => 'Unauthorized'], 401);
+    }
+
+    private function hasAdminColumns(): bool
+    {
+        static $hasAdminColumns;
+
+        if ($hasAdminColumns === null) {
+            $hasAdminColumns = Schema::hasColumn('users', 'role') && Schema::hasColumn('users', 'is_active');
+        }
+
+        return $hasAdminColumns;
     }
 }
  

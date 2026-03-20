@@ -11,6 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 
 class OrderController extends Controller
@@ -19,6 +20,8 @@ class OrderController extends Controller
      * Cache TTL for live orders (30 seconds).
      */
     private const CACHE_TTL_LIVE = 5;
+
+    private const LIVE_CACHE_KEY = 'orders_live_active';
 
     /**
      * Cache TTL for order history (2 minutes).
@@ -30,7 +33,10 @@ class OrderController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Order::query()->with(['table', 'items.product'])->latest();
+        $query = Order::query()
+            ->select($this->orderColumns())
+            ->with($this->orderRelations())
+            ->latest();
 
         if ($request->filled('status')) {
             $query->where('status', $request->string('status'));
@@ -68,24 +74,31 @@ class OrderController extends Controller
         ]);
 
         $order = DB::transaction(function () use ($validated) {
-            $nextQueue = Order::max('queue_number') ?? 0;
+            $nextQueue = isset($validated['queue_number'])
+                ? (int) $validated['queue_number']
+                : ((int) (Order::query()->lockForUpdate()->max('queue_number') ?? 0) + 1);
+
             $order = Order::create([
                 'table_id' => $validated['table_id'],
                 'status' => $validated['status'] ?? 'pending',
                 'payment_type' => $validated['payment_type'],
-                'queue_number' => $validated['queue_number'] ?? ($nextQueue + 1),
+                'queue_number' => $nextQueue,
                 'total_price' => 0,
             ]);
 
-            // Pre-fetch all product prices in a single query to avoid N+1
-            $productIds = array_column($validated['items'], 'product_id');
-            $products = Product::whereIn('id', $productIds)->get()->keyBy('id');
+            $productIds = array_values(array_unique(array_map('intval', array_column($validated['items'], 'product_id'))));
+            $products = Product::query()
+                ->select(['id', 'price_small', 'price_medium', 'price_large'])
+                ->whereIn('id', $productIds)
+                ->get()
+                ->keyBy('id');
 
             $total = 0;
+            $now = now();
+            $orderItems = [];
             foreach ($validated['items'] as $item) {
-                // Use provided price or get from pre-fetched product
                 if (isset($item['price'])) {
-                    $price = $item['price'];
+                    $price = (float) $item['price'];
                 } else {
                     $product = $products->get($item['product_id']);
                     $price = match ($item['size']) {
@@ -97,26 +110,35 @@ class OrderController extends Controller
                 
                 $total += ((float) $price * (int) $item['qty']);
 
-                OrderItem::create([
+                $orderItems[] = [
                     'order_id' => $order->id,
                     'product_id' => $item['product_id'],
                     'size' => $item['size'],
                     'qty' => $item['qty'],
                     'price' => $price,
-                ]);
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
             }
+
+            OrderItem::query()->insert($orderItems);
 
             $settings = AppSettings::getMerged();
             $taxRate = (float) (($settings['payment']['tax_rate'] ?? 0));
             $taxAmount = round($total * ($taxRate / 100), 2);
             $computedTotal = round($total + $taxAmount, 2);
 
-            $order->update([
+            $order->forceFill([
                 'total_price' => $validated['total_price'] ?? $computedTotal,
-            ]);
+            ])->save();
 
-            return $order->fresh()->load(['table', 'items.product']);
+            return Order::query()
+                ->select($this->orderColumns())
+                ->with($this->orderRelations())
+                ->findOrFail($order->id);
         });
+
+        $this->clearOrderCaches();
 
         return response()->json($order, 201);
     }
@@ -126,7 +148,7 @@ class OrderController extends Controller
      */
     public function show(Order $order): JsonResponse
     {
-        return response()->json($order->load(['table', 'items.product']));
+        return response()->json($order->load($this->orderRelations()));
     }
 
     /**
@@ -149,7 +171,9 @@ class OrderController extends Controller
 
         $order->update($validated);
 
-        return response()->json($order->fresh()->load(['table', 'items.product']));
+        $this->clearOrderCaches();
+
+        return response()->json($order->fresh()->load($this->orderRelations()));
     }
 
     /**
@@ -158,6 +182,7 @@ class OrderController extends Controller
     public function destroy(Order $order): JsonResponse
     {
         $order->delete();
+        $this->clearOrderCaches();
 
         return response()->json(['message' => 'Order deleted']);
     }
@@ -167,12 +192,10 @@ class OrderController extends Controller
      */
     public function live(): JsonResponse
     {
-        // Cache live orders briefly to reduce database load
-        $cacheKey = 'orders_live_' . now()->format('Y-m-d-H-i-s');
-        
-        $orders = Cache::remember($cacheKey, self::CACHE_TTL_LIVE, function () {
+        $orders = Cache::remember(self::LIVE_CACHE_KEY, self::CACHE_TTL_LIVE, function () {
             return Order::query()
-                ->with(['table', 'items.product'])
+                ->select($this->orderColumns())
+                ->with($this->orderRelations())
                 ->whereIn('status', ['pending', 'preparing', 'ready'])
                 ->orderBy('created_at', 'asc')
                 ->get();
@@ -187,43 +210,10 @@ class OrderController extends Controller
     public function history(Request $request): JsonResponse
     {
         $query = Order::query()
-            ->with(['table', 'items.product'])
+            ->select($this->orderColumns())
+            ->with($this->orderRelations())
             ->whereIn('status', ['completed', 'cancelled']);
-
-        // Filter by status (completed or cancelled)
-        if ($request->filled('status')) {
-            $query->where('status', $request->string('status'));
-        }
-
-        // Filter by date range
-        if ($request->filled('date_from')) {
-            $query->whereDate('created_at', '>=', $request->string('date_from'));
-        }
-        if ($request->filled('date_to')) {
-            $query->whereDate('created_at', '<=', $request->string('date_to'));
-        }
-
-        // Filter by payment type
-        if ($request->filled('payment_type')) {
-            $query->where('payment_type', $request->string('payment_type'));
-        }
-
-        // Search by order ID or queue number
-        if ($request->filled('search')) {
-            $search = trim((string) $request->string('search'));
-            $query->where(function ($q) use ($search) {
-                if (ctype_digit($search)) {
-                    $q->orWhere('id', (int) $search)
-                        ->orWhere('queue_number', (int) $search);
-                } else {
-                    $q->orWhere('queue_number', 'like', "%{$search}%");
-                }
-
-                $q->orWhereHas('table', function ($tableQuery) use ($search) {
-                    $tableQuery->where('name', 'like', "%{$search}%");
-                });
-            });
-        }
+        $this->applyHistoryFilters($query, $request);
 
         // Sorting
         $sortBy = $request->string('sort_by', 'created_at');
@@ -238,20 +228,7 @@ class OrderController extends Controller
         // Optimized summary calculation - single query with conditional counts
         $summaryBase = Order::query()
             ->whereIn('status', ['completed', 'cancelled']);
-            
-        // Apply same filters as main query
-        if ($request->filled('status')) {
-            $summaryBase->where('status', $request->string('status'));
-        }
-        if ($request->filled('date_from')) {
-            $summaryBase->whereDate('created_at', '>=', $request->string('date_from'));
-        }
-        if ($request->filled('date_to')) {
-            $summaryBase->whereDate('created_at', '<=', $request->string('date_to'));
-        }
-        if ($request->filled('payment_type')) {
-            $summaryBase->where('payment_type', $request->string('payment_type'));
-        }
+        $this->applyHistoryFilters($summaryBase, $request);
 
         // Single query to get all summary stats
         $summaryStats = (clone $summaryBase)
@@ -288,7 +265,9 @@ class OrderController extends Controller
 
         $order->update(['status' => $validated['status']]);
 
-        return response()->json($order->fresh()->load(['table', 'items.product']));
+        $this->clearOrderCaches();
+
+        return response()->json($order->fresh()->load($this->orderRelations()));
     }
 
     /**
@@ -301,7 +280,7 @@ class OrderController extends Controller
         }
 
         if ($order->status === 'completed') {
-            return response()->json($order->fresh()->load(['table', 'items.product']));
+            return response()->json($order->fresh()->load($this->orderRelations()));
         }
 
         if ($order->status !== 'ready') {
@@ -310,7 +289,9 @@ class OrderController extends Controller
 
         $order->update(['status' => 'completed']);
 
-        return response()->json($order->fresh()->load(['table', 'items.product']));
+        $this->clearOrderCaches();
+
+        return response()->json($order->fresh()->load($this->orderRelations()));
     }
 
     /**
@@ -325,5 +306,97 @@ class OrderController extends Controller
             'table' => $order->table?->name,
             'updated_at' => $order->updated_at,
         ]);
+    }
+
+    private function orderColumns(): array
+    {
+        return [
+            'id',
+            'table_id',
+            'status',
+            'total_price',
+            'payment_type',
+            'queue_number',
+            'created_at',
+            'updated_at',
+        ];
+    }
+
+    private function orderRelations(): array
+    {
+        return [
+            'table:id,name',
+            'items' => fn ($query) => $query->select(['id', 'order_id', 'product_id', 'size', 'qty', 'price']),
+            'items.product' => fn ($query) => $query->select($this->productRelationColumns()),
+        ];
+    }
+
+    private function applyHistoryFilters($query, Request $request): void
+    {
+        if ($request->filled('status')) {
+            $query->where('status', $request->string('status'));
+        }
+
+        if ($request->filled('date_from')) {
+            $query->whereDate('created_at', '>=', $request->string('date_from'));
+        }
+
+        if ($request->filled('date_to')) {
+            $query->whereDate('created_at', '<=', $request->string('date_to'));
+        }
+
+        if ($request->filled('payment_type')) {
+            $query->where('payment_type', $request->string('payment_type'));
+        }
+
+        if (!$request->filled('search')) {
+            return;
+        }
+
+        $search = trim((string) $request->string('search'));
+        $query->where(function ($inner) use ($search) {
+            if (ctype_digit($search)) {
+                $inner->where('id', (int) $search)
+                    ->orWhere('queue_number', (int) $search);
+            } else {
+                $inner->where('queue_number', 'like', "%{$search}%");
+            }
+
+            $inner->orWhereHas('table', function ($tableQuery) use ($search) {
+                $tableQuery->where('name', 'like', "%{$search}%");
+            });
+        });
+    }
+
+    private function clearOrderCaches(): void
+    {
+        Cache::forget(self::LIVE_CACHE_KEY);
+        DashboardController::clearCache();
+    }
+
+    private function productRelationColumns(): array
+    {
+        return $this->filterExistingProductColumns([
+            'id',
+            'category_id',
+            'name',
+            'description',
+            'image',
+            'price_small',
+            'price_medium',
+            'price_large',
+            'is_available',
+        ]);
+    }
+
+    private function filterExistingProductColumns(array $columns): array
+    {
+        static $availableColumns;
+
+        if ($availableColumns === null) {
+            $availableColumns = array_flip(Schema::getColumnListing('products'));
+        }
+
+        return array_values(array_filter($columns, fn (string $column) => isset($availableColumns[$column])));
     }
 }

@@ -14,6 +14,10 @@ use Illuminate\Support\Str;
 
 class StaffController extends Controller
 {
+    private ?Staff $resolvedCurrentStaff = null;
+
+    private bool $didResolveCurrentStaff = false;
+
     /**
      * Get current authenticated staff member.
      */
@@ -338,6 +342,12 @@ class StaffController extends Controller
 
     private function resolveCurrentStaff(): ?Staff
     {
+        if ($this->didResolveCurrentStaff) {
+            return $this->resolvedCurrentStaff;
+        }
+
+        $this->didResolveCurrentStaff = true;
+
         // Get staff ID from cache token
         $token = request()->bearerToken();
         if (!$token) {
@@ -345,12 +355,15 @@ class StaffController extends Controller
         }
 
         $cacheKey = "api_auth_token:{$token}";
-        $cached = \Illuminate\Support\Facades\Cache::get($cacheKey);
+        $cached = Cache::get($cacheKey);
 
-        if (!$cached || ($cached['subject_type'] ?? null) !== 'staff') {
+        if (!$cached || !is_array($cached) || ($cached['subject_type'] ?? null) !== 'staff') {
             return null;
         }
 
-        return Staff::query()->where('id', $cached['subject_id'])->where('is_active', true)->first();
+        return $this->resolvedCurrentStaff = Staff::query()
+            ->where('id', $cached['subject_id'])
+            ->where('is_active', true)
+            ->first();
     }
 }

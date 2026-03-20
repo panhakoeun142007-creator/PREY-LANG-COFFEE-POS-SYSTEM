@@ -267,11 +267,6 @@ export default function StaffDashboardPage() {
   }, [activeTab, loadHistory]);
 
   useEffect(() => {
-    if (activeTab !== "orders") return;
-    void loadHistory();
-  }, [activeTab, loadHistory]);
-
-  useEffect(() => {
     if (activeTab !== "dashboard") return;
     void loadHistory();
   }, [activeTab, loadHistory]);

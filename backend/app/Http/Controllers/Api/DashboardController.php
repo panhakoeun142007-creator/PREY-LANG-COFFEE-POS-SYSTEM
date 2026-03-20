@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Expense;
 use App\Models\Ingredient;
 use App\Models\Order;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -18,6 +19,11 @@ class DashboardController extends Controller
     private const CACHE_TTL = 300;
 
     /**
+     * Cache TTL for notifications in seconds.
+     */
+    private const NOTIFICATIONS_CACHE_TTL = 15;
+
+    /**
      * Get all dashboard statistics.
      */
     public function index(): JsonResponse
@@ -28,10 +34,7 @@ class DashboardController extends Controller
             return $this->buildDashboardData();
         });
 
-        $data['notifications'] = $this->getNotifications();
-        $data['notification_count'] = $this->getNotificationCount();
-
-        return response()->json($data);
+        return response()->json(array_merge($data, $this->getCachedNotificationPayload()));
     }
 
     /**
@@ -43,32 +46,37 @@ class DashboardController extends Controller
         $startOfMonth = now()->startOfMonth();
         $endOfMonth = now()->endOfMonth();
 
-        $todayStats = Order::whereDate('created_at', $today)
+        $todayStats = Order::query()
+            ->whereDate('created_at', $today)
             ->where('status', '!=', 'cancelled')
             ->selectRaw('SUM(total_price) as revenue, COUNT(*) as orders')
             ->first();
 
         $todayRevenue = (float) ($todayStats->revenue ?? 0);
-        $todayOrders  = (int)   ($todayStats->orders  ?? 0);
+        $todayOrders = (int) ($todayStats->orders ?? 0);
 
-        $lowStockCount = Ingredient::whereColumn('stock_qty', '<=', 'min_stock')
+        $lowStockCount = Ingredient::query()
+            ->whereColumn('stock_qty', '<=', 'min_stock')
             ->where('min_stock', '>', 0)
             ->count();
 
-        $monthlyStats = Order::whereBetween('created_at', [$startOfMonth, $endOfMonth])
+        $monthlyStats = Order::query()
+            ->whereBetween('created_at', [$startOfMonth, $endOfMonth])
             ->where('status', '!=', 'cancelled')
             ->selectRaw('SUM(total_price) as revenue')
             ->first();
 
-        $monthlyRevenue  = (float) ($monthlyStats->revenue ?? 0);
-        $monthlyExpenses = (float) Expense::whereBetween('date', [$startOfMonth->toDateString(), $endOfMonth->toDateString()])->sum('amount');
-        $monthlyProfit   = $monthlyRevenue - $monthlyExpenses;
+        $monthlyRevenue = (float) ($monthlyStats->revenue ?? 0);
+        $monthlyExpenses = (float) Expense::query()
+            ->whereBetween('date', [$startOfMonth->toDateString(), $endOfMonth->toDateString()])
+            ->sum('amount');
+        $monthlyProfit = $monthlyRevenue - $monthlyExpenses;
 
-        // Revenue for current week Mon–Sun
-        $startOfWeek = now()->startOfWeek(\Carbon\Carbon::MONDAY)->startOfDay();
-        $endOfWeek   = now()->endOfWeek(\Carbon\Carbon::SUNDAY)->endOfDay();
+        $startOfWeek = now()->startOfWeek(Carbon::MONDAY)->startOfDay();
+        $endOfWeek = now()->endOfWeek(Carbon::SUNDAY)->endOfDay();
 
-        $revenueData = Order::whereBetween('created_at', [$startOfWeek, $endOfWeek])
+        $revenueData = Order::query()
+            ->whereBetween('created_at', [$startOfWeek, $endOfWeek])
             ->where('status', '!=', 'cancelled')
             ->selectRaw('DATE(created_at) as date, SUM(total_price) as revenue')
             ->groupBy('date')
@@ -81,7 +89,7 @@ class DashboardController extends Controller
         for ($i = 0; $i <= 6; $i++) {
             $date = $startOfWeek->copy()->addDays($i);
             $formattedRevenueData[] = [
-                'name'    => $date->format('D'),
+                'name' => $date->format('D'),
                 'revenue' => $revenueData->get($date->format('Y-m-d'), 0),
             ];
         }
@@ -100,20 +108,27 @@ class DashboardController extends Controller
             ->groupBy('categories.id', 'categories.name')
             ->orderByDesc('total_orders')
             ->get()
-            ->map(fn ($c) => ['category' => $c->name, 'orders' => (int) $c->total_orders]);
+            ->map(fn ($category) => [
+                'category' => $category->name,
+                'orders' => (int) $category->total_orders,
+            ]);
 
-        $recentOrders = Order::with('table:id,name')
-            ->orderBy('created_at', 'desc')
+        $recentOrders = Order::query()
+            ->select(['id', 'table_id', 'total_price', 'status', 'created_at'])
+            ->with('table:id,name')
+            ->latest('created_at')
             ->limit(10)
             ->get()
             ->map(fn ($order) => [
-                'id'     => '#ORD-' . str_pad($order->id, 4, '0', STR_PAD_LEFT),
-                'table'  => $order->table?->name ?? 'Takeaway',
-                'total'  => '$' . number_format($order->total_price, 2),
+                'id' => '#ORD-' . str_pad($order->id, 4, '0', STR_PAD_LEFT),
+                'table' => $order->table?->name ?? 'Takeaway',
+                'total' => '$' . number_format((float) $order->total_price, 2),
                 'status' => $order->status,
             ]);
 
-        $lowStockItems = Ingredient::whereColumn('stock_qty', '<=', 'min_stock')
+        $lowStockItems = Ingredient::query()
+            ->select(['name', 'stock_qty', 'min_stock'])
+            ->whereColumn('stock_qty', '<=', 'min_stock')
             ->where('min_stock', '>', 0)
             ->limit(10)
             ->get()
@@ -121,17 +136,21 @@ class DashboardController extends Controller
                 $level = $ingredient->min_stock > 0
                     ? ($ingredient->stock_qty / $ingredient->min_stock) * 100
                     : 0;
-                return ['name' => $ingredient->name, 'level' => min(100, round($level))];
+
+                return [
+                    'name' => $ingredient->name,
+                    'level' => min(100, round($level)),
+                ];
             });
 
         return [
             'stats' => [
-                ['label' => 'Total Revenue Today',  'value' => '$' . number_format($todayRevenue, 2),  'trend' => $this->getTodayTrend(),  'accent' => 'text-emerald-600'],
-                ['label' => 'Total Orders Today',   'value' => $todayOrders,                           'trend' => $this->getOrdersTrend(), 'accent' => 'text-emerald-600'],
-                ['label' => 'Low Stock Items',       'value' => $lowStockCount,                         'trend' => $lowStockCount > 0 ? 'Needs attention' : 'All good', 'accent' => $lowStockCount > 0 ? 'text-rose-600' : 'text-emerald-600'],
-                ['label' => 'Monthly Profit',        'value' => '$' . number_format($monthlyProfit, 2), 'trend' => $monthlyProfit >= 0 ? 'Profit' : 'Loss', 'accent' => $monthlyProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'],
+                ['label' => 'Total Revenue Today', 'value' => '$' . number_format($todayRevenue, 2), 'trend' => $this->getTodayTrend(), 'accent' => 'text-emerald-600'],
+                ['label' => 'Total Orders Today', 'value' => $todayOrders, 'trend' => $this->getOrdersTrend(), 'accent' => 'text-emerald-600'],
+                ['label' => 'Low Stock Items', 'value' => $lowStockCount, 'trend' => $lowStockCount > 0 ? 'Needs attention' : 'All good', 'accent' => $lowStockCount > 0 ? 'text-rose-600' : 'text-emerald-600'],
+                ['label' => 'Monthly Profit', 'value' => '$' . number_format($monthlyProfit, 2), 'trend' => $monthlyProfit >= 0 ? 'Profit' : 'Loss', 'accent' => $monthlyProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'],
             ],
-            'revenueData'  => $formattedRevenueData,
+            'revenueData' => $formattedRevenueData,
             'categoryData' => $categoryData,
             'recentOrders' => $recentOrders,
             'lowStockItems' => $lowStockItems,
@@ -143,22 +162,21 @@ class DashboardController extends Controller
      */
     public function notifications(): JsonResponse
     {
-        return response()->json([
-            'notifications' => $this->getNotifications(),
-        ]);
+        return response()->json($this->getCachedNotificationPayload());
     }
 
     /**
-     * Generate notifications from database - optimized.
+     * Generate notifications from database.
      */
     private function getNotifications(): array
     {
         $notifications = [];
 
-        // Get pending orders - with table eager loading
-        $pendingOrders = Order::with('table:id,name')
+        $pendingOrders = Order::query()
+            ->select(['id', 'table_id', 'total_price', 'created_at'])
+            ->with('table:id,name')
             ->where('status', 'pending')
-            ->orderBy('created_at', 'desc')
+            ->latest('created_at')
             ->limit(5)
             ->get();
 
@@ -167,16 +185,17 @@ class DashboardController extends Controller
                 'id' => 'order-' . $order->id,
                 'type' => 'order',
                 'title' => 'New Order #' . str_pad($order->id, 4, '0', STR_PAD_LEFT),
-                'message' => ($order->table?->name ?? 'Takeaway') . ' - $' . number_format($order->total_price, 2),
+                'message' => ($order->table?->name ?? 'Takeaway') . ' - $' . number_format((float) $order->total_price, 2),
                 'time' => $order->created_at->diffForHumans(),
                 'read' => false,
             ];
         }
 
-        // Get ready orders - with table eager loading
-        $readyOrders = Order::with('table:id,name')
+        $readyOrders = Order::query()
+            ->select(['id', 'table_id', 'updated_at'])
+            ->with('table:id,name')
             ->where('status', 'ready')
-            ->orderBy('updated_at', 'desc')
+            ->latest('updated_at')
             ->limit(3)
             ->get();
 
@@ -191,8 +210,9 @@ class DashboardController extends Controller
             ];
         }
 
-        // Get low stock alerts - optimized query
-        $lowStockItems = Ingredient::whereColumn('stock_qty', '<=', 'min_stock')
+        $lowStockItems = Ingredient::query()
+            ->select(['id', 'name', 'stock_qty', 'unit', 'updated_at'])
+            ->whereColumn('stock_qty', '<=', 'min_stock')
             ->where('min_stock', '>', 0)
             ->limit(3)
             ->get();
@@ -208,8 +228,9 @@ class DashboardController extends Controller
             ];
         }
 
-        // Near stock warnings - optimized query
-        $nearStockItems = Ingredient::whereColumn('stock_qty', '>', 'min_stock')
+        $nearStockItems = Ingredient::query()
+            ->select(['id', 'name', 'stock_qty', 'unit', 'updated_at'])
+            ->whereColumn('stock_qty', '>', 'min_stock')
             ->whereColumn('stock_qty', '<=', DB::raw('min_stock * 1.5'))
             ->where('min_stock', '>', 0)
             ->limit(3)
@@ -234,30 +255,38 @@ class DashboardController extends Controller
      */
     private function getNotificationCount(): int
     {
-        $pendingOrdersCount = Order::where('status', 'pending')->count();
-        $readyOrdersCount = Order::where('status', 'ready')->count();
-        $lowStockCount = Ingredient::whereColumn('stock_qty', '<=', 'min_stock')
-                                    ->where('min_stock', '>', 0)
-                                    ->count();
-        $nearStockCount = Ingredient::whereColumn('stock_qty', '>', 'min_stock')
-                                    ->whereColumn('stock_qty', '<=', DB::raw('min_stock * 1.5'))
-                                    ->where('min_stock', '>', 0)
-                                    ->count();
+        $orderCounts = Order::query()
+            ->whereIn('status', ['pending', 'ready'])
+            ->selectRaw('
+                SUM(CASE WHEN status = "pending" THEN 1 ELSE 0 END) as pending_count,
+                SUM(CASE WHEN status = "ready" THEN 1 ELSE 0 END) as ready_count
+            ')
+            ->first();
 
-        return $pendingOrdersCount + $readyOrdersCount + $lowStockCount + $nearStockCount;
+        $ingredientCounts = Ingredient::query()
+            ->where('min_stock', '>', 0)
+            ->selectRaw('
+                SUM(CASE WHEN stock_qty <= min_stock THEN 1 ELSE 0 END) as low_stock_count,
+                SUM(CASE WHEN stock_qty > min_stock AND stock_qty <= min_stock * 1.5 THEN 1 ELSE 0 END) as near_stock_count
+            ')
+            ->first();
+
+        return (int) ($orderCounts->pending_count ?? 0)
+            + (int) ($orderCounts->ready_count ?? 0)
+            + (int) ($ingredientCounts->low_stock_count ?? 0)
+            + (int) ($ingredientCounts->near_stock_count ?? 0);
     }
 
     /**
-     * Get revenue trend compared to yesterday - optimized.
+     * Get revenue trend compared to yesterday.
      */
     private function getTodayTrend(): string
     {
         $today = now()->startOfDay();
         $yesterday = now()->subDay()->startOfDay();
 
-        // Single query with conditional sum
-        $revenues = Order::whereDate('created_at', $today)
-            ->orWhereDate('created_at', $yesterday)
+        $revenues = Order::query()
+            ->whereBetween('created_at', [$yesterday, now()->endOfDay()])
             ->where('status', '!=', 'cancelled')
             ->selectRaw('DATE(created_at) as date, SUM(total_price) as revenue')
             ->groupBy('date')
@@ -268,26 +297,24 @@ class DashboardController extends Controller
         $yesterdayRevenue = (float) ($revenues->get($yesterday->format('Y-m-d'))?->revenue ?? 0);
 
         if ($yesterdayRevenue == 0) {
-            return $todayRevenue > 0 ? '↑ New records' : 'No data';
+            return $todayRevenue > 0 ? 'Up from zero' : 'No data';
         }
 
         $change = (($todayRevenue - $yesterdayRevenue) / $yesterdayRevenue) * 100;
-        $direction = $change >= 0 ? '↑' : '↓';
 
-        return $direction . ' ' . abs(round($change, 1)) . '%';
+        return ($change >= 0 ? 'Up ' : 'Down ') . abs(round($change, 1)) . '%';
     }
 
     /**
-     * Get orders trend compared to yesterday - optimized.
+     * Get orders trend compared to yesterday.
      */
     private function getOrdersTrend(): string
     {
         $today = now()->startOfDay();
         $yesterday = now()->subDay()->startOfDay();
 
-        // Single query with conditional count
-        $counts = Order::whereDate('created_at', $today)
-            ->orWhereDate('created_at', $yesterday)
+        $counts = Order::query()
+            ->whereBetween('created_at', [$yesterday, now()->endOfDay()])
             ->where('status', '!=', 'cancelled')
             ->selectRaw('DATE(created_at) as date, COUNT(*) as orders')
             ->groupBy('date')
@@ -298,13 +325,12 @@ class DashboardController extends Controller
         $yesterdayOrders = (int) ($counts->get($yesterday->format('Y-m-d'))?->orders ?? 0);
 
         if ($yesterdayOrders == 0) {
-            return $todayOrders > 0 ? '↑ New records' : 'No data';
+            return $todayOrders > 0 ? 'Up from zero' : 'No data';
         }
 
         $change = (($todayOrders - $yesterdayOrders) / $yesterdayOrders) * 100;
-        $direction = $change >= 0 ? '↑' : '↓';
 
-        return $direction . ' ' . abs(round($change, 1)) . '%';
+        return ($change >= 0 ? 'Up ' : 'Down ') . abs(round($change, 1)) . '%';
     }
 
     /**
@@ -312,9 +338,20 @@ class DashboardController extends Controller
      */
     public static function clearCache(): void
     {
-        // Clear all hourly dashboard caches for today
+        Cache::forget('dashboard_notifications');
+
         for ($hour = 0; $hour <= now()->hour; $hour++) {
-            Cache::forget('dashboard_' . now()->format("Y-m-d-{$hour}"));
+            Cache::forget('dashboard_' . now()->format('Y-m-d-') . sprintf('%02d', $hour));
         }
+    }
+
+    private function getCachedNotificationPayload(): array
+    {
+        return Cache::remember('dashboard_notifications', self::NOTIFICATIONS_CACHE_TTL, function () {
+            return [
+                'notifications' => $this->getNotifications(),
+                'notification_count' => $this->getNotificationCount(),
+            ];
+        });
     }
 }

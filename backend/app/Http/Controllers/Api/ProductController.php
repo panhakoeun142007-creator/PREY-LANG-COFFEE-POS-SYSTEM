@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
 class ProductController extends Controller
@@ -16,6 +17,8 @@ class ProductController extends Controller
      * Cache TTL for products (5 minutes).
      */
     private const CACHE_TTL = 300;
+
+    private const CACHE_VERSION_KEY = 'products_cache_version';
           
     /**
      * Allowed image MIME types.
@@ -38,30 +41,11 @@ class ProductController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        // Build cache key based on request filters
-        $cacheKey = 'products_list';
-        if ($request->has('category_id')) {
-            $cacheKey .= '_cat_' . $request->category_id;
-        }
-        if ($request->has('is_available')) {
-            $cacheKey .= '_avail_' . ($request->boolean('is_available') ? '1' : '0');
-        }
+        $cacheKey = $this->buildProductsCacheKey($request);
 
-        // Try cache first
         $products = Cache::remember($cacheKey, self::CACHE_TTL, function () use ($request) {
-            $query = Product::select([
-                'id', 
-                'category_id', 
-                'name', 
-                'sku', 
-                'price_small', 
-                'price_medium', 
-                'price_large', 
-                'image', 
-                'is_available', 
-                'created_at', 
-                'updated_at'
-            ])->with('category:id,name,description,quantity,is_active');
+            $query = Product::select($this->productSelectColumns())
+                ->with('category:id,name,description,quantity,is_active');
 
             if ($request->has('category_id')) {
                 $query->where('category_id', $request->category_id);
@@ -71,16 +55,15 @@ class ProductController extends Controller
                 $query->where('is_available', $request->boolean('is_available'));
             }
 
-            // Search functionality
             if ($request->has('search') && $request->search) {
-                $search = $request->search;
+                $search = trim((string) $request->search);
                 $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
                       ->orWhere('sku', 'like', "%{$search}%");
                 });
             }
 
-            return $query->get();
+            return $query->orderBy('name')->get();
         });
 
         return response()->json([
@@ -302,17 +285,60 @@ class ProductController extends Controller
      */
     private function clearProductsCache(): void
     {
-        Cache::forget('products_list');
-        Cache::forget('products_list_avail_1');
-        Cache::forget('products_list_avail_0');
         Cache::forget('categories_list');
+        Cache::forever(self::CACHE_VERSION_KEY, ((int) Cache::get(self::CACHE_VERSION_KEY, 1)) + 1);
+    }
 
-        // Clear per-category product caches
-        $categoryIds = \App\Models\Category::pluck('id');
-        foreach ($categoryIds as $id) {
-            Cache::forget("products_list_cat_{$id}");
-            Cache::forget("products_list_cat_{$id}_avail_1");
-            Cache::forget("products_list_cat_{$id}_avail_0");
+    private function buildProductsCacheKey(Request $request): string
+    {
+        $parts = [
+            'products_list',
+            'v' . (int) Cache::get(self::CACHE_VERSION_KEY, 1),
+        ];
+
+        if ($request->filled('category_id')) {
+            $parts[] = 'cat_' . $request->integer('category_id');
         }
+
+        if ($request->has('is_available')) {
+            $parts[] = 'avail_' . ($request->boolean('is_available') ? '1' : '0');
+        }
+
+        if ($request->filled('search')) {
+            $parts[] = 'search_' . md5(mb_strtolower(trim((string) $request->string('search'))));
+        }
+
+        return implode('_', $parts);
+    }
+
+    private function productSelectColumns(): array
+    {
+        return $this->filterExistingProductColumns([
+            'id',
+            'category_id',
+            'name',
+            'description',
+            'sku',
+            'price_small',
+            'price_medium',
+            'price_large',
+            'cost',
+            'supplier_id',
+            'image',
+            'is_available',
+            'created_at',
+            'updated_at',
+        ]);
+    }
+
+    private function filterExistingProductColumns(array $columns): array
+    {
+        static $availableColumns;
+
+        if ($availableColumns === null) {
+            $availableColumns = array_flip(Schema::getColumnListing('products'));
+        }
+
+        return array_values(array_filter($columns, fn (string $column) => isset($availableColumns[$column])));
     }
 }

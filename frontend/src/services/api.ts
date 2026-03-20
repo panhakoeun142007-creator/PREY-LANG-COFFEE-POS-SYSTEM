@@ -1,6 +1,9 @@
 // Use in-memory auth instead of localStorage
 import { auth } from "../utils/auth";
 
+const pendingGetRequests = new Map<string, Promise<unknown>>();
+const cachedGetResponses = new Map<string, { expiresAt: number; data: unknown }>();
+
 function resolveApiBaseUrl(): string {
   const backendUrlRaw = (import.meta.env.VITE_BACKEND_URL as string | undefined) || "http://127.0.0.1:8000";
   const backendUrl = backendUrlRaw.replace(/\/+$/, "");
@@ -17,6 +20,49 @@ function resolveApiBaseUrl(): string {
 }
 
 const API_BASE_URL = resolveApiBaseUrl();
+
+function buildGetCacheKey(path: string): string {
+  return `GET:${path}`;
+}
+
+function clearApiCache(matcher?: (key: string) => boolean): void {
+  for (const key of cachedGetResponses.keys()) {
+    if (!matcher || matcher(key)) {
+      cachedGetResponses.delete(key);
+    }
+  }
+}
+
+async function apiGetCached<T>(path: string, ttlMs: number): Promise<T> {
+  const key = buildGetCacheKey(path);
+  const cached = cachedGetResponses.get(key);
+  const now = Date.now();
+
+  if (cached && cached.expiresAt > now) {
+    return cached.data as T;
+  }
+
+  const pending = pendingGetRequests.get(key);
+  if (pending) {
+    return pending as Promise<T>;
+  }
+
+  const request = apiRequest<T>(path)
+    .then((payload) => {
+      cachedGetResponses.set(key, {
+        expiresAt: Date.now() + ttlMs,
+        data: payload,
+      });
+      return payload;
+    })
+    .finally(() => {
+      pendingGetRequests.delete(key);
+    });
+
+  pendingGetRequests.set(key, request as Promise<unknown>);
+
+  return request;
+}
 
 export interface PaginatedResponse<T> {
   data: T[];
@@ -420,17 +466,17 @@ export const fetchCurrentUser = async (): Promise<CurrentUser> => {
   if (!primaryResponse.ok && (primaryResponse.status === 401 || primaryResponse.status === 403)) {
     const secondaryResponse = await safeFetch(secondaryEndpoint);
     if (secondaryResponse.ok) {
-      return apiRequest(secondaryEndpoint);
+      return apiGetCached(secondaryEndpoint, 2000);
     }
   }
 
-  return apiRequest(primaryEndpoint);
+  return apiGetCached(primaryEndpoint, 2000);
 };
 
-export const fetchManager = async (): Promise<ManagerInfo> => apiRequest("/manager");
+export const fetchManager = async (): Promise<ManagerInfo> => apiGetCached("/manager", 10000);
 
 export const fetchNotifications = async (): Promise<{ notifications: Notification[] }> => {
-  return apiRequest("/notifications");
+  return apiGetCached("/notifications", 5000);
 };
 
 export const dismissNotification = async (key: string): Promise<{ message?: string }> => {
@@ -439,10 +485,11 @@ export const dismissNotification = async (key: string): Promise<{ message?: stri
 };
 
 export const fetchDashboard = async (): Promise<DashboardData> => {
-  return apiRequest("/dashboard");
+  return apiGetCached("/dashboard", 10000);
 };
 
 export const logoutAdmin = async (): Promise<any> => {
+  clearApiCache();
   return apiRequest("/logout", { method: "POST" });
 };
 
@@ -487,14 +534,24 @@ export const updateCurrentUser = async (data: {
 };
 
 export const fetchCategories = async (): Promise<CategoryApiItem[]> => apiRequest("/categories");
+export const fetchCachedCategories = async (): Promise<CategoryApiItem[]> => apiGetCached("/categories", 60000);
 export const createCategory = async (data: any): Promise<CategoryApiItem> =>
-  apiRequest("/categories", { method: "POST", body: JSON.stringify(data) });
+  apiRequest("/categories", { method: "POST", body: JSON.stringify(data) }).then((payload) => {
+    clearApiCache((key) => key.includes("/categories"));
+    return payload;
+  });
 export const updateCategory = async (id: number, data: any): Promise<CategoryApiItem> =>
-  apiRequest(`/categories/${id}`, { method: "PUT", body: JSON.stringify(data) });
+  apiRequest(`/categories/${id}`, { method: "PUT", body: JSON.stringify(data) }).then((payload) => {
+    clearApiCache((key) => key.includes("/categories"));
+    return payload;
+  });
 export const deleteCategory = async (id: number): Promise<any> =>
-  apiRequest(`/categories/${id}`, { method: "DELETE" });
+  apiRequest(`/categories/${id}`, { method: "DELETE" }).then((payload) => {
+    clearApiCache((key) => key.includes("/categories"));
+    return payload;
+  });
 
-export const fetchProducts = async (): Promise<PaginatedResponse<ApiProduct>> => apiRequest("/products");
+export const fetchProducts = async (): Promise<PaginatedResponse<ApiProduct>> => apiGetCached("/products", 30000);
 
 export const createProduct = async (data: any): Promise<ApiProduct> => {
   // Check if there's a file to upload
@@ -513,11 +570,16 @@ export const createProduct = async (data: any): Promise<ApiProduct> => {
     if (data.imageFile) fd.append('image_file', data.imageFile);
     if (data.is_available !== undefined) fd.append('is_available', String(data.is_available));
     
-    return apiRequest("/products", { method: "POST", body: fd });
+    return apiRequest("/products", { method: "POST", body: fd }).then((payload) => {
+      clearApiCache((key) => key.includes("/products") || key.includes("/categories"));
+      return payload;
+    });
   }
   
-  // Regular JSON request
-  return apiRequest("/products", { method: "POST", body: JSON.stringify(data) });
+  return apiRequest("/products", { method: "POST", body: JSON.stringify(data) }).then((payload) => {
+    clearApiCache((key) => key.includes("/products") || key.includes("/categories"));
+    return payload;
+  });
 };
 
 export const updateProduct = async (id: number, data: any): Promise<ApiProduct> => {
@@ -536,14 +598,22 @@ export const updateProduct = async (id: number, data: any): Promise<ApiProduct> 
     if (data.imageFile) fd.append('image_file', data.imageFile);
     if (data.is_available !== undefined) fd.append('is_available', String(data.is_available));
     
-    return apiRequest(`/products/${id}`, { method: "POST", body: fd });
+    return apiRequest(`/products/${id}`, { method: "POST", body: fd }).then((payload) => {
+      clearApiCache((key) => key.includes("/products") || key.includes("/categories"));
+      return payload;
+    });
   }
   
-  // Regular JSON request
-  return apiRequest(`/products/${id}`, { method: "PUT", body: JSON.stringify(data) });
+  return apiRequest(`/products/${id}`, { method: "PUT", body: JSON.stringify(data) }).then((payload) => {
+    clearApiCache((key) => key.includes("/products") || key.includes("/categories"));
+    return payload;
+  });
 };
 export const deleteProduct = async (id: number): Promise<any> =>
-  apiRequest(`/products/${id}`, { method: "DELETE" });
+  apiRequest(`/products/${id}`, { method: "DELETE" }).then((payload) => {
+    clearApiCache((key) => key.includes("/products") || key.includes("/categories"));
+    return payload;
+  });
 
 export const fetchIngredients = async (): Promise<IngredientApiItem[]> => apiRequest("/ingredients");
 export const createIngredient = async (data: any): Promise<IngredientApiItem> =>
@@ -577,9 +647,15 @@ export const createStaff = async (data: {
 }): Promise<StaffApiItem> => {
   if (data.profile_image) {
     const fd = toFormData(data as unknown as Record<string, unknown>);
-    return apiRequest("/staffs", { method: "POST", body: fd });
+    return apiRequest("/staffs", { method: "POST", body: fd }).then((payload) => {
+      clearApiCache((key) => key.includes("/staffs"));
+      return payload;
+    });
   }
-  return apiRequest("/staffs", { method: "POST", body: JSON.stringify(data) });
+  return apiRequest("/staffs", { method: "POST", body: JSON.stringify(data) }).then((payload) => {
+    clearApiCache((key) => key.includes("/staffs"));
+    return payload;
+  });
 };
 
 export const updateStaff = async (
@@ -596,32 +672,53 @@ export const updateStaff = async (
   if (data.profile_image) {
     const fd = toFormData({ ...data, _method: "PUT" } as unknown as Record<string, unknown>);
     // Use POST + _method override to ensure Laravel matches the PUT route with multipart/form-data.
-    return apiRequest(`/staffs/${id}`, { method: "POST", body: fd });
+    return apiRequest(`/staffs/${id}`, { method: "POST", body: fd }).then((payload) => {
+      clearApiCache((key) => key.includes("/staffs"));
+      return payload;
+    });
   }
-  return apiRequest(`/staffs/${id}`, { method: "PUT", body: JSON.stringify(data) });
+  return apiRequest(`/staffs/${id}`, { method: "PUT", body: JSON.stringify(data) }).then((payload) => {
+    clearApiCache((key) => key.includes("/staffs"));
+    return payload;
+  });
 };
 
 export const deleteStaff = async (id: number): Promise<any> =>
-  apiRequest(`/staffs/${id}`, { method: "DELETE" });
+  apiRequest(`/staffs/${id}`, { method: "DELETE" }).then((payload) => {
+    clearApiCache((key) => key.includes("/staffs"));
+    return payload;
+  });
 
 export const fetchOrders = async (): Promise<PaginatedResponse<ApiOrder>> => apiRequest("/orders");
 export const createOrder = async (data: any): Promise<ApiOrder> =>
-  apiRequest("/orders", { method: "POST", body: JSON.stringify(data) });
+  apiRequest("/orders", { method: "POST", body: JSON.stringify(data) }).then((payload) => {
+    clearApiCache((key) => key.includes("/orders") || key.includes("/dashboard") || key.includes("/notifications"));
+    return payload;
+  });
 export const updateOrder = async (id: number, data: any): Promise<ApiOrder> =>
-  apiRequest(`/orders/${id}`, { method: "PUT", body: JSON.stringify(data) });
+  apiRequest(`/orders/${id}`, { method: "PUT", body: JSON.stringify(data) }).then((payload) => {
+    clearApiCache((key) => key.includes("/orders") || key.includes("/dashboard") || key.includes("/notifications"));
+    return payload;
+  });
 
-export const fetchLiveOrders = async (): Promise<LiveOrder[]> => apiRequest("/orders/live");
+export const fetchLiveOrders = async (): Promise<LiveOrder[]> => apiGetCached("/orders/live", 4000);
 export const updateOrderStatus = async (id: number, status: string): Promise<LiveOrder> =>
-  apiRequest(`/orders/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) });
+  apiRequest(`/orders/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }).then((payload) => {
+    clearApiCache((key) => key.includes("/orders") || key.includes("/dashboard") || key.includes("/notifications"));
+    return payload;
+  });
 
 export const fetchOrderHistory = async (params: OrderHistoryParams = {}): Promise<PaginatedOrderHistoryResponse> =>
-  apiRequest(withQuery("/orders/history", params));
+  apiGetCached(withQuery("/orders/history", params), 4000);
 
-export const fetchSettings = async (): Promise<AppSettings> => apiRequest("/settings");
+export const fetchSettings = async (): Promise<AppSettings> => apiGetCached("/settings", 60000);
 export const updateSettings = async (data: Partial<AppSettings>): Promise<AppSettings> =>
-  apiRequest("/settings", { method: "PUT", body: JSON.stringify(data) });
+  apiRequest("/settings", { method: "PUT", body: JSON.stringify(data) }).then((payload) => {
+    clearApiCache((key) => key.includes("/settings"));
+    return payload;
+  });
 
-export const fetchDashboardData = async (): Promise<DashboardData> => apiRequest("/dashboard");
+export const fetchDashboardData = async (): Promise<DashboardData> => apiGetCached("/dashboard", 10000);
 export const fetchSalesAnalyticsData = async (): Promise<{
   monthlyTrendData: SalesTrendDataPoint[];
   peakHoursData: PeakHourDataPoint[];
@@ -650,3 +747,27 @@ export const updateRecipeBoardStatus = async (id: number, status: string): Promi
   apiRequest(`/recipes-board/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) });
 export const deleteRecipeBoard = async (id: number, size: string): Promise<any> =>
   apiRequest(`/recipes-board/${id}/${size}`, { method: "DELETE" });
+
+export const fetchCustomerCategories = async (): Promise<CategoryApiItem[]> =>
+  apiGetCached("/customer/categories", 60000);
+
+export const fetchCustomerProducts = async (): Promise<PaginatedResponse<ApiProduct>> =>
+  apiGetCached("/customer/products", 30000);
+
+export const createCustomerOrder = async (data: {
+  table_id: number;
+  items: Array<{ product_id: number; size: string; qty: number; price: number }>;
+  total_price: number;
+  payment_type: string;
+}): Promise<ApiOrder> => apiRequest("/customer/orders", { method: "POST", body: JSON.stringify(data) });
+
+export const fetchCustomerOrderStatus = async (orderId: number): Promise<{
+  id: number;
+  status: string;
+  queue_number: number | null;
+  table: string | null;
+  updated_at: string;
+}> => apiGetCached(`/customer/orders/${orderId}`, 4000);
+
+export const markCustomerOrderPickedUp = async (orderId: number): Promise<ApiOrder> =>
+  apiRequest(`/customer/orders/${orderId}/pickup`, { method: "POST" });

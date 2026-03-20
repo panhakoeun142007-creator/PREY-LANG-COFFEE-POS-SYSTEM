@@ -86,6 +86,8 @@ class AuthController extends Controller
         $token = $request->bearerToken();
         if ($token) {
             Cache::forget("api_auth_token:{$token}");
+            Cache::forget("current_user_{$token}");
+            Cache::forget("current_staff_{$token}");
         }
 
         return response()->json(['message' => 'Logged out']);

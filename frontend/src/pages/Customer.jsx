@@ -10,6 +10,7 @@ import {
   FaSun,
   FaUtensils,
 } from "react-icons/fa";
+import { fetchCustomerCategories, fetchCustomerProducts } from "../services/api";
 
 const API_BASE = (() => {
   const raw = (import.meta.env.VITE_API_BASE_URL ?? "").trim().replace(/\/$/, "");
@@ -77,8 +78,7 @@ function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", o
 
   // Fetch categories from admin API
   useEffect(() => {
-    fetch(`${API_BASE}/api/customer/categories`)
-      .then((r) => r.json())
+    fetchCustomerCategories()
       .then((data) => {
         const list = Array.isArray(data) ? data : (data.data ?? []);
         setCategories(list.filter((c) => c.is_active !== false));
@@ -90,10 +90,10 @@ function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", o
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
-    fetch(`${API_BASE}/api/customer/products`, { signal: controller.signal })
-      .then((r) => r.json())
+    fetchCustomerProducts()
       .then((data) => {
         const list = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+        if (controller.signal.aborted) return;
         setProducts(
           list
             .filter((p) => p.is_available !== false)
@@ -102,6 +102,7 @@ function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", o
         setLoading(false);
       })
       .catch((err) => {
+        if (controller.signal.aborted) return;
         if (err.name !== "AbortError") setLoading(false);
       });
     return () => controller.abort();

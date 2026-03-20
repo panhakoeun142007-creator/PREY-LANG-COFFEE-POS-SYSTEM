@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import {
+  createCustomerOrder,
+  fetchCustomerOrderStatus as fetchCustomerOrderStatusApi,
+  markCustomerOrderPickedUp,
+} from "../services/api";
 import Customer, { getPriceForSize, getItemUnitPrice } from "./Customer";
 import Cart from "./cart";
 import Detail from "./Detail";
@@ -9,11 +14,6 @@ import Paymantule from "./paymantule";
 import Wait from "./wait";
 import Ready from "./ready";
 import "../style/customer-menu.css";
-
-const API_BASE = (() => {
-  const raw = (import.meta.env.VITE_API_BASE_URL ?? "").trim().replace(/\/$/, "");
-  return raw || "http://127.0.0.1:8000";
-})();
 
 const SIZE_MAP = { S: "small", M: "medium", L: "large" };
 
@@ -241,22 +241,12 @@ export default function CustomerMenuApp() {
         price: getItemUnitPrice(item),
       }));
 
-      const response = await fetch(`${API_BASE}/api/customer/orders`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          table_id: tableId ? Number(tableId) : 1,
-          items,
-          total_price: getCartTotalWithTax(cartItems),
-          payment_type: paymentMethod === "card" ? "khqr" : "cash",
-        }),
+      const data = await createCustomerOrder({
+        table_id: tableId ? Number(tableId) : 1,
+        items,
+        total_price: getCartTotalWithTax(cartItems),
+        payment_type: paymentMethod === "card" ? "khqr" : "cash",
       });
-
-      const data = await response.json();
-      if (!response.ok) {
-        console.error("Order failed:", data);
-        return null;
-      }
       return {
         orderId: data.id ?? null,
         queueNumber: data.queue_number ?? data.id ?? null,
@@ -288,9 +278,7 @@ export default function CustomerMenuApp() {
   const markOrderPickedUp = async () => {
     if (!lastOrderId) return;
     try {
-      await fetch(`${API_BASE}/api/customer/orders/${lastOrderId}/pickup`, {
-        method: "POST",
-      });
+      await markCustomerOrderPickedUp(lastOrderId);
     } catch (error) {
       console.error("Error confirming pickup:", error);
     }
@@ -308,9 +296,7 @@ export default function CustomerMenuApp() {
   const fetchCustomerOrderStatus = async () => {
     if (!lastOrderId) return;
     try {
-      const response = await fetch(`${API_BASE}/api/customer/orders/${lastOrderId}`);
-      if (!response.ok) return;
-      const data = await response.json();
+      const data = await fetchCustomerOrderStatusApi(lastOrderId);
       const status = typeof data?.status === "string" ? data.status.toLowerCase() : null;
       if (status) setOrderStatus(status);
     } catch (error) {
