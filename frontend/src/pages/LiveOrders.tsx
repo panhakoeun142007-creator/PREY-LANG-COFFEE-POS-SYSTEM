@@ -176,8 +176,6 @@ export default function LiveOrders() {
     setCancelDialogOpen(true)
   }
 
-  // Confirm cancel with message (inline in dialog)
-
   // Handle view details
   const handleViewDetails = (order: LiveOrder) => {
     setSelectedOrder(order)
@@ -479,7 +477,7 @@ export default function LiveOrders() {
                         </div>
                       </div>
                       <span className="font-medium text-[#4B2E2B]">
-                        {money.format(item.price * item.qty)}
+                        {money.format(Number(item.price) * Number(item.qty))}
                       </span>
                     </div>
                   ))}
