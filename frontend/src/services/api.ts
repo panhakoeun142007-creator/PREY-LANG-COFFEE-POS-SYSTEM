@@ -732,8 +732,14 @@ export const updateOrder = async (id: number, data: any): Promise<ApiOrder> =>
   });
 
 export const fetchLiveOrders = async (): Promise<LiveOrder[]> => apiGetCached("/orders/live", 4000);
-export const updateOrderStatus = async (id: number, status: string): Promise<LiveOrder> =>
-  apiRequest(`/orders/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }).then((payload) => {
+export const updateOrderStatus = async (id: number, status: string, cancellationMessage?: string): Promise<LiveOrder> =>
+  apiRequest(`/orders/${id}/status`, { 
+    method: "PATCH", 
+    body: JSON.stringify({ 
+      status,
+      cancellation_message: cancellationMessage || null
+    }) 
+  }).then((payload) => {
     clearApiCache((key) => key.includes("/orders") || key.includes("/dashboard") || key.includes("/notifications"));
     return payload;
   });
@@ -806,6 +812,7 @@ export const fetchCustomerOrderStatus = async (orderId: number): Promise<{
   queue_number: number | null;
   table: string | null;
   updated_at: string;
+  cancellation_message: string | null;
 }> => apiGetCached(`/customer/orders/${orderId}`, 4000);
 
 export const markCustomerOrderPickedUp = async (orderId: number): Promise<ApiOrder> =>

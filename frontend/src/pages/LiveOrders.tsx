@@ -28,6 +28,7 @@ import {
   TableRow,
 } from "../components/ui/table"
 import { Input } from "../components/ui/input"
+import { Label } from "../components/ui/label"
 import {
   Select,
   SelectContent,
@@ -91,6 +92,9 @@ export default function LiveOrders() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedOrder, setSelectedOrder] = useState<LiveOrder | null>(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
+  const [orderToCancel, setOrderToCancel] = useState<{ id: number; queueNumber: number } | null>(null)
+  const [cancellationMessage, setCancellationMessage] = useState("Sorry For Your Order Now We're not available")
   const [currentTime, setCurrentTime] = useState(new Date())
 
   // Update current time every second
@@ -155,16 +159,24 @@ export default function LiveOrders() {
   }, [orders])
 
   // Handle status change
-  const handleStatusChange = async (orderId: number, newStatus: string) => {
+  const handleStatusChange = async (orderId: number, newStatus: string, cancellationMessage?: string) => {
     try {
       setError(null)
-      await updateOrderStatus(orderId, newStatus)
+      await updateOrderStatus(orderId, newStatus, cancellationMessage)
       await loadOrders()
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to update order status"
       setError(message)
     }
   }
+
+  // Open cancel dialog
+  const openCancelDialog = (orderId: number, queueNumber: number | null) => {
+    setOrderToCancel({ id: orderId, queueNumber: queueNumber ?? 0 })
+    setCancelDialogOpen(true)
+  }
+
+  // Confirm cancel with message (inline in dialog)
 
   // Handle view details
   const handleViewDetails = (order: LiveOrder) => {
@@ -363,7 +375,7 @@ export default function LiveOrders() {
                                 variant="outline"
                                 size="sm"
                                 className="text-red-600 hover:bg-red-50"
-                                onClick={() => handleStatusChange(order.id, "cancelled")}
+                                onClick={() => openCancelDialog(order.id, order.queue_number)}
                               >
                                 <XCircle className="h-4 w-4" />
                               </Button>
@@ -383,7 +395,7 @@ export default function LiveOrders() {
                                 variant="outline"
                                 size="sm"
                                 className="text-red-600 hover:bg-red-50"
-                                onClick={() => handleStatusChange(order.id, "cancelled")}
+                                onClick={() => openCancelDialog(order.id, order.queue_number)}
                               >
                                 <XCircle className="h-4 w-4" />
                               </Button>
@@ -514,6 +526,46 @@ export default function LiveOrders() {
                 Mark as Completed
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel Confirmation Dialog */}
+      <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancel Order</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to cancel order #{orderToCancel?.queueNumber}?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label htmlFor="cancel-message">Cancellation Message (shown to customer)</Label>
+            <Input
+              id="cancel-message"
+              value={cancellationMessage}
+              onChange={(e) => setCancellationMessage(e.target.value)}
+              placeholder="Enter cancellation message..."
+              className="mt-2"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCancelDialogOpen(false)}>
+              No, Keep Order
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (orderToCancel) {
+                  await handleStatusChange(orderToCancel.id, "cancelled", cancellationMessage)
+                  setCancelDialogOpen(false)
+                  setOrderToCancel(null)
+                  setCancellationMessage("Sorry For Your Order Now We're not available")
+                }
+              }}
+            >
+              Yes, Cancel Order
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

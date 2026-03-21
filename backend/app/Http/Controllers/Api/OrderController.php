@@ -193,9 +193,17 @@ class OrderController extends BaseController
     {
         $validated = $request->validate([
             'status' => ['required', Rule::in(['pending', 'preparing', 'ready', 'completed', 'cancelled'])],
+            'cancellation_message' => 'nullable|string|max:500',
         ]);
 
         $this->orderService->updateStatus($order, $validated['status']);
+        
+        // If cancelling, save the cancellation message
+        if ($validated['status'] === 'cancelled' && !empty($validated['cancellation_message'])) {
+            $order->cancellation_message = $validated['cancellation_message'];
+            $order->save();
+        }
+        
         $this->orderService->clearCache();
 
         return response()->json($order->fresh()->load($this->orderService->getOrderRelations()));
@@ -235,6 +243,7 @@ class OrderController extends BaseController
             'queue_number' => $order->queue_number,
             'table' => $order->table?->name,
             'updated_at' => $order->updated_at,
+            'cancellation_message' => $order->cancellation_message,
         ]);
     }
 

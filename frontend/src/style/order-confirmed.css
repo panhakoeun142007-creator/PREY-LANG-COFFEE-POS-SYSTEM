@@ -33,6 +33,11 @@
   color: #e5ffce;
 }
 
+.order-confirmed-icon.cancelled {
+  background: #8B0000;
+  color: #ffcccc;
+}
+
 .order-confirmed-card h1 {
   font-size: 2rem;
   margin-bottom: 0.25rem;

@@ -9,6 +9,8 @@ import {
   FaMoon,
   FaSun,
   FaUtensils,
+  FaMapMarkerAlt,
+  FaBars,
 } from "react-icons/fa";
 import { fetchCustomerCategories, fetchCustomerProducts, fetchCustomerPopularProducts } from "../services/api";
 
@@ -83,8 +85,6 @@ export function getItemUnitPrice(item) {
   return base + milk + extras;
 }
 
-// Popular products are now fetched dynamically from API
-
 function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", onToggleTheme }) {
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
@@ -108,7 +108,6 @@ function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", o
   // Fetch products from admin API
   useEffect(() => {
     const controller = new AbortController();
-    setLoading(true);
     fetchCustomerProducts()
       .then((data) => {
         const list = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
@@ -203,32 +202,43 @@ function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", o
 
   return (
     <div className="container">
-      
       <div className="">
         <div className="sticky-header">
-          <div className="navbar">
-            <div className="logo-section">
-              <img src={image} alt="Prey Lang Coffee Logo" />
-              <h3>Prey Lang Coffee</h3>
+          {/* HEADER SECTION - location at top, icons properly aligned */}
+          <div className="header-with-location">
+            <div className="location-text">
+              <FaMapMarkerAlt className="location-icon" />
+              <span>Prey Lang Coffee - Phnom Penh</span>
             </div>
-            <div className="navbar-actions">
+            <div className="header-icons">
+              <button className="header-icon-btn" aria-label="Menu">
+                <FaBars />
+              </button>
               <button
-                className="theme-icon-btn"
+                className="header-icon-btn"
                 onClick={onToggleTheme}
                 aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
               >
                 {theme === "dark" ? <FaSun /> : <FaMoon />}
               </button>
               <div
-                className="cart-icon"
+                className="cart-icon-mini"
                 onClick={onCartClick}
                 onKeyDown={(e) => e.key === "Enter" && onCartClick?.()}
                 role="button"
                 tabIndex={0}
+                style={{ position: 'relative', cursor: 'pointer' }}
               >
-                <FaShoppingCart />
-                {cartCount > 0 && <span className="cart-count">{cartCount}</span>}
+                <FaShoppingCart style={{ fontSize: '0.9rem' }} />
+                {cartCount > 0 && <span className="cart-count-mini">{cartCount}</span>}
               </div>
+            </div>
+          </div>
+          
+          <div className="navbar">
+            <div className="logo-section">
+              <img src={image} alt="Prey Lang Coffee Logo" />
+              <h3>Prey Lang Coffee</h3>
             </div>
           </div>
 
