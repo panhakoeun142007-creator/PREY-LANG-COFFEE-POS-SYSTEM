@@ -166,6 +166,18 @@
   cursor: pointer;
 }
 
+.payment-option-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent-color) 25%, #ffffff);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 12px;
+  font-size: 1.2rem;
+}
+
 .payment-option.active {
   border-color: var(--accent-color);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-color) 32%, #ffffff) inset;

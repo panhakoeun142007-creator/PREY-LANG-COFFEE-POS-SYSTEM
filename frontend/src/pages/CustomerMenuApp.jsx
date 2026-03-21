@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   createCustomerOrder,
-  fetchCustomerOrderStatus as fetchCustomerOrderStatusApi,
+  fetchCustomerOrderStatus,
   markCustomerOrderPickedUp,
 } from "../services/api";
 import Customer, { getPriceForSize, getItemUnitPrice } from "./Customer";
@@ -11,8 +11,8 @@ import Detail from "./Detail";
 import Checkout from "./checkout";
 import QRpayment from "./QRpayment";
 import Paymantule from "./paymantule";
-import Wait from "./wait";
 import Ready from "./ready";
+import OrderConfirmed from "./OrderConfirmed";
 import "../style/customer-menu.css";
 
 const SIZE_MAP = { S: "small", M: "medium", L: "large" };
@@ -84,6 +84,12 @@ export default function CustomerMenuApp() {
     return localStorage.getItem("customer-theme") === "dark" ? "dark" : "light";
   });
   const [orderStatus, setOrderStatus] = useState(null);
+  const [paymentCompleted, setPaymentCompleted] = useState(false);
+  const [pendingPaymentMethod, setPendingPaymentMethod] = useState(() => {
+    const s = readStoredState();
+    return typeof s?.pendingPaymentMethod === "string" ? s.pendingPaymentMethod : null;
+  });
+  const [cartSnapshot, setCartSnapshot] = useState(null);
 
   useEffect(() => {
     localStorage.setItem("customer-theme", theme);
@@ -100,9 +106,16 @@ export default function CustomerMenuApp() {
       cartItems.length === 0 && currentPage !== "menu" ? "menu" : currentPage;
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ cartItems, currentPage: safePage, detailTarget, qrOrderNumber, lastOrderId })
+      JSON.stringify({
+        cartItems,
+        currentPage: safePage,
+        detailTarget,
+        qrOrderNumber,
+        lastOrderId,
+        pendingPaymentMethod,
+      })
     );
-  }, [cartItems, currentPage, detailTarget, qrOrderNumber, lastOrderId]);
+  }, [cartItems, currentPage, detailTarget, qrOrderNumber, lastOrderId, pendingPaymentMethod]);
 
   // Store the full item snapshot in detailTarget so lookup never fails
   const activeDetailItem = detailTarget ?? null;
@@ -124,28 +137,31 @@ export default function CustomerMenuApp() {
     const existingIndex = cartItems.findIndex(
       (item) => item.productKey === productKey && item.selectedSize === selectedSize
     );
+    let detailPayload;
     if (existingIndex === -1) {
-      if (!window.confirm(`${product.name} (Size: ${selectedSize}) - Add to cart?`)) return;
-      setCartItems((prev) => [
-        ...prev,
-        {
-          ...product,
-          productKey,
-          selectedSize,
-          sugarLevel: "100%",
-          milkOption: "Whole",
-          extras: { extraShot: false, whippedCream: false, cinnamonSprinkles: false },
-          quantity: 1,
-        },
-      ]);
+      detailPayload = {
+        ...product,
+        productKey,
+        selectedSize,
+        sugarLevel: "100%",
+        milkOption: "Whole",
+        extras: { extraShot: false, whippedCream: false, cinnamonSprinkles: false },
+        quantity: 1,
+      };
+      setCartItems((prev) => [...prev, detailPayload]);
     } else {
-      if (!window.confirm(`${product.name} (Size: ${selectedSize}) - Increase quantity?`)) return;
+      detailPayload = {
+        ...cartItems[existingIndex],
+        quantity: cartItems[existingIndex].quantity + 1,
+      };
       setCartItems((prev) =>
         prev.map((item, i) =>
           i === existingIndex ? { ...item, quantity: item.quantity + 1 } : item
         )
       );
     }
+    setDetailTarget(detailPayload);
+    setCurrentPage("detail");
   };
 
   const updateCartItemQuantity = (productKey, selectedSize, change) => {
@@ -259,6 +275,22 @@ export default function CustomerMenuApp() {
 
   const confirmCheckout = async (paymentMethod = "card") => {
     if (cartItems.length === 0) { setCurrentPage("menu"); return; }
+    const subtotal = getCartTotal(cartItems);
+    const TAX_RATE = 0.10;
+    const taxAmount = Math.round(subtotal * TAX_RATE * 100) / 100;
+    const totalAmount = Math.round((subtotal + taxAmount) * 100) / 100;
+    const snapshotItems = cartItems.map((item) => {
+      const qty = item.quantity || 1;
+      const unitPrice = getItemUnitPrice(item);
+      return {
+        name: item.name,
+        size: item.selectedSize,
+        quantity: qty,
+        unitPrice,
+        lineTotal: unitPrice * qty,
+      };
+    });
+    setCartSnapshot({ items: snapshotItems, subtotal, taxAmount, total: totalAmount });
     const result = await submitOrderToBackend(paymentMethod);
     if (result?.queueNumber) {
       setQrOrderNumber(`#A-${String(result.queueNumber).padStart(3, "0")}`);
@@ -268,11 +300,14 @@ export default function CustomerMenuApp() {
     if (result?.orderId) {
       setLastOrderId(Number(result.orderId));
     }
-    if (paymentMethod === "card") {
+    setOrderStatus("pending");
+    setPendingPaymentMethod(paymentMethod);
+    setPaymentCompleted(false);
+    if (paymentMethod === "card" || paymentMethod === "aba") {
       setCurrentPage("qr-payment");
       return;
     }
-    setCurrentPage("counter-payment");
+    setCurrentPage("order-confirmed");
   };
 
   const markOrderPickedUp = async () => {
@@ -291,37 +326,72 @@ export default function CustomerMenuApp() {
     setLastOrderId(null);
     setQrOrderNumber("#A-000");
     setOrderStatus(null);
+    setPendingPaymentMethod(null);
+    setCartSnapshot(null);
   };
 
-  const fetchCustomerOrderStatus = async () => {
-    if (!lastOrderId) return;
-    try {
-      const data = await fetchCustomerOrderStatusApi(lastOrderId);
-      const status = typeof data?.status === "string" ? data.status.toLowerCase() : null;
-      if (status) setOrderStatus(status);
-    } catch (error) {
-      console.error("Error fetching order status:", error);
+  const handleContinueToPayment = () => {
+    if (!pendingPaymentMethod) return;
+    if (pendingPaymentMethod === "card") {
+      setCurrentPage("qr-payment");
+    } else {
+      setCurrentPage("counter-payment");
     }
+    setPendingPaymentMethod(null);
+  };
+
+  const handleQRPaymentComplete = () => {
+    setPaymentCompleted(true);
+    setPendingPaymentMethod(null);
+    setCurrentPage("order-confirmed");
   };
 
   useEffect(() => {
-    if (!lastOrderId) return;
-    if (currentPage !== "wait" && currentPage !== "ready") return;
-    void fetchCustomerOrderStatus();
-    const interval = setInterval(() => {
-      void fetchCustomerOrderStatus();
-    }, 15000);
-    return () => clearInterval(interval);
-  }, [lastOrderId, currentPage]);
+    if (!lastOrderId) {
+      setOrderStatus(null);
+      return;
+    }
+    let active = true;
 
-  const canPickUp = orderStatus === "ready" || orderStatus === "completed";
-  const pickupHint = orderStatus === "ready"
-    ? "Ready for pickup"
-    : orderStatus === "preparing"
-      ? "Your order is preparing"
-      : orderStatus === "pending"
-        ? "Order received. Please wait."
-        : "Please wait until staff marks your order as READY.";
+    const loadOrderStatus = async () => {
+      try {
+        const data = await fetchCustomerOrderStatus(lastOrderId);
+        if (!active) return;
+        setOrderStatus(
+          typeof data?.status === "string" ? data.status.toLowerCase() : "pending"
+        );
+      } catch (error) {
+        console.error("Error fetching order status:", error);
+      }
+    };
+
+    void loadOrderStatus();
+    const interval = setInterval(() => {
+      void loadOrderStatus();
+    }, 15000);
+
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [lastOrderId]);
+
+  useEffect(() => {
+    if (orderStatus === "ready" || orderStatus === "completed") {
+      setCurrentPage("ready");
+    }
+  }, [orderStatus]);
+
+  const ORDER_STAGE_MAP = {
+    pending: 0,
+    preparing: 1,
+    ready: 2,
+    completed: 3,
+  };
+  const currentStage =
+    orderStatus && ORDER_STAGE_MAP.hasOwnProperty(orderStatus)
+      ? ORDER_STAGE_MAP[orderStatus]
+      : 0;
 
   return (
     <div className="customer-menu-shell" data-theme={theme}>
@@ -365,40 +435,44 @@ export default function CustomerMenuApp() {
           onConfirmOrder={confirmCheckout}
         />
       )}
+      {effectivePage === "order-confirmed" && (
+        <OrderConfirmed
+          orderNumber={qrOrderNumber}
+          estimatedMinutes={8}
+          onContinuePayment={
+            !paymentCompleted && pendingPaymentMethod === "cash"
+              ? handleContinueToPayment
+              : undefined
+          }
+          onTrackStatus={() => setCurrentPage("ready")}
+          onBackToMenu={() => {
+            setCartItems([]);
+            setCurrentPage("menu");
+          }}
+          currentStage={currentStage}
+        />
+      )}
       {effectivePage === "qr-payment" && (
         <QRpayment
           totalDue={getCartTotalWithTax(cartItems)}
           orderNumber={qrOrderNumber}
-          onBack={() => setCurrentPage("wait")}
+          paymentMethod={pendingPaymentMethod ?? "card"}
+          onBack={() => setCurrentPage("order-confirmed")}
+          onPaymentComplete={handleQRPaymentComplete}
         />
       )}
       {effectivePage === "counter-payment" && (
         <Paymantule
           cartItems={cartItems}
-          onDone={() => setCurrentPage("wait")}
-        />
-      )}
-      {effectivePage === "wait" && (
-        <Wait
-          cartItems={cartItems}
-          onBack={() => setCurrentPage("counter-payment")}
-          onPickUpNow={() => {
-            if (!canPickUp) {
-              window.alert("Please wait. Staff has not marked your order as READY yet.");
-              return;
-            }
-            setCurrentPage("ready");
-          }}
-          onBackToMenu={() => { setCartItems([]); setCurrentPage("menu"); }}
-          canPickUp={canPickUp}
-          pickupHint={pickupHint}
+          onDone={() => setCurrentPage("order-confirmed")}
         />
       )}
       {effectivePage === "ready" && (
         <Ready
           tableNumber={tableName}
-          onBack={() => setCurrentPage("wait")}
+          onBack={() => setCurrentPage("order-confirmed")}
           onEnjoyCoffee={() => { void handleEnjoyCoffee(); }}
+          snapshot={cartSnapshot}
         />
       )}
     </div>

@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
 import "../detail.css";
 import { getPriceForSize, getItemUnitPrice } from "./Customer";
-import { GiMilkCarton } from "react-icons/gi";
-import { FaLeaf, FaSeedling } from "react-icons/fa";
 
 // Preview price while user is still selecting options (not yet saved)
 function getPreviewUnitPrice(item, selectedSize, milkOption, extras) {
@@ -15,16 +13,11 @@ const SIZE_OPTIONS = [
   { id: "S", label: "Small", unit: "8oz", extraPrice: 0 },
 ];
 
-const MILK_OPTIONS = [
-  { id: "Whole",    label: "Whole",    priceText: "Included", icon: GiMilkCarton },
-  { id: "Oat Milk", label: "Oat Milk", priceText: "+$0.75",   icon: FaSeedling },
-  { id: "Almond",  label: "Almond",   priceText: "+$0.50",   icon: FaLeaf },
-];
-
 const EXTRA_OPTIONS = [
   { id: "extraShot", label: "Extra Shot", priceText: "+$1.25" },
   { id: "whippedCream", label: "Whipped Cream", priceText: "+$0.50" },
   { id: "cinnamonSprinkles", label: "Cinnamon Sprinkles", priceText: "+$0.25" },
+  { id: "milk", label: "Milk", priceText: "+$1.00" },
 ];
 
 const SUGAR_OPTIONS = ["0%", "25%", "50%", "75%", "100%"];
@@ -43,11 +36,13 @@ function Detail({
   const [selectedSize, setSelectedSize] = useState(item?.selectedSize ?? "M");
   const [sugarLevel, setSugarLevel] = useState(item?.sugarLevel ?? "100%");
   const [milkOption, setMilkOption] = useState(item?.milkOption ?? "Whole");
+  const [quantity, setQuantity] = useState(item?.quantity ?? 1);
   const [extras, setExtras] = useState(
     item?.extras ?? {
       extraShot: false,
       whippedCream: false,
       cinnamonSprinkles: false,
+      milk: false,
     }
   );
 
@@ -61,6 +56,7 @@ function Detail({
         extraShot: false,
         whippedCream: false,
         cinnamonSprinkles: false,
+        milk: false,
       }
     );
   }, [item]);
@@ -69,15 +65,21 @@ function Detail({
     return null;
   }
 
+  const changeQuantity = (delta) => {
+    setQuantity((prev) => Math.max(prev + delta, 1));
+  };
+
   const save = () => {
     onSave?.({
       selectedSize,
       sugarLevel,
       milkOption,
       extras,
+      quantity,
     });
   };
   const previewUnitPrice = getPreviewUnitPrice(item, selectedSize, milkOption, extras);
+  const previewTotalPrice = previewUnitPrice * quantity;
 
   return (
     <div className="detail-page">
@@ -115,10 +117,24 @@ function Detail({
         </div>
 
         <div className="detail-headline">
-          <h3>{item.name}</h3>
-          <p>${previewUnitPrice.toFixed(2)}</p>
+          <div className="detail-headline-left">
+            <h3>{item.name}</h3>
+            <div className="detail-quantity-control">
+              <button
+                type="button"
+                onClick={() => changeQuantity(-1)}
+                disabled={quantity <= 1}
+              >
+                −
+              </button>
+              <span className="quantity-label">{quantity}</span>
+              <button type="button" onClick={() => changeQuantity(1)}>
+                +
+              </button>
+            </div>
+          </div>
+          <p>${previewTotalPrice.toFixed(2)}</p>
         </div>
-
         <p className="detail-description-text">
           Customize this drink with your preferred size, milk, sugar, and extras.
         </p>
@@ -155,23 +171,6 @@ function Detail({
               </option>
             ))}
           </select>
-        </div>
-
-        <div className="detail-section-block">
-          <h4>Milk Options</h4>
-          <div className="milk-grid">
-            {MILK_OPTIONS.map((milk) => (
-              <button
-                key={milk.id}
-                className={milkOption === milk.id ? "milk-pill active" : "milk-pill"}
-                onClick={() => setMilkOption(milk.id)}
-              >
-                <milk.icon className="milk-icon" />
-                <strong>{milk.label}</strong>
-                <small>{milk.priceText}</small>
-              </button>
-            ))}
-          </div>
         </div>
 
         <div className="detail-section-block">

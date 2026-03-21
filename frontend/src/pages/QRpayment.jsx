@@ -1,7 +1,14 @@
 import "../qrpayment.css";
 
-function QRpayment({ totalDue = 0, orderNumber = "#A-000", onBack }) {
+function QRpayment({
+  totalDue = 0,
+  orderNumber = "#A-000",
+  paymentMethod = "card",
+  onBack,
+  onPaymentComplete,
+}) {
   const totalText = `$${totalDue.toFixed(2)}`;
+  const methodLabel = paymentMethod === "aba" ? "ABA Pay" : "QR / Card";
 
   return (
     <div className="qr-page">
@@ -12,12 +19,15 @@ function QRpayment({ totalDue = 0, orderNumber = "#A-000", onBack }) {
       </div>
 
       <div className="qr-card">
-        <div className="qr-image" aria-label="QR Payment Code">
+        <div className="qr-image" aria-label={`${methodLabel} QR Payment`}>
           <div className="qr-center-logo">$</div>
         </div>
 
-        <h2>Please proceed to the counter to complete your payment</h2>
-        <p>A barista will assist you with cash or physical voucher payments shortly.</p>
+        <h2>Scan this QR with {methodLabel}</h2>
+        <p>
+          Once the digital receipt is confirmed, tap &ldquo;I have completed payment&rdquo;
+          to continue.
+        </p>
 
         <div className="qr-summary">
           <div>
@@ -32,8 +42,14 @@ function QRpayment({ totalDue = 0, orderNumber = "#A-000", onBack }) {
       </div>
 
       <button className="qr-back-btn" onClick={onBack}>
-        {"Go Back"} 
+        Go back
       </button>
+
+      {onPaymentComplete && (
+        <button className="qr-success-btn" onClick={onPaymentComplete}>
+          I have completed payment
+        </button>
+      )}
     </div>
   );
 }

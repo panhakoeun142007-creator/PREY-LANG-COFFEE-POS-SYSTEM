@@ -1,6 +1,8 @@
 import "../cart.css";
 import { getItemUnitPrice } from "./Customer";
 
+const PACKAGING_FEE = 0.5;
+
 function getItemLineTotal(item) {
   return getItemUnitPrice(item) * (item.quantity || 1);
 }
@@ -13,11 +15,13 @@ function Cart({
   onBackToMenu,
 
   onRemove,
-  onDetail,
   onBuyNow,
 }) {
   const totalItems = cartItems.reduce((total, item) => total + item.quantity, 0);
   const subtotal = getCartTotal(cartItems);
+  const TAX_RATE = 0.10;
+  const taxAmount = Math.round(subtotal * TAX_RATE * 100) / 100;
+  const totalAmount = Math.round((subtotal + taxAmount + PACKAGING_FEE) * 100) / 100;
 
   return (
     <div className="cart-page">
@@ -25,7 +29,7 @@ function Cart({
         <button className="cart-back-icon" onClick={onBackToMenu} aria-label="">
           {"<"}
         </button>
-        <h2>Shopping Cart</h2>
+        <h2>My Cart</h2>
       </div>
 
       {cartItems.length === 0 ? (
@@ -36,10 +40,28 @@ function Cart({
 
           <div className="cart-summary">
             <p>Items: {totalItems}</p>
-            <p>Total: ${subtotal.toFixed(2)}</p>
+            <p>Total: ${totalAmount.toFixed(2)}</p>
+          </div>
+          <div className="cart-costs">
+            <div>
+              <span>Subtotal</span>
+              <span>${subtotal.toFixed(2)}</span>
+            </div>
+            <div>
+              <span>Tax (10%)</span>
+              <span>${taxAmount.toFixed(2)}</span>
+            </div>
+            <div>
+              <span>Packaging</span>
+              <span>${PACKAGING_FEE.toFixed(2)}</span>
+            </div>
+            <div className="cart-total-row">
+              <span>Total Amount</span>
+              <span>${totalAmount.toFixed(2)}</span>
+            </div>
           </div>
           <button className="buy-btn" onClick={onBuyNow} disabled>
-            Buy Now
+            Order Now
           </button>
         </div>
       ) : (
@@ -58,12 +80,6 @@ function Cart({
                   <p className="cart-item-price">${getItemLineTotal(item).toFixed(2)}</p>
                   <div className="cart-item-actions">
                     <button
-                      className="detail-btn"
-                      onClick={() => onDetail?.(item.productKey, item.selectedSize)}
-                    >
-                      Detail
-                    </button>
-                    <button
                       className="remove-btn"
                       onClick={() => onRemove(item.productKey, item.selectedSize)}
                     >
@@ -77,10 +93,28 @@ function Cart({
 
           <div className="cart-summary">
             <p>Items: {totalItems}</p>
-            <p>Total: ${subtotal.toFixed(2)}</p>
+            <p>Total: ${totalAmount.toFixed(2)}</p>
+          </div>
+          <div className="cart-costs">
+            <div>
+              <span>Subtotal</span>
+              <span>${subtotal.toFixed(2)}</span>
+            </div>
+            <div>
+              <span>Tax (10%)</span>
+              <span>${taxAmount.toFixed(2)}</span>
+            </div>
+            <div>
+              <span>Packaging</span>
+              <span>${PACKAGING_FEE.toFixed(2)}</span>
+            </div>
+            <div className="cart-total-row">
+              <span>Total Amount</span>
+              <span>${totalAmount.toFixed(2)}</span>
+            </div>
           </div>
           <button className="buy-btn" onClick={onBuyNow}>
-            Buy Now
+            Order Now
           </button>
         </div>
       )}

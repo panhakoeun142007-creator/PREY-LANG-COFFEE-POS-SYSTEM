@@ -64,12 +64,42 @@ export function getItemUnitPrice(item) {
   const milk = MILK_PRICES[item.milkOption] ?? 0;
   const extras = item.extras
     ? Object.entries(item.extras).reduce(
-        (sum, [key, on]) => sum + (on ? (EXTRA_PRICES[key] ?? 0) : 0),
-        0
-      )
+      (sum, [key, on]) => sum + (on ? (EXTRA_PRICES[key] ?? 0) : 0),
+      0
+    )
     : 0;
   return base + milk + extras;
 }
+
+const POPULAR_PRODUCTS = [
+  {
+    id: "classic-latte",
+    name: "Classic Latte",
+    description: "Velvety steamed milk layered over espresso with a silky finish.",
+    price: "$5.50",
+    priceValue: 5.5,
+    image:
+      "https://images.unsplash.com/photo-1511920170033-f8396924c348?auto=format&fit=crop&w=800&q=80",
+  },
+  {
+    id: "caramel-cold-brew",
+    name: "Caramel Cold Brew",
+    description: "Smooth cold brew sweetened with house caramel and a hint of sea salt.",
+    price: "$6.25",
+    priceValue: 6.25,
+    image:
+      "https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=800&q=80",
+  },
+  {
+    id: "hazelnut-mocha",
+    name: "Hazelnut Mocha",
+    description: "Dark chocolate, toasted hazelnut, and espresso crafted warm and rich.",
+    price: "$6.95",
+    priceValue: 6.95,
+    image:
+      "https://abeautifulmess.com/wp-content/uploads/2024/04/matcha-boba-recipe.jpg",
+  },
+];
 
 function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", onToggleTheme }) {
   const [categories, setCategories] = useState([]);
@@ -78,6 +108,7 @@ function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", o
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [search, setSearch] = useState("");
   const [selectedSizes, setSelectedSizes] = useState({});
+  const [activePopularIndex, setActivePopularIndex] = useState(0);
 
   // Fetch categories from admin API
   useEffect(() => {
@@ -126,6 +157,20 @@ function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", o
     onAddToCart?.({ product, selectedSize, productKey });
   };
 
+  const createPopularProductSeed = (popularProduct) => ({
+    id: `popular-${popularProduct.id}`,
+    name: popularProduct.name,
+    image: popularProduct.image,
+    price_small: popularProduct.priceValue,
+    price_medium: popularProduct.priceValue,
+    price_large: popularProduct.priceValue,
+    category: { name: "Popular" },
+  });
+
+  const handleAddPopularProduct = (popularProduct) => {
+    handleAddToCart(createPopularProductSeed(popularProduct));
+  };
+
   const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   const allCategory = { id: "all", name: "All", is_active: true };
@@ -147,61 +192,103 @@ function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", o
     });
   }, [products, selectedCategory, search]);
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActivePopularIndex((prev) => (prev + 1) % POPULAR_PRODUCTS.length);
+    }, 6000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="container">
-      <div className="sticky-header">
-        <div className="navbar">
-          <div className="logo-section">
-            <img src={image} alt="Prey Lang Coffee Logo" />
-            <h3>Prey Lang Coffee</h3>
-          </div>
-          <div className="navbar-actions">
-            <button
-              className="theme-icon-btn"
-              onClick={onToggleTheme}
-              aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-            >
-              {theme === "dark" ? <FaSun /> : <FaMoon />}
-            </button>
-            <div
-              className="cart-icon"
-              onClick={onCartClick}
-              onKeyDown={(e) => e.key === "Enter" && onCartClick?.()}
-              role="button"
-              tabIndex={0}
-            >
-              <FaShoppingCart />
-              {cartCount > 0 && <span className="cart-count">{cartCount}</span>}
+      
+      <div className="">
+        <div className="sticky-header">
+          <div className="navbar">
+            <div className="logo-section">
+              <img src={image} alt="Prey Lang Coffee Logo" />
+              <h3>Prey Lang Coffee</h3>
+            </div>
+            <div className="navbar-actions">
+              <button
+                className="theme-icon-btn"
+                onClick={onToggleTheme}
+                aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              >
+                {theme === "dark" ? <FaSun /> : <FaMoon />}
+              </button>
+              <div
+                className="cart-icon"
+                onClick={onCartClick}
+                onKeyDown={(e) => e.key === "Enter" && onCartClick?.()}
+                role="button"
+                tabIndex={0}
+              >
+                <FaShoppingCart />
+                {cartCount > 0 && <span className="cart-count">{cartCount}</span>}
+              </div>
             </div>
           </div>
+
+          <h2>Coffee your Selection</h2>
+
+          <input
+            type="text"
+            placeholder="Search for your favorite brew..."
+            className="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+
+          <div className="categories">
+            {displayCategories.map((cat) => {
+              const Icon = cat.id === "all" ? null : getCategoryIcon(cat.name);
+              return (
+                <button
+                  key={cat.id}
+                  className={`category-type ${selectedCategory === String(cat.id) ? "active" : ""}`}
+                  onClick={() => setSelectedCategory(String(cat.id))}
+                  aria-pressed={selectedCategory === String(cat.id)}
+                >
+                  {Icon && <Icon className="category-icon" />}
+                  <span className="category-label">{cat.name}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        <h2>Coffee your Selection</h2>
-
-        <input
-          type="text"
-          placeholder="Search for your favorite brew..."
-          className="search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-
-        <div className="categories">
-          {displayCategories.map((cat) => {
-            const Icon = cat.id === "all" ? null : getCategoryIcon(cat.name);
-            return (
-              <button
-                key={cat.id}
-                className={`category-type ${selectedCategory === String(cat.id) ? "active" : ""}`}
-                onClick={() => setSelectedCategory(String(cat.id))}
-                aria-pressed={selectedCategory === String(cat.id)}
+        <section className="popular-products-section" aria-label="Popular products">
+          <h3>Popular products</h3>
+          <div className="popular-products-grid">
+            {POPULAR_PRODUCTS.map((product, index) => (
+              <article
+                key={product.id}
+                className={`popular-products-card ${index === activePopularIndex ? "active" : ""}`}
               >
-                {Icon && <Icon className="category-icon" />}
-                <span className="category-label">{cat.name}</span>
-              </button>
-            );
-          })}
-        </div>
+                <div className="popular-products-media">
+                  <img src={product.image} alt={product.name} loading="lazy" />
+                  <span className="popular-products-badge">Popular choice</span>
+                </div>
+                <div className="popular-products-copy">
+                  <h4>{product.name}</h4>
+                  <p>{product.description}</p>
+                </div>
+                <div className="popular-products-footer">
+                  <span className="popular-products-price">{product.price}</span>
+                  <button
+                    className="popular-products-btn"
+                    type="button"
+                    onClick={() => handleAddPopularProduct(product)}
+                    aria-label={`Add ${product.name} to cart`}
+                  >
+                    +
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
       </div>
 
       {loading ? (

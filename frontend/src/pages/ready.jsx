@@ -1,48 +1,60 @@
 import "../ready.css";
-import logo from "../img/image.png";
 
-const BRAND_NAME = "The Daily Grind";
 const STATUS_TEXT = "READY FOR PICKUP";
-const THANK_YOU_TEXT = "Thank You For Visiting!";
-const PICKUP_MESSAGE = "Your order is freshly brewed and ready for pickup at the counter!";
+const THANK_YOU_TEXT = "Thank you for visiting!";
+const RECEIPT_MESSAGE =
+  "Your payment receipt has been generated. Please collect your order from the counter.";
 
-function Ready({ tableNumber = "012", onBack, onEnjoyCoffee }) {
-  const tableText = `TABLE ${tableNumber}`;
+function Ready({ tableNumber = "012", onEnjoyCoffee, snapshot }) {
+  const tableText = `Table: ${tableNumber}`;
+  const items = snapshot?.items ?? [];
+  const subtotal = snapshot?.subtotal ?? 0;
+  const taxAmount = snapshot?.taxAmount ?? 0;
+  const total = snapshot?.total ?? subtotal + taxAmount;
 
   return (
-    <main className="ready-page">
-      <header className="ready-header">
-        <div className="ready-header-left">
-          <button
-            className="ready-back-btn"
-            type="button"
-            onClick={onBack}
-            aria-label="Back to status"
-          >
-            {"<"}
-          </button>
+    <main className="ready-page ready-page--receipt">
+      <section className="ready-card ready-card--receipt" aria-label="Order ready receipt">
+        <small className="receipt-header-caption">{STATUS_TEXT}</small>
+        <h1 className="receipt-title">Your Payment</h1>
+        <div className="receipt-brand">
+          <span className="receipt-brand-name">Makara Coffee</span>
+          <p>Street 123, Phnom Penh · Tel: 012 345 678</p>
+        </div>
+        <div className="receipt-table">{tableText}</div>
 
-          <div className="ready-brand">
-            <img src={logo} alt="Prey Lang Coffee" />
-            <span>{BRAND_NAME}</span>
+        <ul className="receipt-items">
+          {items.map((item, index) => (
+            <li key={`${item.name}-${index}`} className="receipt-item">
+              <div>
+                <strong>{item.name}</strong>
+                <span>
+                  {item.quantity}× ${item.unitPrice.toFixed(2)}
+                </span>
+              </div>
+              <strong>${item.lineTotal.toFixed(2)}</strong>
+            </li>
+          ))}
+        </ul>
+
+        <div className="receipt-totals">
+          <div>
+            <span>Subtotal</span>
+            <span>${subtotal.toFixed(2)}</span>
+          </div>
+          <div>
+            <span>Tax (10%)</span>
+            <span>${taxAmount.toFixed(2)}</span>
+          </div>
+          <div className="receipt-total">
+            <span>Total</span>
+            <span>${total.toFixed(2)}</span>
           </div>
         </div>
 
-        <p className="ready-location">YOU ARE AT {tableText}</p>
-      </header>
+        <p className="ready-message secondary">{RECEIPT_MESSAGE}</p>
 
-      <section className="ready-card" aria-label="Order ready">
-        <div className="ready-avatar-wrap">
-          <img src={logo} alt="Coffee cup" className="ready-avatar" />
-        </div>
-
-        <small className="ready-kicker">{STATUS_TEXT}</small>
-        <h1 className="ready-table">Table: {tableNumber}</h1>
-        <div className="ready-divider" />
-        <h2 className="ready-title">{THANK_YOU_TEXT}</h2>
-        <p className="ready-message">{PICKUP_MESSAGE}</p>
-
-        <button className="ready-primary-btn" type="button" onClick={onEnjoyCoffee}>
+        <button className="ready-primary-btn ready-primary-btn--minimal" type="button" onClick={onEnjoyCoffee}>
           Enjoy your coffee
         </button>
       </section>

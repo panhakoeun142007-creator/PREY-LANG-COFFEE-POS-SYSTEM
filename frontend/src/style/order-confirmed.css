@@ -1,0 +1,172 @@
+.order-confirmed-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: radial-gradient(circle at top, rgba(255, 190, 135, 0.2) 0%, transparent 45%),
+    radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.12) 0%, transparent 60%),
+    #120903;
+}
+
+.order-confirmed-card {
+  width: min(420px, 90vw);
+  padding: 2.25rem 2rem;
+  border-radius: 24px;
+  background: #1f0f04;
+  color: #f4e7dd;
+  text-align: center;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.order-confirmed-icon {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 1rem;
+  border-radius: 50%;
+  background: #29540f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  color: #e5ffce;
+}
+
+.order-confirmed-card h1 {
+  font-size: 2rem;
+  margin-bottom: 0.25rem;
+}
+
+.order-confirmed-subtitle {
+  margin-bottom: 1rem;
+  color: rgba(244, 231, 221, 0.8);
+  font-size: 0.95rem;
+}
+
+.order-confirmed-code {
+  margin-bottom: 1.35rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+  padding: 0.65rem 1.5rem;
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+  background: #2a1306;
+  color: #f8cda0;
+}
+
+.order-progress {
+  text-align: left;
+  margin-bottom: 1.1rem;
+}
+
+.order-progress-label {
+  font-size: 0.75rem;
+  letter-spacing: 0.35em;
+  margin-bottom: 0.35rem;
+  color: rgba(244, 231, 221, 0.6);
+}
+
+.order-progress-line {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 0.65rem;
+}
+
+.order-progress-line-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ff8a3c, #ff4c2b);
+  border-radius: inherit;
+}
+
+.order-progress-stages {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+  font-size: 0.7rem;
+}
+
+.order-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  color: rgba(244, 231, 221, 0.5);
+}
+
+.order-stage-dot {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  background: transparent;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.order-stage.completed .order-stage-dot {
+  border-color: #41b264;
+  background: rgba(65, 178, 100, 0.1);
+  color: #47ff8f;
+}
+
+.order-stage.active .order-stage-dot {
+  border-color: #ff8a3c;
+  background: rgba(255, 138, 60, 0.15);
+  color: #ffb47c;
+}
+
+.order-stage.completed small,
+.order-stage.active small {
+  color: rgba(244, 231, 221, 0.9);
+}
+
+.order-estimate {
+  font-size: 0.95rem;
+  color: rgba(244, 231, 221, 0.75);
+  margin-bottom: 1.4rem;
+}
+
+.order-confirmed-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.order-confirmed-actions.single {
+  align-items: center;
+}
+
+.order-primary-btn,
+.order-secondary-btn,
+.order-link {
+  border-radius: 999px;
+  padding: 0.65rem 1.25rem;
+  font-size: 0.95rem;
+  cursor: pointer;
+  border: none;
+  font-weight: 600;
+}
+
+.order-primary-btn {
+  background: linear-gradient(90deg, #ffb45c, #ff7737);
+  color: #1a0a03;
+}
+
+.order-secondary-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: #f4e7dd;
+}
+
+.order-link {
+  background: none;
+  color: rgba(244, 231, 221, 0.75);
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+}

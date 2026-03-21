@@ -134,6 +134,20 @@
   cursor: pointer;
 }
 
+.qr-success-btn {
+  margin-top: 10px;
+  border: none;
+  width: 100%;
+  border-radius: 999px;
+  background: linear-gradient(120deg, #ffb45c, #ff7737);
+  color: #1a0a03;
+  font-weight: 700;
+  font-size: 0.9rem;
+  padding: 12px 20px;
+  cursor: pointer;
+  box-shadow: 0 10px 20px rgba(255, 119, 55, 0.35);
+}
+
 @media (max-width: 540px) {
   .qr-page {
     padding: 6px 0 14px;
