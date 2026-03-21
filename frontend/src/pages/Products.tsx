@@ -48,6 +48,13 @@ interface ProductFormData {
   image_url: string;
   imageFile: File | null;
   is_available: boolean;
+  is_popular: boolean;
+  // Discount fields
+  discount_type: string;
+  discount_value: string;
+  discount_start_date: string;
+  discount_end_date: string;
+  discount_active: boolean;
 }
 
 const initialFormData: ProductFormData = {
@@ -60,6 +67,12 @@ const initialFormData: ProductFormData = {
   image_url: "",
   imageFile: null,
   is_available: true,
+  is_popular: false,
+  discount_type: "",
+  discount_value: "",
+  discount_start_date: "",
+  discount_end_date: "",
+  discount_active: false,
 };
 
 // Get image URL - handles both local uploads and external URLs
@@ -80,17 +93,19 @@ const ProductRow = memo(function ProductRow({
   product, 
   onEdit, 
   onDelete, 
-  onToggle 
+  onToggle,
+  onTogglePopular 
 }: { 
   product: ApiProduct; 
   onEdit: (p: ApiProduct) => void; 
   onDelete: (id: number) => void;
   onToggle: (p: ApiProduct) => void;
+  onTogglePopular: (p: ApiProduct) => void;
 }) {
   const getPrice = () => {
-    if (product.price_large) return `$${Number(product.price_large).toFixed(2)}`;
-    if (product.price_medium) return `$${Number(product.price_medium).toFixed(2)}`;
-    if (product.price_small) return `$${Number(product.price_small).toFixed(2)}`;
+    if (product.price_large) return `${Number(product.price_large).toFixed(2)}`;
+    if (product.price_medium) return `${Number(product.price_medium).toFixed(2)}`;
+    if (product.price_small) return `${Number(product.price_small).toFixed(2)}`;
     return "$0.00";
   };
 
@@ -126,6 +141,18 @@ const ProductRow = memo(function ProductRow({
         {product.category?.name || product.category_name || "Uncategorized"}
       </TableCell>
       <TableCell className="text-[#6E4F4A]">{getPrice()}</TableCell>
+      <TableCell>
+        <div className="flex items-center gap-2">
+          <Switch
+            checked={product.is_popular ?? false}
+            onCheckedChange={() => onTogglePopular(product)}
+            className="data-[state=checked]:bg-amber-500 data-[state=unchecked]:bg-amber-300"
+          />
+          <span className="text-xs text-[#7C5D58]">
+            {product.is_popular ? 'Popular' : 'Add to Popular'}
+          </span>
+        </div>
+      </TableCell>
       <TableCell>
         <Switch
           checked={product.is_available ?? product.is_active}
@@ -296,6 +323,12 @@ export default function Products() {
         price_medium: formData.price_medium ? Number(formData.price_medium) : 0,
         price_large: formData.price_large ? Number(formData.price_large) : 0,
         is_available: formData.is_available,
+        is_popular: formData.is_popular,
+        discount_type: formData.discount_type || null,
+        discount_value: formData.discount_value ? Number(formData.discount_value) : null,
+        discount_start_date: formData.discount_start_date || null,
+        discount_end_date: formData.discount_end_date || null,
+        discount_active: formData.discount_active,
       };
 
       // Add image file if uploaded
@@ -338,6 +371,12 @@ export default function Products() {
         price_medium: formData.price_medium ? Number(formData.price_medium) : 0,
         price_large: formData.price_large ? Number(formData.price_large) : 0,
         is_available: formData.is_available,
+        is_popular: formData.is_popular,
+        discount_type: formData.discount_type || null,
+        discount_value: formData.discount_value ? Number(formData.discount_value) : null,
+        discount_start_date: formData.discount_start_date || null,
+        discount_end_date: formData.discount_end_date || null,
+        discount_active: formData.discount_active,
       };
 
       // Add image file if uploaded
@@ -399,6 +438,25 @@ export default function Products() {
     }
   };
 
+  const handleTogglePopular = async (product: ApiProduct) => {
+    try {
+      const newStatus = !(product.is_popular ?? false);
+      const updated = await updateProduct(product.id, {
+        is_popular: newStatus,
+      });
+      setProducts((prev) =>
+        prev.map((p) =>
+          p.id === product.id ? { ...p, ...updated } : p
+        )
+      );
+      setSuccess(`Product ${newStatus ? 'marked as popular' : 'removed from popular'} successfully!`);
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      console.error("Failed to toggle popular status:", err);
+      setError("Failed to update popular status");
+    }
+  };
+
   const openEditDialog = (product: ApiProduct) => {
     setEditingProduct(product);
     setFormData({
@@ -410,7 +468,13 @@ export default function Products() {
       image: product.image || "",
       image_url: "",
       imageFile: null,
-      is_available: product.is_available ?? product.is_active,
+      is_available: (product.is_available ?? product.is_active) ?? true,
+      is_popular: product.is_popular ?? false,
+      discount_type: product.discount_type || "",
+      discount_value: String(product.discount_value || ""),
+      discount_start_date: product.discount_start_date || "",
+      discount_end_date: product.discount_end_date || "",
+      discount_active: product.discount_active ?? false,
     });
   };
 
@@ -489,6 +553,7 @@ export default function Products() {
                   <TableHead className="text-[#4B2E2B] font-semibold">Product</TableHead>
                   <TableHead className="text-[#4B2E2B] font-semibold">Category</TableHead>
                   <TableHead className="text-[#4B2E2B] font-semibold">Price</TableHead>
+                  <TableHead className="text-[#4B2E2B] font-semibold">Popular</TableHead>
                   <TableHead className="text-[#4B2E2B] font-semibold">Status</TableHead>
                   <TableHead className="text-right text-[#4B2E2B] font-semibold">Actions</TableHead>
                 </TableRow>
@@ -508,6 +573,7 @@ export default function Products() {
                       onEdit={openEditDialog}
                       onDelete={handleDeleteProduct}
                       onToggle={handleToggleAvailability}
+                      onTogglePopular={handleTogglePopular}
                     />
                   ))
                 )}
@@ -711,6 +777,79 @@ export default function Products() {
                 onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, is_available: !!checked }))}
               />
               <span className="text-sm text-[#4B2E2B]">Active</span>
+            </div>
+
+            {/* Discount Section */}
+            <div className="border-t pt-4 mt-4">
+              <h4 className="text-sm font-semibold text-[#4B2E2B] mb-3">Discount Settings</h4>
+              
+              {/* Enable Discount */}
+              <div className="flex items-center gap-2 mb-3">
+                <Switch
+                  checked={formData.discount_active}
+                  onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, discount_active: !!checked }))}
+                />
+                <span className="text-sm text-[#4B2E2B]">Enable Discount</span>
+              </div>
+
+              {formData.discount_active && (
+                <>
+                  {/* Discount Type */}
+                  <div className="space-y-2 mb-3">
+                    <label className="text-sm font-medium text-[#4B2E2B]">Discount Type</label>
+                    <Select
+                      value={formData.discount_type}
+                      onValueChange={(value) => setFormData((prev) => ({ ...prev, discount_type: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select discount type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="percentage">Percentage (%)</SelectItem>
+                        <SelectItem value="fixed">Fixed Amount ($)</SelectItem>
+                        <SelectItem value="promo">Promo Price ($)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Discount Value */}
+                  <div className="space-y-2 mb-3">
+                    <label className="text-sm font-medium text-[#4B2E2B]">
+                      {formData.discount_type === 'percentage' ? 'Discount Percentage' : 
+                       formData.discount_type === 'fixed' ? 'Discount Amount ($)' : 'Promo Price ($)'}
+                    </label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step={formData.discount_type === 'percentage' ? '1' : '0.01'}
+                      max={formData.discount_type === 'percentage' ? '100' : undefined}
+                      value={formData.discount_value}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, discount_value: e.target.value }))}
+                      placeholder={formData.discount_type === 'percentage' ? '10' : '2.50'}
+                    />
+                  </div>
+
+                  {/* Date Range */}
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-[#4B2E2B]">Start Date</label>
+                      <Input
+                        type="datetime-local"
+                        value={formData.discount_start_date}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, discount_start_date: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-[#4B2E2B]">End Date</label>
+                      <Input
+                        type="datetime-local"
+                        value={formData.discount_end_date}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, discount_end_date: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
           <DialogFooter>
@@ -922,6 +1061,79 @@ export default function Products() {
                 onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, is_available: !!checked }))}
               />
               <span className="text-sm text-[#4B2E2B]">Active</span>
+            </div>
+
+            {/* Discount Section */}
+            <div className="border-t pt-4 mt-4">
+              <h4 className="text-sm font-semibold text-[#4B2E2B] mb-3">Discount Settings</h4>
+              
+              {/* Enable Discount */}
+              <div className="flex items-center gap-2 mb-3">
+                <Switch
+                  checked={formData.discount_active}
+                  onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, discount_active: !!checked }))}
+                />
+                <span className="text-sm text-[#4B2E2B]">Enable Discount</span>
+              </div>
+
+              {formData.discount_active && (
+                <>
+                  {/* Discount Type */}
+                  <div className="space-y-2 mb-3">
+                    <label className="text-sm font-medium text-[#4B2E2B]">Discount Type</label>
+                    <Select
+                      value={formData.discount_type}
+                      onValueChange={(value) => setFormData((prev) => ({ ...prev, discount_type: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select discount type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="percentage">Percentage (%)</SelectItem>
+                        <SelectItem value="fixed">Fixed Amount ($)</SelectItem>
+                        <SelectItem value="promo">Promo Price ($)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Discount Value */}
+                  <div className="space-y-2 mb-3">
+                    <label className="text-sm font-medium text-[#4B2E2B]">
+                      {formData.discount_type === 'percentage' ? 'Discount Percentage' : 
+                       formData.discount_type === 'fixed' ? 'Discount Amount ($)' : 'Promo Price ($)'}
+                    </label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step={formData.discount_type === 'percentage' ? '1' : '0.01'}
+                      max={formData.discount_type === 'percentage' ? '100' : undefined}
+                      value={formData.discount_value}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, discount_value: e.target.value }))}
+                      placeholder={formData.discount_type === 'percentage' ? '10' : '2.50'}
+                    />
+                  </div>
+
+                  {/* Date Range */}
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-[#4B2E2B]">Start Date</label>
+                      <Input
+                        type="datetime-local"
+                        value={formData.discount_start_date}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, discount_start_date: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-[#4B2E2B]">End Date</label>
+                      <Input
+                        type="datetime-local"
+                        value={formData.discount_end_date}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, discount_end_date: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
           <DialogFooter>

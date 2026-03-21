@@ -10,7 +10,7 @@ import {
   FaSun,
   FaUtensils,
 } from "react-icons/fa";
-import { fetchCustomerCategories, fetchCustomerProducts } from "../services/api";
+import { fetchCustomerCategories, fetchCustomerProducts, fetchCustomerPopularProducts } from "../services/api";
 
 const API_BASE = (() => {
   const raw = (import.meta.env.VITE_API_BASE_URL ?? "").trim().replace(/\/$/, "");
@@ -44,6 +44,18 @@ function normalizeImage(imageUrl, imagePath) {
 
 export function getPriceForSize(product, size) {
   const s = (size ?? "M").toUpperCase();
+
+  // Check if product has discounted prices (from API)
+  if (product.has_discount) {
+    const discountedSmall = parseFloat(product.discounted_price_small ?? 0);
+    const discountedMedium = parseFloat(product.discounted_price_medium ?? 0);
+    const discountedLarge = parseFloat(product.discounted_price_large ?? 0);
+    if (s === "S") return Number.isFinite(discountedSmall) ? discountedSmall : 0;
+    if (s === "L") return Number.isFinite(discountedLarge) ? discountedLarge : 0;
+    return Number.isFinite(discountedMedium) ? discountedMedium : 0;
+  }
+  
+  // Fall back to regular prices
   const small = parseFloat(product.price_small ?? product.price ?? 0);
   const medium = parseFloat(product.price_medium ?? product.price ?? 0);
   const large = parseFloat(product.price_large ?? product.price ?? 0);
@@ -71,39 +83,12 @@ export function getItemUnitPrice(item) {
   return base + milk + extras;
 }
 
-const POPULAR_PRODUCTS = [
-  {
-    id: "classic-latte",
-    name: "Classic Latte",
-    description: "Velvety steamed milk layered over espresso with a silky finish.",
-    price: "$5.50",
-    priceValue: 5.5,
-    image:
-      "https://images.unsplash.com/photo-1511920170033-f8396924c348?auto=format&fit=crop&w=800&q=80",
-  },
-  {
-    id: "caramel-cold-brew",
-    name: "Caramel Cold Brew",
-    description: "Smooth cold brew sweetened with house caramel and a hint of sea salt.",
-    price: "$6.25",
-    priceValue: 6.25,
-    image:
-      "https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=800&q=80",
-  },
-  {
-    id: "hazelnut-mocha",
-    name: "Hazelnut Mocha",
-    description: "Dark chocolate, toasted hazelnut, and espresso crafted warm and rich.",
-    price: "$6.95",
-    priceValue: 6.95,
-    image:
-      "https://abeautifulmess.com/wp-content/uploads/2024/04/matcha-boba-recipe.jpg",
-  },
-];
+// Popular products are now fetched dynamically from API
 
 function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", onToggleTheme }) {
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
+  const [popularProducts, setPopularProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [search, setSearch] = useState("");
@@ -145,6 +130,23 @@ function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", o
     return () => controller.abort();
   }, []);
 
+  // Fetch popular products from API
+  useEffect(() => {
+    fetchCustomerPopularProducts()
+      .then((data) => {
+        const list = Array.isArray(data?.data) ? data.data : [];
+        setPopularProducts(
+          list
+            .filter((p) => p.is_available !== false)
+            .map((p) => ({
+              ...p,
+              image: normalizeImage(p.image_url, p.image),
+            }))
+        );
+      })
+      .catch(() => setPopularProducts([]));
+  }, []);
+
   const getProductKey = (p) => `${p.id}-${p.name}`;
 
   const handleSizeClick = (product, size) => {
@@ -158,13 +160,13 @@ function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", o
   };
 
   const createPopularProductSeed = (popularProduct) => ({
-    id: `popular-${popularProduct.id}`,
+    id: popularProduct.id,
     name: popularProduct.name,
     image: popularProduct.image,
-    price_small: popularProduct.priceValue,
-    price_medium: popularProduct.priceValue,
-    price_large: popularProduct.priceValue,
-    category: { name: "Popular" },
+    price_small: popularProduct.price_small,
+    price_medium: popularProduct.price_medium,
+    price_large: popularProduct.price_large,
+    category: popularProduct.category || { name: "Popular" },
   });
 
   const handleAddPopularProduct = (popularProduct) => {
@@ -194,7 +196,7 @@ function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", o
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setActivePopularIndex((prev) => (prev + 1) % POPULAR_PRODUCTS.length);
+      setActivePopularIndex((prev) => (prev + 1) % (popularProducts.length || 1));
     }, 6000);
     return () => clearInterval(interval);
   }, []);
@@ -261,21 +263,35 @@ function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", o
         <section className="popular-products-section" aria-label="Popular products">
           <h3>Popular products</h3>
           <div className="popular-products-grid">
-            {POPULAR_PRODUCTS.map((product, index) => (
+            {(popularProducts.length > 0 ? popularProducts : []).map((product, index) => (
               <article
                 key={product.id}
                 className={`popular-products-card ${index === activePopularIndex ? "active" : ""}`}
               >
                 <div className="popular-products-media">
                   <img src={product.image} alt={product.name} loading="lazy" />
-                  <span className="popular-products-badge">Popular choice</span>
+                  {product.has_discount && (
+                    <span className="popular-products-badge" style={{background: '#10b981'}}>SALE</span>
+                  )}
+                  {!product.has_discount && (
+                    <span className="popular-products-badge">Popular choice</span>
+                  )}
                 </div>
                 <div className="popular-products-copy">
                   <h4>{product.name}</h4>
-                  <p>{product.description}</p>
+                  <p>{product.description || product.category?.name || ''}</p>
                 </div>
                 <div className="popular-products-footer">
-                  <span className="popular-products-price">{product.price}</span>
+                  {product.has_discount && (
+                    <span className="popular-products-price-original">
+                      ${Number(product.price_medium || product.price_small || product.price_large || 0).toFixed(2)}
+                    </span>
+                  )}
+                  <span className="popular-products-price">
+                    {product.has_discount && product.discounted_price_medium 
+                      ? `${Number(product.discounted_price_medium).toFixed(2)}` 
+                      : `${Number(product.price_medium || product.price_small || product.price_large || 0).toFixed(2)}`}
+                  </span>
                   <button
                     className="popular-products-btn"
                     type="button"
@@ -321,6 +337,9 @@ function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", o
                       ☕
                     </div>
                   )}
+                  {item.has_discount && (
+                    <span className="badge" style={{background: '#10b981'}}>SALE</span>
+                  )}
                   {item.category?.name && (
                     <span className="badge">{item.category.name.toUpperCase()}</span>
                   )}
@@ -339,6 +358,11 @@ function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", o
                     ))}
                   </div>
                   <div className="price-row">
+                    {item.has_discount && (
+                      <span className="price-original">
+                        ${Number(item.price_medium || item.price_small || item.price_large || 0).toFixed(2)}
+                      </span>
+                    )}
                     <span className="price">${price.toFixed(2)}</span>
                     <button
                       className="add-btn"

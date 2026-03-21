@@ -2,46 +2,36 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
 use App\Models\DiningTable;
 use App\Models\Order;
-use App\Models\OrderAction;
-use App\Models\OrderItem;
-use App\Models\Product;
-use App\Models\Staff;
-use App\Models\User;
-use App\Support\AppSettings;
+use App\Services\OrderService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
-class OrderController extends Controller
+/**
+ * Order management controller.
+ */
+class OrderController extends BaseController
 {
-    /**
-     * Cache TTL for live orders (30 seconds).
-     */
-    private const CACHE_TTL_LIVE = 5;
+    private OrderService $orderService;
 
-    private const LIVE_CACHE_KEY = 'orders_live_active';
-
-    /**
-     * Cache TTL for order history (2 minutes).
-     */
-    private const CACHE_TTL_HISTORY = 120;
+    public function __construct()
+    {
+        parent::__construct();
+        $this->orderService = new OrderService();
+    }
 
     /**
-     * Display a listing of orders.
+     * List orders with pagination and filters.
      */
     public function index(Request $request): JsonResponse
     {
         $query = Order::query()
-            ->select($this->orderColumns())
-            ->with($this->orderRelations())
+            ->select($this->orderService->getOrderColumns())
+            ->with($this->orderService->getOrderRelations())
             ->latest();
 
         if ($request->filled('status')) {
@@ -56,126 +46,56 @@ class OrderController extends Controller
     }
 
     /**
-     * Store a newly created order.
+     * Create new order.
      */
     public function store(Request $request): JsonResponse
     {
         $validated = $this->validateOrderPayload($request, false);
+        $order = $this->orderService->create($validated);
+        
+        $this->orderService->clearCache();
 
-        return $this->persistOrder($validated);
+        return response()->json(
+            Order::select($this->orderService->getOrderColumns())
+                ->with($this->orderService->getOrderRelations())
+                ->findOrFail($order->id),
+            201
+        );
     }
 
     /**
-     * Store a customer order with a resilient table fallback.
+     * Create customer order with table fallback.
      */
     public function customerStore(Request $request): JsonResponse
     {
         $validated = $this->validateOrderPayload($request, true);
+        $order = $this->orderService->create($validated);
+        
+        $this->orderService->clearCache();
 
-        return $this->persistOrder($validated);
+        return response()->json(
+            Order::select($this->orderService->getOrderColumns())
+                ->with($this->orderService->getOrderRelations())
+                ->findOrFail($order->id),
+            201
+        );
     }
 
     /**
-     * Persist a validated order payload.
-     */
-    private function persistOrder(array $validated): JsonResponse
-    {
-        $order = DB::transaction(function () use ($validated) {
-            $nextQueue = isset($validated['queue_number'])
-                ? (int) $validated['queue_number']
-                : ((int) (Order::query()->lockForUpdate()->max('queue_number') ?? 0) + 1);
-
-            $order = Order::create([
-                'table_id' => $validated['table_id'],
-                'status' => $validated['status'] ?? 'pending',
-                'payment_type' => $validated['payment_type'],
-                'queue_number' => $nextQueue,
-                'total_price' => 0,
-            ]);
-
-            $productIds = array_values(array_unique(array_map('intval', array_column($validated['items'], 'product_id'))));
-            $products = Product::query()
-                ->select(['id', 'price_small', 'price_medium', 'price_large'])
-                ->whereIn('id', $productIds)
-                ->get()
-                ->keyBy('id');
-
-            $total = 0;
-            $now = now();
-            $orderItems = [];
-            foreach ($validated['items'] as $item) {
-                if (isset($item['price'])) {
-                    $price = (float) $item['price'];
-                } else {
-                    $product = $products->get($item['product_id']);
-                    $price = match ($item['size']) {
-                        'small' => (float) $product->price_small,
-                        'medium' => (float) $product->price_medium,
-                        'large' => (float) $product->price_large,
-                    };
-                }
-                
-                $total += ((float) $price * (int) $item['qty']);
-
-                $orderItems[] = [
-                    'order_id' => $order->id,
-                    'product_id' => $item['product_id'],
-                    'size' => $item['size'],
-                    'qty' => $item['qty'],
-                    'price' => $price,
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ];
-            }
-
-            OrderItem::query()->insert($orderItems);
-
-            $settings = AppSettings::getMerged();
-            $taxRate = (float) (($settings['payment']['tax_rate'] ?? 0));
-            $taxAmount = round($total * ($taxRate / 100), 2);
-            $computedTotal = round($total + $taxAmount, 2);
-
-            $order->forceFill([
-                'total_price' => $validated['total_price'] ?? $computedTotal,
-            ])->save();
-
-            $this->recordOrderAction(
-                $order,
-                'created',
-                null,
-                $order->status,
-                sprintf('Order #%d was created.', $order->queue_number ?? $order->id)
-            );
-
-            return Order::query()
-                ->select($this->orderColumns())
-                ->with($this->orderRelations())
-                ->findOrFail($order->id);
-        });
-
-        $this->clearOrderCaches();
-
-        return response()->json($order, 201);
-    }
-
-    /**
-     * Display the specified order.
+     * Get single order.
      */
     public function show(Order $order): JsonResponse
     {
-        return response()->json($order->load($this->orderRelations()));
+        return response()->json($order->load($this->orderService->getOrderRelations()));
     }
 
     /**
-     * Update the specified order.
+     * Update order.
      */
     public function update(Request $request, Order $order): JsonResponse
     {
-        $enabledPaymentTypes = array_keys(AppSettings::enabledPaymentTypes());
-        if (count($enabledPaymentTypes) === 0) {
-            $enabledPaymentTypes = ['cash'];
-        }
-
+        $enabledPaymentTypes = array_keys($this->getEnabledPaymentTypes());
+        
         $validated = $request->validate([
             'table_id' => ['sometimes', 'required', 'exists:dining_tables,id'],
             'status' => ['sometimes', Rule::in(['pending', 'preparing', 'ready', 'completed', 'cancelled'])],
@@ -185,32 +105,31 @@ class OrderController extends Controller
         ]);
 
         $order->update($validated);
+        $this->orderService->clearCache();
 
-        $this->clearOrderCaches();
-
-        return response()->json($order->fresh()->load($this->orderRelations()));
+        return response()->json($order->fresh()->load($this->orderService->getOrderRelations()));
     }
 
     /**
-     * Remove the specified order.
+     * Delete order.
      */
     public function destroy(Order $order): JsonResponse
     {
         $order->delete();
-        $this->clearOrderCaches();
+        $this->orderService->clearCache();
 
         return response()->json(['message' => 'Order deleted']);
     }
 
     /**
-     * Display live (active) orders.
+     * Get live orders (cached).
      */
     public function live(): JsonResponse
     {
-        $orders = Cache::remember(self::LIVE_CACHE_KEY, self::CACHE_TTL_LIVE, function () {
+        $orders = Cache::remember('orders_live_active', 5, function () {
             return Order::query()
-                ->select($this->orderColumns())
-                ->with($this->orderRelations())
+                ->select($this->orderService->getOrderColumns())
+                ->with($this->orderService->getOrderRelations())
                 ->whereIn('status', ['pending', 'preparing', 'ready'])
                 ->orderBy('created_at', 'asc')
                 ->get();
@@ -220,35 +139,35 @@ class OrderController extends Controller
     }
 
     /**
-     * Display order history (completed and cancelled orders).
+     * Get order history with filters.
      */
     public function history(Request $request): JsonResponse
     {
         $validated = $request->validate($this->historyFilterRules());
 
         $query = Order::query()
-            ->select($this->orderColumns())
-            ->with($this->orderRelations())
+            ->select($this->orderService->getOrderColumns())
+            ->with($this->orderService->getOrderRelations())
             ->whereIn('status', ['completed', 'cancelled']);
+        
         $this->applyHistoryFilters($query, $validated);
 
         // Sorting
         $sortBy = $validated['sort_by'] ?? 'created_at';
         $sortOrder = $validated['sort_order'] ?? 'desc';
         $allowedSorts = ['created_at', 'updated_at', 'total_price', 'queue_number'];
+        
         if (in_array($sortBy, $allowedSorts)) {
             $query->orderBy($sortBy, $sortOrder === 'asc' ? 'asc' : 'desc');
         } else {
             $query->latest('created_at');
         }
 
-        // Optimized summary calculation - single query with conditional counts
-        $summaryBase = Order::query()
-            ->whereIn('status', ['completed', 'cancelled']);
-        $this->applyHistoryFilters($summaryBase, $validated);
-
-        // Single query to get all summary stats
-        $summaryStats = (clone $summaryBase)
+        // Summary stats (separate query to avoid GROUP BY conflict)
+        $summaryStats = Order::query()
+            ->whereIn('status', ['completed', 'cancelled'])
+            ->when($validated['date_from'] ?? null, fn($q, $v) => $q->where('created_at', '>=', $v))
+            ->when($validated['date_to'] ?? null, fn($q, $v) => $q->where('created_at', '<=', $v . ' 23:59:59'))
             ->selectRaw('
                 SUM(CASE WHEN status = "completed" THEN 1 ELSE 0 END) as completed_count,
                 SUM(CASE WHEN status = "cancelled" THEN 1 ELSE 0 END) as cancelled_count,
@@ -256,16 +175,12 @@ class OrderController extends Controller
             ')
             ->first();
 
-        $completedCount = (int) ($summaryStats->completed_count ?? 0);
-        $cancelledCount = (int) ($summaryStats->cancelled_count ?? 0);
-        $totalRevenue = round((float) ($summaryStats->total_revenue ?? 0), 2);
-
         $paginator = $query->paginate(20);
         $payload = $paginator->toArray();
         $payload['summary'] = [
-            'completed_count' => $completedCount,
-            'cancelled_count' => $cancelledCount,
-            'total_revenue' => $totalRevenue,
+            'completed_count' => (int) ($summaryStats->completed_count ?? 0),
+            'cancelled_count' => (int) ($summaryStats->cancelled_count ?? 0),
+            'total_revenue' => round((float) ($summaryStats->total_revenue ?? 0), 2),
         ];
 
         return response()->json($payload);
@@ -280,26 +195,14 @@ class OrderController extends Controller
             'status' => ['required', Rule::in(['pending', 'preparing', 'ready', 'completed', 'cancelled'])],
         ]);
 
-        $fromStatus = (string) $order->status;
-        $toStatus = (string) $validated['status'];
+        $this->orderService->updateStatus($order, $validated['status']);
+        $this->orderService->clearCache();
 
-        $order->update(['status' => $toStatus]);
-
-        $this->recordOrderAction(
-            $order->fresh(),
-            'status_changed',
-            $fromStatus,
-            $toStatus,
-            $this->buildStatusChangeDescription($fromStatus, $toStatus)
-        );
-
-        $this->clearOrderCaches();
-
-        return response()->json($order->fresh()->load($this->orderRelations()));
+        return response()->json($order->fresh()->load($this->orderService->getOrderRelations()));
     }
 
     /**
-     * Customer pickup confirmation (public).
+     * Customer pickup confirmation.
      */
     public function pickup(Order $order): JsonResponse
     {
@@ -308,32 +211,21 @@ class OrderController extends Controller
         }
 
         if ($order->status === 'completed') {
-            return response()->json($order->fresh()->load($this->orderRelations()));
+            return response()->json($order->fresh()->load($this->orderService->getOrderRelations()));
         }
 
         if ($order->status !== 'ready') {
             return response()->json(['message' => 'Order is not ready for pickup yet.'], 409);
         }
 
-        $fromStatus = (string) $order->status;
+        $this->orderService->updateStatus($order, 'completed');
+        $this->orderService->clearCache();
 
-        $order->update(['status' => 'completed']);
-
-        $this->recordOrderAction(
-            $order->fresh(),
-            'picked_up',
-            $fromStatus,
-            'completed',
-            sprintf('Customer pickup completed for order #%d.', $order->queue_number ?? $order->id)
-        );
-
-        $this->clearOrderCaches();
-
-        return response()->json($order->fresh()->load($this->orderRelations()));
+        return response()->json($order->fresh()->load($this->orderService->getOrderRelations()));
     }
 
     /**
-     * Customer order status (public).
+     * Get customer order status (public).
      */
     public function customerStatus(Order $order): JsonResponse
     {
@@ -346,31 +238,53 @@ class OrderController extends Controller
         ]);
     }
 
-    private function orderColumns(): array
+    // ==================== Private Helpers ====================
+
+    private function getEnabledPaymentTypes(): array
     {
-        return [
-            'id',
-            'table_id',
-            'status',
-            'total_price',
-            'payment_type',
-            'queue_number',
-            'created_at',
-            'updated_at',
-        ];
+        $types = \App\Support\AppSettings::enabledPaymentTypes();
+        return $types ?: ['cash' => true];
     }
 
-    private function orderRelations(): array
+    private function validateOrderPayload(Request $request, bool $allowCustomerFallback): array
     {
-        return [
-            'table:id,name',
-            'items' => fn ($query) => $query->select(['id', 'order_id', 'product_id', 'size', 'qty', 'price']),
-            'items.product' => fn ($query) => $query->select($this->productRelationColumns()),
-            'actions' => fn ($query) => $query
-                ->select(['id', 'order_id', 'actor_type', 'actor_id', 'actor_name', 'action_type', 'from_status', 'to_status', 'description', 'created_at'])
-                ->latest()
-                ->limit(20),
+        $enabledPaymentTypes = array_keys($this->getEnabledPaymentTypes());
+
+        $rules = [
+            'table_id' => $allowCustomerFallback
+                ? ['nullable', 'integer', 'min:1']
+                : ['required', 'exists:dining_tables,id'],
+            'status' => ['sometimes', Rule::in(['pending', 'preparing', 'ready', 'completed', 'cancelled'])],
+            'payment_type' => ['required', Rule::in($enabledPaymentTypes)],
+            'queue_number' => ['nullable', 'integer', 'min:1'],
+            'total_price' => ['nullable', 'numeric', 'min:0'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.product_id' => ['required', 'exists:products,id'],
+            'items.*.size' => ['required', Rule::in(['small', 'medium', 'large'])],
+            'items.*.qty' => ['required', 'integer', 'min:1'],
+            'items.*.price' => ['nullable', 'numeric', 'min:0'],
         ];
+
+        $validated = $request->validate($rules);
+
+        // Table fallback for customers
+        if ($allowCustomerFallback) {
+            $tableId = $validated['table_id'] ?? null;
+            
+            if (!$tableId || !DiningTable::query()->whereKey($tableId)->exists()) {
+                $fallbackId = $this->orderService->getFallbackTableId();
+                
+                if (!$fallbackId) {
+                    throw ValidationException::withMessages([
+                        'table_id' => 'No dining table is available for customer ordering.',
+                    ]);
+                }
+                
+                $validated['table_id'] = $fallbackId;
+            }
+        }
+
+        return $validated;
     }
 
     private function applyHistoryFilters($query, array $filters): void
@@ -396,26 +310,20 @@ class OrderController extends Controller
         }
 
         $search = trim((string) $filters['search']);
-        $query->where(function ($inner) use ($search) {
+        $query->where(function ($q) use ($search) {
             if (ctype_digit($search)) {
-                $inner->where('id', (int) $search)
+                $q->where('id', (int) $search)
                     ->orWhere('queue_number', (int) $search);
             } else {
-                $inner->where('queue_number', 'like', "%{$search}%");
+                $q->where('queue_number', 'like', "%{$search}%")
+                    ->orWhereHas('table', fn ($t) => $t->where('name', 'like', "%{$search}%"));
             }
-
-            $inner->orWhereHas('table', function ($tableQuery) use ($search) {
-                $tableQuery->where('name', 'like', "%{$search}%");
-            });
         });
     }
 
     private function historyFilterRules(): array
     {
-        $enabledPaymentTypes = array_keys(AppSettings::enabledPaymentTypes());
-        if (count($enabledPaymentTypes) === 0) {
-            $enabledPaymentTypes = ['cash'];
-        }
+        $enabledPaymentTypes = array_keys($this->getEnabledPaymentTypes());
 
         return [
             'page' => ['sometimes', 'integer', 'min:1'],
@@ -427,141 +335,5 @@ class OrderController extends Controller
             'sort_by' => ['sometimes', Rule::in(['created_at', 'updated_at', 'total_price', 'queue_number'])],
             'sort_order' => ['sometimes', Rule::in(['asc', 'desc'])],
         ];
-    }
-
-    private function clearOrderCaches(): void
-    {
-        Cache::forget(self::LIVE_CACHE_KEY);
-        DashboardController::clearCache();
-    }
-
-    private function validateOrderPayload(Request $request, bool $allowCustomerTableFallback): array
-    {
-        $enabledPaymentTypes = array_keys(AppSettings::enabledPaymentTypes());
-        if (count($enabledPaymentTypes) === 0) {
-            $enabledPaymentTypes = ['cash'];
-        }
-
-        $validated = $request->validate([
-            'table_id' => $allowCustomerTableFallback
-                ? ['nullable', 'integer', 'min:1']
-                : ['required', 'exists:dining_tables,id'],
-            'status' => ['sometimes', Rule::in(['pending', 'preparing', 'ready', 'completed', 'cancelled'])],
-            'payment_type' => ['required', Rule::in($enabledPaymentTypes)],
-            'queue_number' => ['nullable', 'integer', 'min:1'],
-            'total_price' => ['nullable', 'numeric', 'min:0'],
-            'items' => ['required', 'array', 'min:1'],
-            'items.*.product_id' => ['required', 'exists:products,id'],
-            'items.*.size' => ['required', Rule::in(['small', 'medium', 'large'])],
-            'items.*.qty' => ['required', 'integer', 'min:1'],
-            'items.*.price' => ['nullable', 'numeric', 'min:0'],
-        ]);
-
-        if (!$allowCustomerTableFallback) {
-            return $validated;
-        }
-
-        $tableId = isset($validated['table_id']) ? (int) $validated['table_id'] : null;
-        if ($tableId && DiningTable::query()->whereKey($tableId)->exists()) {
-            return $validated;
-        }
-
-        $fallbackTableId = DiningTable::query()
-            ->where('is_active', true)
-            ->orderBy('id')
-            ->value('id') ?? DiningTable::query()->orderBy('id')->value('id');
-
-        if (!$fallbackTableId) {
-            throw ValidationException::withMessages([
-                'table_id' => 'No dining table is available for customer ordering.',
-            ]);
-        }
-
-        $validated['table_id'] = (int) $fallbackTableId;
-
-        return $validated;
-    }
-
-    private function productRelationColumns(): array
-    {
-        return $this->filterExistingProductColumns([
-            'id',
-            'category_id',
-            'name',
-            'description',
-            'image',
-            'price_small',
-            'price_medium',
-            'price_large',
-            'is_available',
-        ]);
-    }
-
-    private function filterExistingProductColumns(array $columns): array
-    {
-        static $availableColumns;
-
-        if ($availableColumns === null) {
-            $availableColumns = array_flip(Schema::getColumnListing('products'));
-        }
-
-        return array_values(array_filter($columns, fn (string $column) => isset($availableColumns[$column])));
-    }
-
-    private function recordOrderAction(
-        Order $order,
-        string $actionType,
-        ?string $fromStatus,
-        ?string $toStatus,
-        ?string $description = null
-    ): void {
-        $actor = $this->resolveActor();
-
-        OrderAction::query()->create([
-            'order_id' => $order->id,
-            'actor_type' => $actor['type'],
-            'actor_id' => $actor['id'],
-            'actor_name' => $actor['name'],
-            'action_type' => $actionType,
-            'from_status' => $fromStatus,
-            'to_status' => $toStatus,
-            'description' => $description,
-        ]);
-    }
-
-    private function resolveActor(): array
-    {
-        $actor = Auth::user();
-
-        if ($actor instanceof User) {
-            return [
-                'type' => 'admin',
-                'id' => $actor->id,
-                'name' => $actor->name,
-            ];
-        }
-
-        if ($actor instanceof Staff) {
-            return [
-                'type' => 'staff',
-                'id' => $actor->id,
-                'name' => $actor->name,
-            ];
-        }
-
-        return [
-            'type' => 'system',
-            'id' => null,
-            'name' => 'System',
-        ];
-    }
-
-    private function buildStatusChangeDescription(string $fromStatus, string $toStatus): string
-    {
-        if ($fromStatus === $toStatus) {
-            return sprintf('Order status remained %s.', $toStatus);
-        }
-
-        return sprintf('Order status changed from %s to %s.', $fromStatus, $toStatus);
     }
 }
