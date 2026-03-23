@@ -5,6 +5,7 @@ import {
   fetchCustomerOrderStatus,
   markCustomerOrderPickedUp,
 } from "../services/api";
+import { useSettings } from "../context/SettingsContext";
 import Customer from "./Customer";
 import { getItemUnitPrice } from "../utils/pricing";
 import Cart from "./cart";
@@ -92,6 +93,9 @@ export default function CustomerMenuApp() {
     return typeof s?.pendingPaymentMethod === "string" ? s.pendingPaymentMethod : null;
   });
   const [cartSnapshot, setCartSnapshot] = useState(null);
+
+  const { settings } = useSettings();
+  const receiptSettings = settings?.receipt;
 
   useEffect(() => {
     localStorage.setItem("customer-theme", theme);
@@ -292,7 +296,7 @@ export default function CustomerMenuApp() {
         lineTotal: unitPrice * qty,
       };
     });
-    setCartSnapshot({ items: snapshotItems, subtotal, taxAmount, total: totalAmount });
+    setCartSnapshot({ items: snapshotItems, subtotal, taxAmount, total: totalAmount, paymentType: paymentMethod });
     const result = await submitOrderToBackend(paymentMethod);
     if (result?.queueNumber) {
       setQrOrderNumber(`#A-${String(result.queueNumber).padStart(3, "0")}`);
@@ -489,6 +493,7 @@ export default function CustomerMenuApp() {
           onBack={() => setCurrentPage("order-confirmed")}
           onEnjoyCoffee={() => { void handleEnjoyCoffee(); }}
           snapshot={cartSnapshot}
+          receiptSettings={receiptSettings}
         />
       )}
     </div>

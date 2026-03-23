@@ -1,14 +1,26 @@
 import "../ready.css";
 
 const STATUS_TEXT = "READY FOR PICKUP";
-const THANK_YOU_TEXT = "Thank you for visiting!";
-const RECEIPT_MESSAGE =
+const DEFAULT_THANK_YOU_TEXT = "Thank you for visiting!";
+const DEFAULT_RECEIPT_MESSAGE =
   "Your payment receipt has been generated. Please collect your order from the counter.";
 
-function Ready({ tableNumber = "012", onEnjoyCoffee, snapshot }) {
+function Ready({ tableNumber = "012", onEnjoyCoffee, snapshot, receiptSettings }) {
+  // Use settings from props if available, otherwise use defaults
+  const shopName = receiptSettings?.shop_name || "Prey Lang Coffee";
+  const shopAddress = receiptSettings?.address || "Street 214, Phnom Penh, Cambodia";
+  const shopPhone = receiptSettings?.phone || "+855 12 345 678";
+  const footerMessage = receiptSettings?.footer_message || DEFAULT_RECEIPT_MESSAGE;
+  const showLogo = receiptSettings?.show_logo !== false;
+  const showQrPayment = receiptSettings?.show_qr_payment !== false;
+  
+  // Get payment type from snapshot
+  const paymentType = snapshot?.paymentType;
+  
   const tableText = `Table: ${tableNumber}`;
   const items = snapshot?.items ?? [];
   const subtotal = snapshot?.subtotal ?? 0;
+  const taxRate = snapshot?.taxRate ?? 10;
   const taxAmount = snapshot?.taxAmount ?? 0;
   const total = snapshot?.total ?? subtotal + taxAmount;
 
@@ -18,8 +30,13 @@ function Ready({ tableNumber = "012", onEnjoyCoffee, snapshot }) {
         <small className="receipt-header-caption">{STATUS_TEXT}</small>
         <h1 className="receipt-title">Your Payment</h1>
         <div className="receipt-brand">
-          <span className="receipt-brand-name">Makara Coffee</span>
-          <p>Street 123, Phnom Penh · Tel: 012 345 678</p>
+          {showLogo && (
+            <div className="receipt-logo">
+              <img src="/img/logo-coffee.png" alt="Logo" className="receipt-logo-img" />
+            </div>
+          )}
+          <span className="receipt-brand-name">{shopName}</span>
+          <p>{shopAddress} · Tel: {shopPhone}</p>
         </div>
         <div className="receipt-table">{tableText}</div>
 
@@ -43,7 +60,7 @@ function Ready({ tableNumber = "012", onEnjoyCoffee, snapshot }) {
             <span>${subtotal.toFixed(2)}</span>
           </div>
           <div>
-            <span>Tax (10%)</span>
+            <span>Tax ({taxRate}%)</span>
             <span>${taxAmount.toFixed(2)}</span>
           </div>
           <div className="receipt-total">
@@ -52,7 +69,15 @@ function Ready({ tableNumber = "012", onEnjoyCoffee, snapshot }) {
           </div>
         </div>
 
-        <p className="ready-message secondary">{RECEIPT_MESSAGE}</p>
+        {/* Only show QR code for non-cash payments */}
+        {showQrPayment && paymentType && paymentType.toLowerCase() !== 'cash' && (
+          <div className="receipt-qr">
+            <div className="receipt-qr-icon">📱</div>
+            <span className="receipt-qr-text">Scan To Pay</span>
+          </div>
+        )}
+
+        <p className="ready-message secondary">{footerMessage}</p>
 
         <button className="ready-primary-btn ready-primary-btn--minimal" type="button" onClick={onEnjoyCoffee}>
           Enjoy your coffee

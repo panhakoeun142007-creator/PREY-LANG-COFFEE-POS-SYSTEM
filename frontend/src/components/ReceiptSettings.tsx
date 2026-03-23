@@ -205,9 +205,7 @@ export default function ReceiptSettings({ value, onSave, isSaving }: ReceiptSett
             <div className="rounded bg-white px-5 py-5 shadow-sm">
               {form.show_logo ? (
                 <div className="mb-3 flex justify-center">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#4B2E2B] text-white">
-                    <Store className="h-5 w-5" />
-                  </div>
+                  <img src="/img/logo-coffee.png" alt="Logo" className="h-10 w-10 rounded-lg object-contain" />
                 </div>
               ) : null}
 

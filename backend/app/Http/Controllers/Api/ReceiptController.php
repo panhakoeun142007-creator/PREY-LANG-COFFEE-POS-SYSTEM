@@ -57,6 +57,7 @@ class ReceiptController extends Controller
 
         $settings = AppSettings::getMerged();
         $taxRate = (float) ($settings['payment']['tax_rate'] ?? 0);
+        $receiptSettings = $settings['receipt'] ?? [];
 
         $order->load([
             'table:id,name',
@@ -138,6 +139,17 @@ class ReceiptController extends Controller
                     'total' => $total,
                 ],
                 'actions' => $order->actions,
+                'receipt_settings' => [
+                    'shop_name' => $receiptSettings['shop_name'] ?? 'Prey Lang Coffee',
+                    'address' => $receiptSettings['address'] ?? '',
+                    'phone' => $receiptSettings['phone'] ?? '',
+                    'tax_id' => $receiptSettings['tax_id'] ?? '',
+                    'footer_message' => $receiptSettings['footer_message'] ?? '',
+                    'show_logo' => (bool) ($receiptSettings['show_logo'] ?? true),
+                    'show_qr_payment' => (bool) ($receiptSettings['show_qr_payment'] ?? true),
+                    'show_order_number' => (bool) ($receiptSettings['show_order_number'] ?? true),
+                    'show_customer_name' => (bool) ($receiptSettings['show_customer_name'] ?? false),
+                ],
             ],
         ]);
     }

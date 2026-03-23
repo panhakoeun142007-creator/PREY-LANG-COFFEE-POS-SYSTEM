@@ -233,7 +233,7 @@ export default function App() {
     <AuthProvider>
       <I18nProvider>
         <Routes>
-          <Route path="/menu" element={withSuspense(<CustomerMenuApp />)} />
+          <Route path="/menu" element={<SettingsProvider>{withSuspense(<CustomerMenuApp />)}</SettingsProvider>} />
           <Route path="/login" element={withSuspense(<Login />)} />
           <Route path="/forgot-password" element={withSuspense(<ForgotPassword />)} />
           <Route path="/verify-code" element={withSuspense(<VerifyCode />)} />

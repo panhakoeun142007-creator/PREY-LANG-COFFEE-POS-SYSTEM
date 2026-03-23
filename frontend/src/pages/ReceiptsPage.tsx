@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Banknote, Eye, FileText, QrCode, Search, Trash2 } from "lucide-react";
+import { Banknote, Eye, FileText, QrCode, Search, Trash2, User } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { Card, CardContent } from "../components/ui/card";
 import { Input } from "../components/ui/input";
@@ -372,7 +372,7 @@ export default function ReceiptsPage() {
       </Card>
 
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-          <DialogContent className="max-w-3xl">
+          <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{t("receipts.details_title")}</DialogTitle>
               <DialogDescription>
@@ -392,6 +392,98 @@ export default function ReceiptsPage() {
               <div className="py-6 text-sm text-[#7C5D58]">{t("receipts.no_receipt_selected")}</div>
             ) : (
             <div className="space-y-5">
+                {/* Receipt Preview with Custom Settings */}
+                {detail.receipt_settings && (
+                  <div className="rounded-xl border-2 border-[#4B2E2B] bg-white overflow-hidden shadow-lg">
+                    <div className="bg-[#4B2E2B] px-4 py-2 text-center text-white text-sm font-semibold">
+                      Customer Receipt
+                    </div>
+                    <div className="bg-white p-4">
+                      {detail.receipt_settings.show_logo && (
+                        <div className="mb-3 flex justify-center">
+                          <img src="/img/logo-coffee.png" alt="Logo" className="h-10 w-10 rounded-lg object-contain" />
+                        </div>
+                      )}
+                      
+                      <div className="text-center mb-3">
+                        <p className="text-sm font-bold text-[#4B2E2B]">{detail.receipt_settings.shop_name}</p>
+                        <p className="text-[11px] text-[#8E706B]">{detail.receipt_settings.address}</p>
+                        <p className="text-[11px] text-[#8E706B]">{detail.receipt_settings.phone}</p>
+                        {detail.receipt_settings.tax_id && (
+                          <p className="text-[11px] text-[#8E706B]">Tax ID: {detail.receipt_settings.tax_id}</p>
+                        )}
+                      </div>
+
+                      <div className="my-2 border-t border-dashed border-[#EAD6C0]" />
+
+                      {detail.receipt_settings.show_order_number && (
+                        <div className="flex items-center justify-between mb-2 text-[11px] font-semibold text-[#4B2E2B]">
+                          <span>Order #{detail.order_id}</span>
+                          <span>
+                            {detail.order.created_at ? new Date(detail.order.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : ''}
+                          </span>
+                        </div>
+                      )}
+
+                      {detail.receipt_settings.show_customer_name && (
+                        <div className="flex items-center gap-1 mb-2 text-[11px] text-[#4B2E2B]">
+                          <User className="h-3 w-3" />
+                          <span>Customer: {detail.customer_label}</span>
+                        </div>
+                      )}
+
+                      <div className="my-2 border-t border-dashed border-[#EAD6C0]" />
+
+                      {/* Items */}
+                      <div className="space-y-1 text-[11px] text-[#4B2E2B]">
+                        {detail.items.map((item) => (
+                          <div key={item.id} className="flex justify-between">
+                            <span>{item.qty}x {item.name || `#${item.product_id}`}</span>
+                            <span>{money.format(item.line_total)}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="my-2 border-t border-dashed border-[#EAD6C0]" />
+
+                      {/* Totals */}
+                      <div className="space-y-1 text-[11px]">
+                        <div className="flex justify-between text-[#8E706B]">
+                          <span>Subtotal</span>
+                          <span>{money.format(detail.totals.subtotal)}</span>
+                        </div>
+                        <div className="flex justify-between text-[#8E706B]">
+                          <span>Tax ({detail.totals.tax_rate}%)</span>
+                          <span>{money.format(detail.totals.tax_amount)}</span>
+                        </div>
+                        <div className="flex justify-between font-bold text-sm text-[#4B2E2B]">
+                          <span>Total</span>
+                          <span>{money.format(detail.totals.total)}</span>
+                        </div>
+                      </div>
+
+                      {detail.receipt_settings.show_qr_payment && (
+                        <div className="mt-3 flex flex-col items-center gap-1">
+                          <div className="rounded bg-[#F8EFE4] p-2 text-[#4B2E2B]">
+                            <QrCode className="h-8 w-8" />
+                          </div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-[#8E706B]">
+                            Scan To Pay
+                          </p>
+                        </div>
+                      )}
+
+
+                      {detail.receipt_settings.footer_message && (
+                        <p className="mt-3 text-center text-[10px] italic leading-relaxed text-[#8E706B]">
+                          {detail.receipt_settings.footer_message}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Order Info Cards */}
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                   <div className="rounded-xl border border-[#EAD6C0] bg-[#FAF7F2] p-3">
                     <p className="text-xs font-medium text-[#7C5D58]">{t("receipts.label_receipt")}</p>

@@ -794,6 +794,17 @@ export type ReceiptDetailResponse = {
       total: number;
     };
     actions: OrderAction[];
+    receipt_settings: {
+      shop_name: string;
+      address: string;
+      phone: string;
+      tax_id: string;
+      footer_message: string;
+      show_logo: boolean;
+      show_qr_payment: boolean;
+      show_order_number: boolean;
+      show_customer_name: boolean;
+    };
   };
 };
 

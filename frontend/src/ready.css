@@ -33,12 +33,13 @@
 
 .receipt-brand {
   margin-bottom: 14px;
+  text-align: center;
 }
 
 .receipt-brand-name {
   display: block;
   font-weight: 700;
-  font-size: 1rem;
+  font-size: 1.1rem;
   color: #0b0d10;
 }
 
@@ -107,6 +108,54 @@
   font-size: 1.1rem;
   border-top: 1px solid #e4e4e4;
   padding-top: 10px;
+}
+
+.receipt-logo {
+  margin: 0 auto 12px;
+  text-align: center;
+}
+
+.receipt-logo-img {
+  width: 60px;
+  height: 60px;
+  object-fit: contain;
+  border-radius: 12px;
+  display: block;
+  margin: 0 auto;
+}
+
+.receipt-logo-icon {
+  display: inline-block;
+  width: 40px;
+  height: 40px;
+  line-height: 40px;
+  border-radius: 50%;
+  background: #4B2E2B;
+  color: white;
+  font-size: 20px;
+}
+
+.receipt-qr {
+  margin: 20px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.receipt-qr-icon {
+  font-size: 32px;
+  padding: 12px;
+  background: #F8EFE4;
+  border-radius: 12px;
+}
+
+.receipt-qr-text {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #8E706B;
 }
 
 .ready-message {
