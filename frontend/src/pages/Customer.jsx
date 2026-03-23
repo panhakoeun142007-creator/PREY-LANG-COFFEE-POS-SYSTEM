@@ -12,6 +12,7 @@ import {
   FaMapMarkerAlt,
 } from "react-icons/fa";
 import { fetchCustomerCategories, fetchCustomerProducts, fetchCustomerPopularProducts } from "../services/api";
+import { useI18n } from "../context/I18nContext";
 
 const API_BASE = (() => {
   const raw = (import.meta.env.VITE_API_BASE_URL ?? "").trim().replace(/\/$/, "");
@@ -85,6 +86,9 @@ export function getItemUnitPrice(item) {
 }
 
 function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", onToggleTheme }) {
+  const { lang, setLang, t } = useI18n();
+  // Guard: only allow expected values in DOM select
+  const safeLang = lang === "km" ? "km" : "en";
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
   const [popularProducts, setPopularProducts] = useState([]);
@@ -207,9 +211,18 @@ function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", o
           <div className="header-with-location">
             <div className="location-text">
               <FaMapMarkerAlt className="location-icon" />
-              <span>Prey Lang Coffee - Phnom Penh</span>
+              <span>{t("customer.location")}</span>
             </div>
             <div className="header-icons">
+              <select
+                className="header-language"
+                aria-label={t("nav.language")}
+                value={safeLang}
+                onChange={(e) => setLang(e.target.value === "km" ? "km" : "en")}
+              >
+                <option value="en">{t("lang.english")}</option>
+                <option value="km">{t("lang.khmer")}</option>
+              </select>
               <button
                 className="header-icon-btn"
                 onClick={onToggleTheme}
@@ -238,11 +251,11 @@ function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", o
             </div>
           </div>
 
-          <h2>Coffee your Selection</h2>
+          <h2>{t("customer.pick_heading")}</h2>
 
           <input
             type="text"
-            placeholder="Search for your favorite brew..."
+            placeholder={t("customer.search_placeholder")}
             className="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -266,8 +279,8 @@ function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", o
           </div>
         </div>
 
-        <section className="popular-products-section" aria-label="Popular products">
-          <h3>Popular products</h3>
+        <section className="popular-products-section" aria-label={t("customer.popular_products")}>
+          <h3>{t("customer.popular_products")}</h3>
           <div className="popular-products-grid">
             {(popularProducts.length > 0 ? popularProducts : []).map((product, index) => (
               <article

@@ -28,6 +28,22 @@
   gap: 6px;
 }
 
+.header-language {
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--text);
+  font-size: 0.75rem;
+  padding: 0 8px;
+  cursor: pointer;
+}
+
+.header-language:focus {
+  outline: 2px solid color-mix(in srgb, var(--primary) 40%, transparent);
+  outline-offset: 2px;
+}
+
 .header-icon-btn {
   width: 28px;
   height: 28px;

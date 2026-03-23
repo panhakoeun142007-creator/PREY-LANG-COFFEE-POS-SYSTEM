@@ -3,6 +3,7 @@ import { Navigate, Outlet, Route, Routes, useLocation, useNavigate } from "react
 import AppLayout from "./components/AppLayout";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import { CategoryProvider } from "./context/CategoryContext";
+import { I18nProvider } from "./context/I18nContext";
 import { SettingsProvider } from "./context/SettingsContext";
 import { auth } from "./utils/auth";
 
@@ -230,55 +231,57 @@ function AuthProvider({ children }) {
 export default function App() {
   return (
     <AuthProvider>
-      <Routes>
-        <Route path="/menu" element={withSuspense(<CustomerMenuApp />)} />
-        <Route path="/login" element={withSuspense(<Login />)} />
-        <Route path="/forgot-password" element={withSuspense(<ForgotPassword />)} />
-        <Route path="/verify-code" element={withSuspense(<VerifyCode />)} />
-        <Route path="/reset-password" element={withSuspense(<ResetPassword />)} />
-        <Route path="/verify-successful" element={withSuspense(<VerifySuccessful />)} />
-        <Route path="/session-expired" element={withSuspense(<SessionExpired />)} />
+      <I18nProvider>
+        <Routes>
+          <Route path="/menu" element={withSuspense(<CustomerMenuApp />)} />
+          <Route path="/login" element={withSuspense(<Login />)} />
+          <Route path="/forgot-password" element={withSuspense(<ForgotPassword />)} />
+          <Route path="/verify-code" element={withSuspense(<VerifyCode />)} />
+          <Route path="/reset-password" element={withSuspense(<ResetPassword />)} />
+          <Route path="/verify-successful" element={withSuspense(<VerifySuccessful />)} />
+          <Route path="/session-expired" element={withSuspense(<SessionExpired />)} />
 
-        <Route
-          path="/staff-dashboard"
-          element={
-            <ProtectedRoute>
-              {withSuspense(<StaffDashboardPage />)}
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          element={
-            <ProtectedRoute requireAdmin>
-              <AppLayout />
-            </ProtectedRoute>
-          }
-        >
-          <Route index element={
-            <RoleRedirect />
-          } />
-          <Route path="live-orders" element={withSuspense(<LiveOrders />)} />
-          <Route path="order-history" element={withSuspense(<OrderHistory />)} />
-          <Route path="receipts" element={withSuspense(<ReceiptsPage />)} />
-          <Route path="tables" element={withSuspense(<Tables />)} />
-          <Route path="stock" element={withSuspense(<IngredientsStockPage />)} />
-          <Route path="finance" element={withSuspense(<FinancePage />)} />
-          <Route path="analytics" element={withSuspense(<SalesAnalytics />)} />
           <Route
-            path="staff-management"
-            element={<AdminRoute>{withSuspense(<StaffManagementPage />)}</AdminRoute>}
+            path="/staff-dashboard"
+            element={
+              <ProtectedRoute>
+                {withSuspense(<StaffDashboardPage />)}
+              </ProtectedRoute>
+            }
           />
-          <Route path="settings" element={<AdminRoute>{withSuspense(<SettingsPage />)}</AdminRoute>} />
 
-          <Route element={<CategoryLayout />}>
-            <Route path="products" element={withSuspense(<Products />)} />
-            <Route path="categories" element={<AdminRoute>{withSuspense(<CategoriesPage />)}</AdminRoute>} />
+          <Route
+            element={
+              <ProtectedRoute requireAdmin>
+                <AppLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={
+              <RoleRedirect />
+            } />
+            <Route path="live-orders" element={withSuspense(<LiveOrders />)} />
+            <Route path="order-history" element={withSuspense(<OrderHistory />)} />
+            <Route path="receipts" element={withSuspense(<ReceiptsPage />)} />
+            <Route path="tables" element={withSuspense(<Tables />)} />
+            <Route path="stock" element={withSuspense(<IngredientsStockPage />)} />
+            <Route path="finance" element={withSuspense(<FinancePage />)} />
+            <Route path="analytics" element={withSuspense(<SalesAnalytics />)} />
+            <Route
+              path="staff-management"
+              element={<AdminRoute>{withSuspense(<StaffManagementPage />)}</AdminRoute>}
+            />
+            <Route path="settings" element={<AdminRoute>{withSuspense(<SettingsPage />)}</AdminRoute>} />
+
+            <Route element={<CategoryLayout />}>
+              <Route path="products" element={withSuspense(<Products />)} />
+              <Route path="categories" element={<AdminRoute>{withSuspense(<CategoriesPage />)}</AdminRoute>} />
+            </Route>
+
+            <Route path="*" element={<Navigate to="/live-orders" replace />} />
           </Route>
-
-          <Route path="*" element={<Navigate to="/live-orders" replace />} />
-        </Route>
-      </Routes>
+        </Routes>
+      </I18nProvider>
     </AuthProvider>
   );
 }

@@ -18,64 +18,74 @@ export type NavItem = {
   path: string;
   icon: LucideIcon;
   roles?: ("admin" | "staff")[];
+  i18nKey?: string;
 };
 
 export type NavGroup = {
   group: string;
   items: NavItem[];
+  i18nKey?: string;
 };
 
 export const navGroups: NavGroup[] = [
   {
     group: "Dashboard",
-    items: [{ label: "Dashboard", path: "/", icon: LayoutDashboard, roles: ["admin", "staff"] }],
+    i18nKey: "group.dashboard",
+    items: [{ label: "Dashboard", path: "/", icon: LayoutDashboard, roles: ["admin", "staff"], i18nKey: "nav.dashboard" }],
   },
   {
     group: "Orders",
+    i18nKey: "group.orders",
     items: [
-      { label: "Live Orders",    path: "/live-orders",    icon: ShoppingCart, roles: ["admin", "staff"] },
-      { label: "Order History",  path: "/order-history",  icon: ClipboardList, roles: ["admin", "staff"] },
-      { label: "Receipts",       path: "/receipts",       icon: Receipt, roles: ["admin", "staff"] },
+      { label: "Live Orders",    path: "/live-orders",    icon: ShoppingCart, roles: ["admin", "staff"], i18nKey: "nav.live_orders" },
+      { label: "Order History",  path: "/order-history",  icon: ClipboardList, roles: ["admin", "staff"], i18nKey: "nav.order_history" },
+      { label: "Receipts",       path: "/receipts",       icon: Receipt, roles: ["admin", "staff"], i18nKey: "nav.receipts" },
     ],
   },
   {
     group: "Menu Management",
+    i18nKey: "group.menu_management",
     items: [
-      { label: "Products",   path: "/products",   icon: Package, roles: ["admin", "staff"] },
-      { label: "Categories", path: "/categories", icon: Salad, roles: ["admin"] },
+      { label: "Products",   path: "/products",   icon: Package, roles: ["admin", "staff"], i18nKey: "nav.products" },
+      { label: "Categories", path: "/categories", icon: Salad, roles: ["admin"], i18nKey: "nav.categories" },
     ],
   },
   {
     group: "Tables",
-    items: [{ label: "Table Management", path: "/tables", icon: Table2, roles: ["admin", "staff"] }],
+    i18nKey: "group.tables",
+    items: [{ label: "Table Management", path: "/tables", icon: Table2, roles: ["admin", "staff"], i18nKey: "nav.tables" }],
   },
   {
     group: "Stock & Recipe",
     items: [
-      { label: "Ingredients / Stock", path: "/stock", icon: Package, roles: ["admin", "staff"] },
+      { label: "Ingredients / Stock", path: "/stock", icon: Package, roles: ["admin", "staff"], i18nKey: "nav.stock" },
     ],
+    i18nKey: "group.stock_recipe",
   },
   {
     group: "Finance",
-    items: [{ label: "Income & Expenses", path: "/finance", icon: Wallet, roles: ["admin", "staff"] }],
+    i18nKey: "group.finance",
+    items: [{ label: "Income & Expenses", path: "/finance", icon: Wallet, roles: ["admin", "staff"], i18nKey: "nav.finance" }],
   },
   {
     group: "Analytics",
-    items: [{ label: "Sales Analytics", path: "/analytics", icon: BarChart3, roles: ["admin", "staff"] }],
+    i18nKey: "group.analytics",
+    items: [{ label: "Sales Analytics", path: "/analytics", icon: BarChart3, roles: ["admin", "staff"], i18nKey: "nav.analytics" }],
   },
   {
     group: "System",
+    i18nKey: "group.system",
     items: [
-      { label: "Staff Management", path: "/staff-management", icon: Users, roles: ["admin"] },
-      { label: "Settings",         path: "/settings",         icon: Settings, roles: ["admin"] },
+      { label: "Staff Management", path: "/staff-management", icon: Users, roles: ["admin"], i18nKey: "nav.staff_management" },
+      { label: "Settings",         path: "/settings",         icon: Settings, roles: ["admin"], i18nKey: "nav.settings" },
     ],
   },
 ];
 
-export const pageTitleByPath: Record<string, string> = navGroups
+export const pageTitleKeyByPath: Record<string, string> = navGroups
   .flatMap((group) => group.items)
   .reduce<Record<string, string>>((acc, item) => {
-    acc[item.path] = item.label;
+    acc[item.path] = item.i18nKey ?? item.label;
     return acc;
   }, {});
 

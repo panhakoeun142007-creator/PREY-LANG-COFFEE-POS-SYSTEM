@@ -1,8 +1,9 @@
 import { Bell, ChevronLeft, ChevronRight, LogOut, Menu, Moon, Settings, Sun, User } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { navGroups, pageTitleByPath } from "../data/mockData";
+import { navGroups, pageTitleKeyByPath } from "../data/mockData";
 import { useSettings } from "../context/SettingsContext";
+import { useI18n } from "../context/I18nContext";
 import { auth } from "../utils/auth";
 import {
   fetchNotifications,
@@ -12,6 +13,7 @@ import {
   updateCurrentUser,
 } from "../services/api";
 import LogoutConfirmModal from "./LogoutConfirmModal";
+import LanguageSwitcher from "./LanguageSwitcher";
 
 function statusClass(isActive: boolean, isDarkMode: boolean): string {
   if (isActive) {
@@ -41,6 +43,7 @@ export default function AppLayout() {
   // We'll just use local state and localStorage - no need for AuthContext
   const [collapsed, setCollapsed] = useState(false);
   const { settings } = useSettings();
+  const { t } = useI18n();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -159,7 +162,7 @@ export default function AppLayout() {
       .filter((group) => group.items.length > 0);
   }, [userRole]);
 
-  const pageTitle = pageTitleByPath[location.pathname] ?? "Dashboard";
+  const pageTitle = t(pageTitleKeyByPath[location.pathname] ?? "nav.dashboard");
   const shopName = settings?.general?.shop_name ?? "PREY LANG";
   const dateText = useMemo(
     () =>
@@ -176,8 +179,8 @@ export default function AppLayout() {
   const mainMargin = collapsed ? "md:ml-20" : "md:ml-64";
 
   function roleLabel(role: string | undefined): string {
-    if (role === 'staff') return 'Staff';
-    return "Admin";
+    if (role === 'staff') return t("role.staff");
+    return t("role.admin");
   }
 
   function openAccountModal() {
@@ -199,16 +202,12 @@ export default function AppLayout() {
 
   async function saveAccount() {
     const name = accountName.trim();
-    const email = accountEmail.trim();
 
     // Build update data - only include fields that have values
     const updateData: { name?: string; email?: string; profile_image?: File | null; remove_profile_image?: boolean } = {};
     
     if (name && name !== (currentUser?.name ?? "")) {
       updateData.name = name;
-    }
-    if (email && email !== (currentUser?.email ?? "")) {
-      updateData.email = email;
     }
     if (accountRemoveImage) {
       updateData.remove_profile_image = true;
@@ -282,7 +281,7 @@ export default function AppLayout() {
            {!collapsed && (
              <div className="leading-tight">
                <p className="text-sm font-bold tracking-wide">{shopName}</p>
-               <p className="text-xs text-white/80">Dashboard</p>
+               <p className="text-xs text-white/80">{t("nav.dashboard")}</p>
              </div>
            )}
          </div>
@@ -320,16 +319,16 @@ export default function AppLayout() {
 
         <nav className="flex-1 overflow-y-auto px-3 py-4">
           <div className="space-y-5">
-            {filteredNavGroups.map((group) => (
-              <div key={group.group} className="space-y-2">
-                {!collapsed && (
-                  <p className={`px-2 text-[11px] font-semibold uppercase tracking-widest ${isDarkMode ? "text-slate-500" : "text-white/50"}`}>
-                    {group.group}
-                  </p>
-                )}
-                {group.items.map((item) => {
-                  const isActive = location.pathname === item.path;
-                  return (
+          {filteredNavGroups.map((group) => (
+            <div key={group.group} className="space-y-2">
+              {!collapsed && (
+                <p className={`px-2 text-[11px] font-semibold uppercase tracking-widest ${isDarkMode ? "text-slate-500" : "text-white/50"}`}>
+                  {t(group.i18nKey ?? group.group)}
+                </p>
+              )}
+              {group.items.map((item) => {
+                const isActive = location.pathname === item.path;
+                return (
                     <Link
                       key={item.path}
                       to={item.path}
@@ -338,10 +337,10 @@ export default function AppLayout() {
                         isActive,
                         isDarkMode,
                       )}`}
-                      title={collapsed ? item.label : undefined}
+                      title={collapsed ? t(item.i18nKey ?? item.label) : undefined}
                     >
                       <item.icon size={18} />
-                      {!collapsed && <span className="ml-3">{item.label}</span>}
+                      {!collapsed && <span className="ml-3">{t(item.i18nKey ?? item.label)}</span>}
                     </Link>
                   );
                 })}
@@ -355,11 +354,11 @@ export default function AppLayout() {
           <button
             type="button"
             onClick={() => setShowLogoutConfirm(true)}
-            title={collapsed ? "Logout" : undefined}
+            title={collapsed ? t("nav.logout") : undefined}
             className={`flex w-full items-center rounded-xl px-3 py-2.5 text-sm transition text-red-400 hover:bg-red-500/10 hover:text-red-300`}
           >
             <LogOut size={18} className="flex-shrink-0" />
-            {!collapsed && <span className="ml-3">Logout</span>}
+            {!collapsed && <span className="ml-3">{t("nav.logout")}</span>}
           </button>
         </div>
 
@@ -433,6 +432,12 @@ export default function AppLayout() {
                 {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
               </button>
 
+              <LanguageSwitcher
+                className={`w-[150px] ${
+                  isDarkMode ? "border-slate-700 bg-slate-900 text-slate-100" : ""
+                }`}
+              />
+
               <div className="relative">
                 <button
                   type="button"
@@ -442,7 +447,7 @@ export default function AppLayout() {
                       ? "border border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800"
                       : "border border-[#E5D2BB] bg-white text-[#4B2E2B]"
                   }`}
-                  aria-label="Notifications"
+                  aria-label={t("nav.notifications")}
                 >
                   <Bell size={18} />
                   {notifications.length > 0 && (
@@ -455,7 +460,7 @@ export default function AppLayout() {
                 {notificationsOpen && (
                   <div className={`absolute right-0 top-12 w-80 rounded-xl p-2 shadow-lg ${isDarkMode ? "border border-slate-700 bg-slate-900" : "border border-[#EAD6C0] bg-white"}`}>
                     <div className={`px-3 py-2 ${isDarkMode ? "border-b border-slate-700" : "border-b border-[#F1E3D3]"}`}>
-                      <h3 className={`font-semibold ${isDarkMode ? "text-slate-100" : "text-[#4B2E2B]"}`}>Notifications</h3>
+                      <h3 className={`font-semibold ${isDarkMode ? "text-slate-100" : "text-[#4B2E2B]"}`}>{t("nav.notifications")}</h3>
                     </div>
                     <div className="max-h-80 overflow-y-auto">
                       {notifications.length > 0 ? (
@@ -478,7 +483,7 @@ export default function AppLayout() {
                         ))
                       ) : (
                         <div className={`p-4 text-center text-sm ${isDarkMode ? "text-slate-400" : "text-[#7C5D58]"}`}>
-                          No notifications
+                          {t("msg.no_notifications")}
                         </div>
                       )}
                     </div>
@@ -535,7 +540,7 @@ export default function AppLayout() {
                       }`}
                     >
                       <User size={16} />
-                      Account
+                      {t("nav.account")}
                     </button>
                     {userRole === 'admin' && (
                     <button
@@ -549,7 +554,7 @@ export default function AppLayout() {
                       }`}
                     >
                       <Settings size={16} />
-                      Settings
+                      {t("nav.settings")}
                     </button>
                     )}
                     <button
@@ -561,7 +566,7 @@ export default function AppLayout() {
                       className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
                     >
                       <LogOut size={16} />
-                      Logout
+                      {t("nav.logout")}
                     </button>
                   </div>
                 )}
@@ -575,7 +580,7 @@ export default function AppLayout() {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
             <div className={`w-full max-w-md rounded-2xl p-6 shadow-xl ${isDarkMode ? "border border-slate-700 bg-slate-900" : "bg-white"}`}>
               <div className="flex items-center justify-between mb-6">
-                <h2 className={`text-xl font-semibold ${isDarkMode ? "text-slate-100" : "text-[#4B2E2B]"}`}>Account</h2>
+                <h2 className={`text-xl font-semibold ${isDarkMode ? "text-slate-100" : "text-[#4B2E2B]"}`}>{t("nav.account")}</h2>
                 <button
                   type="button"
                   onClick={closeAccountModal}
@@ -648,7 +653,7 @@ export default function AppLayout() {
                           isDarkMode ? "text-slate-300 hover:text-slate-100" : "text-[#4B2E2B] hover:text-[#6B4E4B]"
                         }`}
                       >
-                        Remove photo
+                        {t("btn.remove_photo")}
                       </button>
                     )}
                   </div>
@@ -656,46 +661,36 @@ export default function AppLayout() {
                 <div className={`pt-4 space-y-3 ${isDarkMode ? "border-t border-slate-700" : "border-t border-[#EAD6C0]"}`}>
                   <div>
                     <label className={`text-xs ${isDarkMode ? "text-slate-400" : "text-[#7C5D58]"}`}>
-                      Name {currentUser?.role === 'staff' && <span className="text-xs text-amber-500">(Read only for staff)</span>}
+                      {t("field.name")}
                     </label>
                     <input
                       type="text"
                       value={accountName}
-                      disabled={currentUser?.role === 'staff'}
                       onChange={(event) => setAccountName(event.target.value)}
                       className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${
-                        currentUser?.role === 'staff'
-                          ? isDarkMode
-                            ? "border-slate-700 bg-slate-800/50 text-slate-500 cursor-not-allowed"
-                            : "border-[#EAD6C0] bg-gray-50 text-gray-500 cursor-not-allowed"
-                          : isDarkMode
-                            ? "border-slate-600 bg-slate-800 text-slate-100 focus:border-slate-400"
-                            : "border-[#EAD6C0] text-[#4B2E2B] focus:border-[#B28A6E]"
+                        isDarkMode
+                          ? "border-slate-600 bg-slate-800 text-slate-100 focus:border-slate-400"
+                          : "border-[#EAD6C0] text-[#4B2E2B] focus:border-[#B28A6E]"
                       }`}
                     />
                   </div>
                   <div>
                     <label className={`text-xs ${isDarkMode ? "text-slate-400" : "text-[#7C5D58]"}`}>
-                      Email {currentUser?.role === 'staff' && <span className="text-xs text-amber-500">(Read only for staff)</span>}
+                      {t("field.email")} <span className="text-xs text-amber-500">({t("hint.assigned_by_admin")})</span>
                     </label>
                     <input
                       type="email"
                       value={accountEmail}
-                      disabled={currentUser?.role === 'staff'}
-                      onChange={(event) => setAccountEmail(event.target.value)}
+                      disabled
                       className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${
-                        currentUser?.role === 'staff'
-                          ? isDarkMode
-                            ? "border-slate-700 bg-slate-800/50 text-slate-500 cursor-not-allowed"
-                            : "border-[#EAD6C0] bg-gray-50 text-gray-500 cursor-not-allowed"
-                          : isDarkMode
-                            ? "border-slate-600 bg-slate-800 text-slate-100 focus:border-slate-400"
-                            : "border-[#EAD6C0] text-[#4B2E2B] focus:border-[#B28A6E]"
+                        isDarkMode
+                          ? "border-slate-700 bg-slate-800/50 text-slate-500 cursor-not-allowed"
+                          : "border-[#EAD6C0] bg-gray-50 text-gray-500 cursor-not-allowed"
                       }`}
                     />
                   </div>
                   <div>
-                    <label className={`text-xs ${isDarkMode ? "text-slate-400" : "text-[#7C5D58]"}`}>Role</label>
+                    <label className={`text-xs ${isDarkMode ? "text-slate-400" : "text-[#7C5D58]"}`}>{t("field.role")}</label>
                     <p className={`text-sm ${isDarkMode ? "text-slate-100" : "text-[#4B2E2B]"}`}>{roleLabel(currentUser?.role)}</p>
                   </div>
                 </div>
@@ -710,7 +705,7 @@ export default function AppLayout() {
                       : "border-[#EAD6C0] text-[#4B2E2B] hover:bg-[#F8EFE4]"
                   }`}
                 >
-                  Cancel
+                  {t("btn.cancel")}
                 </button>
                 <button
                   type="button"
@@ -720,7 +715,7 @@ export default function AppLayout() {
                     isDarkMode ? "bg-indigo-500 hover:bg-indigo-400" : "bg-[#4B2E2B] hover:bg-[#6B4E4B]"
                   }`}
                 >
-                  {accountSaving ? "Saving..." : "Save"}
+                  {accountSaving ? t("btn.saving") : t("btn.save")}
                 </button>
               </div>
             </div>

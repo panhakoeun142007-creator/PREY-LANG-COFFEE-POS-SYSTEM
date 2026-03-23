@@ -530,10 +530,8 @@ export const updateCurrentUser = async (data: {
   const userRole = user?.role || "admin";
 
   const fd = new FormData();
-  if (userRole !== "staff") {
-    if (data.name !== undefined) fd.append("name", data.name);
-    if (data.email !== undefined) fd.append("email", data.email);
-  }
+  if (data.name !== undefined) fd.append("name", data.name);
+  // Email/password are assigned by admin; do not allow self-update from the profile modal.
   if (data.remove_profile_image) {
     fd.append("remove_profile_image", "1");
   }
