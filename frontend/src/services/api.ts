@@ -747,6 +747,61 @@ export const updateOrderStatus = async (id: number, status: string, cancellation
 export const fetchOrderHistory = async (params: OrderHistoryParams = {}): Promise<PaginatedOrderHistoryResponse> =>
   apiGetCached(withQuery("/orders/history", params), 4000);
 
+export type ReceiptActor = {
+  actor_type: string;
+  actor_id: number | null;
+  actor_name: string;
+};
+
+export type ReceiptDetailResponse = {
+  receipt: {
+    receipt_id: string;
+    order_id: string;
+    customer_label: string;
+    order: {
+      id: number;
+      queue_number: number | null;
+      status: ApiOrder["status"];
+      payment_type: string | null;
+      table: ApiOrder["table"];
+      paid_at: string | null;
+      created_at: string | null;
+      updated_at: string | null;
+    };
+    source: {
+      created_by: ReceiptActor | null;
+      completed_by: ReceiptActor | null;
+    };
+    items: Array<{
+      id: number;
+      product_id: number;
+      name: string | null | undefined;
+      size: string | null;
+      qty: number;
+      price: number;
+      line_total: number;
+      product?: ApiProduct;
+    }>;
+    totals: {
+      subtotal: number;
+      tax_rate: number;
+      tax_amount: number;
+      computed_total: number;
+      total: number;
+    };
+    actions: OrderAction[];
+  };
+};
+
+export const fetchReceiptDetail = async (orderId: number): Promise<ReceiptDetailResponse> =>
+  apiRequest(`/receipts/${orderId}`);
+
+export const deleteReceipt = async (orderId: number): Promise<{ message: string }> =>
+  apiRequest(`/receipts/${orderId}`, { method: "DELETE" }).then((payload) => {
+    clearApiCache((key) => key.includes("/orders") || key.includes("/receipts"));
+    return payload;
+  });
+
 export const fetchSettings = async (): Promise<AppSettings> => apiGetCached("/settings", 60000);
 export const updateSettings = async (data: Partial<AppSettings>): Promise<AppSettings> =>
   apiRequest("/settings", { method: "PUT", body: JSON.stringify(data) }).then((payload) => {

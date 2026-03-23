@@ -1,7 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Banknote, FileText, QrCode, Search } from "lucide-react";
+import { Banknote, Eye, FileText, QrCode, Search, Trash2 } from "lucide-react";
+import { toast } from "react-hot-toast";
 import { Card, CardContent } from "../components/ui/card";
 import { Input } from "../components/ui/input";
+import { Button } from "../components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -17,13 +27,15 @@ import {
   TableHeader,
   TableRow,
 } from "../components/ui/table";
-import { fetchOrderHistory, LiveOrder } from "../services/api";
+import { deleteReceipt, fetchOrderHistory, fetchReceiptDetail, LiveOrder, ReceiptDetailResponse } from "../services/api";
 import { useSettings } from "../context/SettingsContext";
+import { auth } from "../utils/auth";
 
 type PaymentMethod = "cash" | "credit_card" | "aba_pay" | "wing_money" | "khqr";
 
 interface ReceiptRow {
   id: string;
+  orderNumericId: number;
   orderId: string;
   dateTime: string;
   customer: string;
@@ -34,6 +46,8 @@ interface ReceiptRow {
 
 export default function ReceiptsPage() {
   const { currency, settings } = useSettings();
+  const role = auth.getUser()?.role || "admin";
+  const isAdmin = role === "admin";
   const money = useMemo(
     () =>
       new Intl.NumberFormat("en-US", {
@@ -47,6 +61,13 @@ export default function ReceiptsPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [paymentFilter, setPaymentFilter] = useState<"all" | PaymentMethod>("all");
+
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+  const [detail, setDetail] = useState<ReceiptDetailResponse["receipt"] | null>(null);
+  const [deleteOrderId, setDeleteOrderId] = useState<number | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const availablePayments = useMemo<PaymentMethod[]>(() => {
     const payment = settings?.payment;
@@ -88,7 +109,8 @@ export default function ReceiptsPage() {
       )
       .map((order) => ({
         id: `REC-${order.id}`,
-        orderId: `ORD-${order.queue_number}`,
+        orderNumericId: order.id,
+        orderId: `ORD-${order.queue_number ?? order.id}`,
         dateTime: new Date(order.created_at).toLocaleString("en-US", {
           year: "numeric",
           month: "short",
@@ -109,6 +131,43 @@ export default function ReceiptsPage() {
         status: "paid",
       }));
   }, [orders]);
+
+  const handleViewDetail = useCallback(async (orderId: number) => {
+    setDetailOpen(true);
+    setDetailLoading(true);
+    setDetailError(null);
+    setDetail(null);
+
+    try {
+      const payload = await fetchReceiptDetail(orderId);
+      setDetail(payload.receipt);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to load receipt details";
+      setDetailError(message);
+    } finally {
+      setDetailLoading(false);
+    }
+  }, []);
+
+  const handleDelete = useCallback(async () => {
+    if (!deleteOrderId) return;
+
+    setDeleteLoading(true);
+    try {
+      await deleteReceipt(deleteOrderId);
+      toast.success("Receipt deleted");
+      setDeleteOrderId(null);
+      if (detail?.order?.id === deleteOrderId) {
+        setDetailOpen(false);
+        setDetail(null);
+      }
+      await loadReceiptOrders();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete receipt");
+    } finally {
+      setDeleteLoading(false);
+    }
+  }, [deleteOrderId, detail?.order?.id, loadReceiptOrders]);
 
   const filteredReceipts = useMemo(() => {
     return receiptRows.filter((receipt) => {
@@ -221,13 +280,14 @@ export default function ReceiptsPage() {
                   <TableHead>Payment</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
                     <TableCell
-                      colSpan={7}
+                      colSpan={8}
                       className="py-8 text-center text-sm text-[#7C5D58]"
                     >
                       Loading receipts...
@@ -236,7 +296,7 @@ export default function ReceiptsPage() {
                 ) : filteredReceipts.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={7}
+                      colSpan={8}
                       className="py-8 text-center text-sm text-[#7C5D58]"
                     >
                       No paid orders yet
@@ -267,6 +327,28 @@ export default function ReceiptsPage() {
                           {receipt.status}
                         </span>
                       </TableCell>
+                      <TableCell className="text-right">
+                        <div className="inline-flex items-center justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleViewDetail(receipt.orderNumericId)}
+                          >
+                            <Eye className="h-4 w-4" />
+                            View
+                          </Button>
+                          {isAdmin ? (
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => setDeleteOrderId(receipt.orderNumericId)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              Delete
+                            </Button>
+                          ) : null}
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
@@ -275,6 +357,175 @@ export default function ReceiptsPage() {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Receipt Details</DialogTitle>
+            <DialogDescription>
+              View items, totals, staff actions, and payment info.
+            </DialogDescription>
+          </DialogHeader>
+
+          {detailLoading ? (
+            <div className="py-10 text-center text-sm text-[#7C5D58]">
+              Loading receipt details...
+            </div>
+          ) : detailError ? (
+            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {detailError}
+            </div>
+          ) : !detail ? (
+            <div className="py-6 text-sm text-[#7C5D58]">No receipt selected.</div>
+          ) : (
+            <div className="space-y-5">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                <div className="rounded-xl border border-[#EAD6C0] bg-[#FAF7F2] p-3">
+                  <p className="text-xs font-medium text-[#7C5D58]">Receipt</p>
+                  <p className="font-semibold text-[#4B2E2B]">{detail.receipt_id}</p>
+                </div>
+                <div className="rounded-xl border border-[#EAD6C0] bg-[#FAF7F2] p-3">
+                  <p className="text-xs font-medium text-[#7C5D58]">Order</p>
+                  <p className="font-semibold text-[#4B2E2B]">{detail.order_id}</p>
+                </div>
+                <div className="rounded-xl border border-[#EAD6C0] bg-[#FAF7F2] p-3">
+                  <p className="text-xs font-medium text-[#7C5D58]">Customer/Table</p>
+                  <p className="font-semibold text-[#4B2E2B]">{detail.customer_label}</p>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-[#EAD6C0] bg-white">
+                <div className="border-b border-[#EAD6C0] px-4 py-3 text-sm font-semibold text-[#4B2E2B]">
+                  Items
+                </div>
+                <div className="max-h-[40vh] overflow-auto p-4">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Item</TableHead>
+                        <TableHead>Size</TableHead>
+                        <TableHead className="text-right">Qty</TableHead>
+                        <TableHead className="text-right">Price</TableHead>
+                        <TableHead className="text-right">Total</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {detail.items.map((item) => (
+                        <TableRow key={item.id}>
+                          <TableCell className="font-medium">
+                            {item.name || `#${item.product_id}`}
+                          </TableCell>
+                          <TableCell className="capitalize">{item.size || "-"}</TableCell>
+                          <TableCell className="text-right">{item.qty}</TableCell>
+                          <TableCell className="text-right">{money.format(item.price)}</TableCell>
+                          <TableCell className="text-right font-semibold">
+                            {money.format(item.line_total)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="rounded-xl border border-[#EAD6C0] bg-white p-4">
+                  <p className="text-sm font-semibold text-[#4B2E2B]">Staff / Source</p>
+                  <div className="mt-2 space-y-1 text-sm text-[#7C5D58]">
+                    <div>
+                      Created by:{" "}
+                      <span className="font-medium text-[#4B2E2B]">
+                        {detail.source.created_by
+                          ? (detail.source.created_by.actor_type === "system"
+                              ? "System (customer)"
+                              : `${detail.source.created_by.actor_name} (${detail.source.created_by.actor_type})`)
+                          : "System (customer)"}
+                      </span>
+                    </div>
+                    <div>
+                      Completed by:{" "}
+                      <span className="font-medium text-[#4B2E2B]">
+                        {detail.source.completed_by
+                          ? `${detail.source.completed_by.actor_name} (${detail.source.completed_by.actor_type})`
+                          : "Unknown"}
+                      </span>
+                    </div>
+                    <div>
+                      Payment:{" "}
+                      <span className="font-medium text-[#4B2E2B]">
+                        {detail.order.payment_type ? detail.order.payment_type.toUpperCase() : "-"}
+                      </span>
+                    </div>
+                    <div>
+                      Paid at:{" "}
+                      <span className="font-medium text-[#4B2E2B]">
+                        {detail.order.paid_at ? new Date(detail.order.paid_at).toLocaleString() : "-"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-[#EAD6C0] bg-white p-4">
+                  <p className="text-sm font-semibold text-[#4B2E2B]">Totals</p>
+                  <div className="mt-2 space-y-1 text-sm text-[#7C5D58]">
+                    <div className="flex justify-between">
+                      <span>Subtotal</span>
+                      <span className="font-medium text-[#4B2E2B]">{money.format(detail.totals.subtotal)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Tax ({detail.totals.tax_rate}%)</span>
+                      <span className="font-medium text-[#4B2E2B]">{money.format(detail.totals.tax_amount)}</span>
+                    </div>
+                    <div className="flex justify-between border-t border-[#EAD6C0] pt-2">
+                      <span className="font-semibold text-[#4B2E2B]">Total</span>
+                      <span className="font-semibold text-[#4B2E2B]">{money.format(detail.totals.total)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            {isAdmin && detail?.order?.id ? (
+              <Button
+                variant="destructive"
+                onClick={() => setDeleteOrderId(detail.order.id)}
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete Receipt
+              </Button>
+            ) : null}
+            <Button variant="outline" onClick={() => setDetailOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={deleteOrderId !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteOrderId(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete receipt?</DialogTitle>
+            <DialogDescription>
+              This will permanently remove the receipt and its order items from the database.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOrderId(null)} disabled={deleteLoading}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleteLoading}>
+              {deleteLoading ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

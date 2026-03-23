@@ -114,6 +114,7 @@ Route::middleware('staff.api')->group(function () {
 Route::middleware('admin.api')->group(function () {
     Route::put('/settings', [SettingController::class, 'update']);
     Route::apiResource('categories', CategoryController::class)->except(['index', 'show']);
+    Route::delete('/receipts/{order}', [ReceiptController::class, 'destroy']);
 });
 
 // Staff and Admin routes (both can access)
@@ -132,6 +133,7 @@ Route::middleware('staff.api')->group(function () {
     Route::apiResource('orders', OrderController::class);
     Route::apiResource('order-items', OrderItemController::class);
     Route::get('/receipts', [ReceiptController::class, 'index']);
+    Route::get('/receipts/{order}', [ReceiptController::class, 'show']);
     Route::get('/settings', [SettingController::class, 'show'])->middleware('api.cache');
     // Products - allow both admin and staff to manage
     Route::apiResource('products', ProductController::class);
