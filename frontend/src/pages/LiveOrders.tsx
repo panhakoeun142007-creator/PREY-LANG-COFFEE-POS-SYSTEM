@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   Clock,
   RefreshCw,
@@ -16,6 +16,7 @@ import {
 } from "lucide-react"
 import { fetchLiveOrders, updateOrderStatus, LiveOrder } from "../services/api"
 import { useSettings } from "../context/SettingsContext"
+import { useI18n } from "../context/I18nContext"
 import { StatusBadge } from "../components/StatusBadge"
 import { Button } from "../components/ui/button"
 import { Card, CardContent } from "../components/ui/card"
@@ -45,44 +46,52 @@ import {
   DialogFooter,
 } from "../components/ui/dialog"
 
-function formatTimeAgo(dateString: string): string {
+function formatTimeAgo(
+  t: (_key: string, _vars?: Record<string, string | number>) => string,
+  dateString: string
+): string {
   const date = new Date(dateString)
   const now = new Date()
   const diffMs = now.getTime() - date.getTime()
   const diffMins = Math.floor(diffMs / 60000)
   
-  if (diffMins < 1) return "Just now"
-  if (diffMins === 1) return "1 min ago"
-  if (diffMins < 60) return `${diffMins} mins ago`
+  if (diffMins < 1) return t("common.just_now")
+  if (diffMins === 1) return t("common.minute_ago")
+  if (diffMins < 60) return t("common.minutes_ago", { n: diffMins })
   
   const diffHours = Math.floor(diffMins / 60)
-  if (diffHours === 1) return "1 hour ago"
-  return `${diffHours} hours ago`
+  if (diffHours === 1) return t("common.hour_ago")
+  return t("common.hours_ago", { n: diffHours })
 }
 
-function formatTimeInStatus(status: string, updatedAt: string): string {
+function formatTimeInStatus(
+  t: (_key: string, _vars?: Record<string, string | number>) => string,
+  status: string,
+  updatedAt: string
+): string {
   const updated = new Date(updatedAt)
   const now = new Date()
   const diffMs = now.getTime() - updated.getTime()
   const diffMins = Math.floor(diffMs / 60000)
   
-  if (diffMins < 1) return "Just now"
-  if (diffMins === 1) return "1 min"
-  if (diffMins < 60) return `${diffMins} mins`
+  if (diffMins < 1) return t("common.just_now")
+  if (diffMins === 1) return t("common.minute_short")
+  if (diffMins < 60) return t("common.minutes_short", { n: diffMins })
   
   const diffHours = Math.floor(diffMins / 60)
-  return `${diffHours}h ${diffMins % 60}m`
+  return t("common.hours_minutes_short", { h: diffHours, m: diffMins % 60 })
 }
 
 export default function LiveOrders() {
+  const { t, lang } = useI18n()
   const { currency } = useSettings()
   const money = useMemo(
     () =>
-      new Intl.NumberFormat("en-US", {
+      new Intl.NumberFormat(lang === "km" ? "km-KH" : "en-US", {
         style: "currency",
         currency,
       }),
-    [currency],
+    [currency, lang],
   )
   const [orders, setOrders] = useState<LiveOrder[]>([])
   const [loading, setLoading] = useState(true)
@@ -94,8 +103,23 @@ export default function LiveOrders() {
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
   const [orderToCancel, setOrderToCancel] = useState<{ id: number; queueNumber: number } | null>(null)
-  const [cancellationMessage, setCancellationMessage] = useState("Sorry For Your Order Now We're not available")
+  const defaultCancellationMessage = t("live_orders.cancel_default_message")
+  const [cancellationMessage, setCancellationMessage] = useState(defaultCancellationMessage)
+  const [cancellationDirty, setCancellationDirty] = useState(false)
   const [currentTime, setCurrentTime] = useState(new Date())
+
+  const paymentLabel = useCallback(
+    (method?: string | null) => {
+      const raw = String(method ?? "").toLowerCase()
+      if (raw === "cash") return t("payment.cash")
+      if (raw === "credit_card") return t("payment.credit_card")
+      if (raw === "aba_pay") return t("payment.aba_pay")
+      if (raw === "wing_money") return t("payment.wing_money")
+      if (raw === "khqr") return t("payment.khqr")
+      return method ? String(method) : "-"
+    },
+    [t],
+  )
 
   // Update current time every second
   useEffect(() => {
@@ -103,30 +127,36 @@ export default function LiveOrders() {
     return () => clearInterval(timer)
   }, [])
 
+  useEffect(() => {
+    if (!cancellationDirty) {
+      setCancellationMessage(defaultCancellationMessage)
+    }
+  }, [cancellationDirty, defaultCancellationMessage])
+
   // Fetch orders
-  const loadOrders = async () => {
+  const loadOrders = useCallback(async () => {
     try {
       setError(null)
       const data = await fetchLiveOrders()
       setOrders(data)
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to fetch live orders"
+      const message = err instanceof Error ? err.message : t("live_orders.failed_fetch")
       setError(message)
       setOrders([])
     } finally {
       setLoading(false)
     }
-  }
+  }, [t])
 
   // Initial load and auto-refresh
   useEffect(() => {
     loadOrders()
-    
+
     if (autoRefresh) {
       const interval = setInterval(loadOrders, 10000)
       return () => clearInterval(interval)
     }
-  }, [autoRefresh])
+  }, [autoRefresh, loadOrders])
 
   // Filter orders
   const filteredOrders = useMemo(() => {
@@ -165,7 +195,7 @@ export default function LiveOrders() {
       await updateOrderStatus(orderId, newStatus, cancellationMessage)
       await loadOrders()
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to update order status"
+      const message = err instanceof Error ? err.message : t("live_orders.failed_update")
       setError(message)
     }
   }
@@ -173,6 +203,8 @@ export default function LiveOrders() {
   // Open cancel dialog
   const openCancelDialog = (orderId: number, queueNumber: number | null) => {
     setOrderToCancel({ id: orderId, queueNumber: queueNumber ?? 0 })
+    setCancellationMessage(defaultCancellationMessage)
+    setCancellationDirty(false)
     setCancelDialogOpen(true)
   }
 
@@ -192,10 +224,10 @@ export default function LiveOrders() {
             <ShoppingCart className="h-6 w-6 text-white" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-[#4B2E2B]">Live Orders</h2>
+            <h2 className="text-2xl font-bold text-[#4B2E2B]">{t("live_orders.title")}</h2>
             <p className="flex items-center gap-1 text-sm text-[#7C5D58]">
               <Clock className="h-3 w-3" />
-              {currentTime.toLocaleTimeString("en-US", { 
+              {currentTime.toLocaleTimeString(lang === "km" ? "km-KH" : "en-US", { 
                 hour: "2-digit", 
                 minute: "2-digit", 
                 second: "2-digit" 
@@ -213,7 +245,7 @@ export default function LiveOrders() {
             className="gap-2"
           >
             <RefreshCw className={`h-4 w-4 ${autoRefresh ? "animate-spin" : ""}`} />
-            {autoRefresh ? "Auto-refresh On" : "Auto-refresh Off"}
+            {autoRefresh ? t("live_orders.auto_refresh_on") : t("live_orders.auto_refresh_off")}
           </Button>
         </div>
       </div>
@@ -223,7 +255,7 @@ export default function LiveOrders() {
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7C5D58]" />
           <Input
-            placeholder="Search by Order ID or Table..."
+            placeholder={t("live_orders.search_placeholder")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -233,13 +265,13 @@ export default function LiveOrders() {
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-[180px]">
             <Filter className="mr-2 h-4 w-4" />
-            <SelectValue placeholder="Filter by status" />
+            <SelectValue placeholder={t("live_orders.filter_status")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="preparing">Preparing</SelectItem>
-            <SelectItem value="ready">Ready</SelectItem>
+            <SelectItem value="all">{t("live_orders.all_statuses")}</SelectItem>
+            <SelectItem value="pending">{t("status.pending")}</SelectItem>
+            <SelectItem value="preparing">{t("status.preparing")}</SelectItem>
+            <SelectItem value="ready">{t("status.ready")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -254,7 +286,7 @@ export default function LiveOrders() {
             </div>
             <div>
               <p className="text-2xl font-bold text-[#4B2E2B]">{stats.pending}</p>
-              <p className="text-sm text-[#7C5D58]">Pending</p>
+              <p className="text-sm text-[#7C5D58]">{t("status.pending")}</p>
             </div>
           </CardContent>
         </Card>
@@ -267,7 +299,7 @@ export default function LiveOrders() {
             </div>
             <div>
               <p className="text-2xl font-bold text-[#4B2E2B]">{stats.preparing}</p>
-              <p className="text-sm text-[#7C5D58]">Preparing</p>
+              <p className="text-sm text-[#7C5D58]">{t("status.preparing")}</p>
             </div>
           </CardContent>
         </Card>
@@ -280,7 +312,7 @@ export default function LiveOrders() {
             </div>
             <div>
               <p className="text-2xl font-bold text-[#4B2E2B]">{stats.ready}</p>
-              <p className="text-sm text-[#7C5D58]">Ready</p>
+              <p className="text-sm text-[#7C5D58]">{t("status.ready")}</p>
             </div>
           </CardContent>
         </Card>
@@ -293,7 +325,7 @@ export default function LiveOrders() {
             </div>
             <div>
               <p className="text-2xl font-bold text-[#4B2E2B]">{stats.total}</p>
-              <p className="text-sm text-[#7C5D58]">Total Active</p>
+              <p className="text-sm text-[#7C5D58]">{t("live_orders.total_active")}</p>
             </div>
           </CardContent>
         </Card>
@@ -316,11 +348,11 @@ export default function LiveOrders() {
               <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#F5E6D3]">
                 <Coffee className="h-8 w-8 text-[#7C5D58]" />
               </div>
-              <h3 className="text-lg font-semibold text-[#4B2E2B]">No active orders</h3>
+              <h3 className="text-lg font-semibold text-[#4B2E2B]">{t("live_orders.no_active_orders")}</h3>
               <p className="text-sm text-[#7C5D58]">
                 {searchQuery || statusFilter !== "all"
-                  ? "Try adjusting your filters"
-                  : "New orders will appear here automatically"}
+                  ? t("live_orders.try_adjusting_filters")
+                  : t("live_orders.new_orders_appear")}
               </p>
             </div>
           ) : (
@@ -328,14 +360,14 @@ export default function LiveOrders() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-[#F5E6D3]/50 hover:bg-[#F5E6D3]/50">
-                    <TableHead className="font-semibold">Order ID</TableHead>
-                    <TableHead className="font-semibold">Table</TableHead>
-                    <TableHead className="font-semibold">Time</TableHead>
-                    <TableHead className="font-semibold">Items</TableHead>
-                    <TableHead className="font-semibold">Total</TableHead>
-                    <TableHead className="font-semibold">Status</TableHead>
-                    <TableHead className="font-semibold">In Status</TableHead>
-                    <TableHead className="font-semibold text-right">Actions</TableHead>
+                    <TableHead className="font-semibold">{t("table.order_id")}</TableHead>
+                    <TableHead className="font-semibold">{t("table.table")}</TableHead>
+                    <TableHead className="font-semibold">{t("common.time")}</TableHead>
+                    <TableHead className="font-semibold">{t("common.items")}</TableHead>
+                    <TableHead className="font-semibold">{t("table.total")}</TableHead>
+                    <TableHead className="font-semibold">{t("table.status")}</TableHead>
+                    <TableHead className="font-semibold">{t("common.in_status")}</TableHead>
+                    <TableHead className="font-semibold text-right">{t("common.actions")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -344,8 +376,8 @@ export default function LiveOrders() {
                       <TableCell className="font-semibold text-[#4B2E2B]">
                         #{order.queue_number}
                       </TableCell>
-                      <TableCell>{order.table?.name || "Takeaway"}</TableCell>
-                      <TableCell>{formatTimeAgo(order.created_at)}</TableCell>
+                      <TableCell>{order.table?.name || t("common.takeaway")}</TableCell>
+                      <TableCell>{formatTimeAgo(t, order.created_at)}</TableCell>
                       <TableCell>{order.items.length} items</TableCell>
                       <TableCell className="font-medium">
                         {money.format(Number(order.total_price))}
@@ -354,7 +386,7 @@ export default function LiveOrders() {
                         <StatusBadge status={order.status} />
                       </TableCell>
                       <TableCell className="text-[#7C5D58]">
-                        {formatTimeInStatus(order.status, order.updated_at)}
+                        {formatTimeInStatus(t, order.status, order.updated_at)}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center justify-end gap-2">
@@ -367,7 +399,7 @@ export default function LiveOrders() {
                                 onClick={() => handleStatusChange(order.id, "preparing")}
                               >
                                 <PlayCircle className="mr-1 h-4 w-4" />
-                                Start
+                                {t("live_orders.start")}
                               </Button>
                               <Button
                                 variant="outline"
@@ -387,7 +419,7 @@ export default function LiveOrders() {
                                 onClick={() => handleStatusChange(order.id, "ready")}
                               >
                                 <CheckCircle className="mr-1 h-4 w-4" />
-                                Ready
+                                {t("status.ready")}
                               </Button>
                               <Button
                                 variant="outline"
@@ -407,7 +439,7 @@ export default function LiveOrders() {
                                 onClick={() => handleStatusChange(order.id, "completed")}
                               >
                                 <Check className="mr-1 h-4 w-4" />
-                                Complete
+                                {t("live_orders.complete")}
                               </Button>
                               <Button
                                 variant="outline"
@@ -425,7 +457,7 @@ export default function LiveOrders() {
                               onClick={() => handleViewDetails(order)}
                             >
                               <Eye className="mr-1 h-4 w-4" />
-                              View
+                              {t("live_orders.view")}
                             </Button>
                           )}
                         </div>
@@ -444,11 +476,11 @@ export default function LiveOrders() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              Order #{selectedOrder?.queue_number}
+              {t("common.order")} #{selectedOrder?.queue_number}
               {selectedOrder && <StatusBadge status={selectedOrder.status} />}
             </DialogTitle>
             <DialogDescription>
-              {selectedOrder?.table?.name || "Takeaway"} • {selectedOrder && formatTimeAgo(selectedOrder.created_at)}
+              {selectedOrder?.table?.name || t("common.takeaway")} • {selectedOrder && formatTimeAgo(t, selectedOrder.created_at)}
             </DialogDescription>
           </DialogHeader>
           
@@ -456,7 +488,7 @@ export default function LiveOrders() {
             <div className="space-y-4">
               {/* Order Items */}
               <div>
-                <h4 className="mb-2 font-semibold text-[#4B2E2B]">Order Items</h4>
+                <h4 className="mb-2 font-semibold text-[#4B2E2B]">{t("common.order_items")}</h4>
                 <div className="rounded-lg border border-[#EAD6C0]">
                   {selectedOrder.items.map((item, index) => (
                     <div
@@ -472,7 +504,9 @@ export default function LiveOrders() {
                           {item.qty}
                         </span>
                         <div>
-                          <p className="font-medium text-[#4B2E2B]">{item.product?.name || `Product #${item.product_id}`}</p>
+                          <p className="font-medium text-[#4B2E2B]">
+                            {item.product?.name || `${t("common.product")} #${item.product_id}`}
+                          </p>
                           <p className="text-xs capitalize text-[#7C5D58]">{item.size}</p>
                         </div>
                       </div>
@@ -487,11 +521,11 @@ export default function LiveOrders() {
               {/* Order Summary */}
               <div className="rounded-lg bg-[#F5E6D3]/50 p-4">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-[#7C5D58]">Subtotal</span>
+                  <span className="text-[#7C5D58]">{t("common.subtotal")}</span>
                   <span className="font-medium text-[#4B2E2B]">{money.format(Number(selectedOrder.total_price))}</span>
                 </div>
                 <div className="mt-2 flex items-center justify-between border-t border-[#EAD6C0] pt-2">
-                  <span className="font-semibold text-[#4B2E2B]">Total</span>
+                  <span className="font-semibold text-[#4B2E2B]">{t("common.total_amount")}</span>
                   <span className="text-xl font-bold text-[#4B2E2B]">
                     {money.format(Number(selectedOrder.total_price))}
                   </span>
@@ -500,15 +534,15 @@ export default function LiveOrders() {
 
               {/* Payment Info */}
               <div className="flex items-center justify-between text-sm">
-                <span className="text-[#7C5D58]">Payment Method</span>
-                <span className="font-medium capitalize text-[#4B2E2B]">{selectedOrder.payment_type}</span>
+                <span className="text-[#7C5D58]">{t("common.payment_method")}</span>
+                <span className="font-medium text-[#4B2E2B]">{paymentLabel(selectedOrder.payment_type)}</span>
               </div>
             </div>
           )}
           
           <DialogFooter>
             <Button variant="outline" onClick={() => setDetailsOpen(false)}>
-              Close
+              {t("common.close")}
             </Button>
             {selectedOrder?.status === "ready" && (
               <Button
@@ -521,7 +555,7 @@ export default function LiveOrders() {
                 }}
               >
                 <Check className="mr-2 h-4 w-4" />
-                Mark as Completed
+                {t("live_orders.mark_completed")}
               </Button>
             )}
           </DialogFooter>
@@ -532,24 +566,27 @@ export default function LiveOrders() {
       <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Cancel Order</DialogTitle>
+            <DialogTitle>{t("live_orders.cancel_order_title")}</DialogTitle>
             <DialogDescription>
-              Are you sure you want to cancel order #{orderToCancel?.queueNumber}?
+              {t("live_orders.cancel_order_desc", { n: orderToCancel?.queueNumber ?? "" })}
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
-            <Label htmlFor="cancel-message">Cancellation Message (shown to customer)</Label>
+            <Label htmlFor="cancel-message">{t("live_orders.cancel_message_label")}</Label>
             <Input
               id="cancel-message"
               value={cancellationMessage}
-              onChange={(e) => setCancellationMessage(e.target.value)}
-              placeholder="Enter cancellation message..."
+              onChange={(e) => {
+                setCancellationDirty(true)
+                setCancellationMessage(e.target.value)
+              }}
+              placeholder={t("live_orders.cancel_message_placeholder")}
               className="mt-2"
             />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCancelDialogOpen(false)}>
-              No, Keep Order
+              {t("live_orders.cancel_keep")}
             </Button>
             <Button
               variant="destructive"
@@ -558,11 +595,12 @@ export default function LiveOrders() {
                   await handleStatusChange(orderToCancel.id, "cancelled", cancellationMessage)
                   setCancelDialogOpen(false)
                   setOrderToCancel(null)
-                  setCancellationMessage("Sorry For Your Order Now We're not available")
+                  setCancellationMessage(defaultCancellationMessage)
+                  setCancellationDirty(false)
                 }
               }}
             >
-              Yes, Cancel Order
+              {t("live_orders.cancel_yes")}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -392,10 +392,10 @@ export interface AppSettings {
   receipt: ReceiptSettingsData;
 }
 
-function withQuery(path: string, params?: Record<string, unknown>): string {
+function withQuery<T extends object>(path: string, params?: T): string {
   if (!params) return path;
   const sp = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
+  for (const [key, value] of Object.entries(params as Record<string, unknown>)) {
     if (value === undefined || value === null) continue;
     if (typeof value === "string" && value.trim() === "") continue;
     sp.set(key, String(value));

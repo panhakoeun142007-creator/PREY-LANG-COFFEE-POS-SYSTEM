@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import "../checkout.css";
-import { getItemUnitPrice } from "./Customer";
+import { getItemUnitPrice } from "../utils/pricing";
 
 const PAYMENT_METHODS = [
   { key: "cash", title: "Cash", subtitle: "Pay at counter", icon: "💵" },

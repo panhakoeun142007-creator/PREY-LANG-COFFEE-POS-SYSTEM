@@ -33,7 +33,7 @@ interface ExpenseApiItem {
   amount: number;
   category: ExpenseCategory;
   date: string;
-  note?: string;
+  note?: string | null;
 }
 
 interface IncomeApiItem {

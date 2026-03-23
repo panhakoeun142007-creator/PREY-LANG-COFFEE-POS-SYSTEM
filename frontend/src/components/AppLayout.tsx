@@ -1,4 +1,4 @@
-import { Bell, ChevronLeft, ChevronRight, LogOut, Menu, Moon, Settings, Sun, User } from "lucide-react";
+﻿import { Bell, ChevronLeft, ChevronRight, LogOut, Menu, Moon, Settings, Sun, User } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { navGroups, pageTitleKeyByPath } from "../data/mockData";
@@ -26,16 +26,16 @@ function statusClass(isActive: boolean, isDarkMode: boolean): string {
 
 function getNotificationIcon(type: string) {
   switch (type) {
-    case 'order':
-      return '🛒';
-    case 'ready':
-      return '✅';
-    case 'stock':
-      return '⚠️';
-    case 'near_stock':
-      return '📦';
+    case "order":
+      return "🛒";
+    case "ready":
+      return "✅";
+    case "stock":
+      return "⚠️";
+    case "near_stock":
+      return "📦";
     default:
-      return '🔔';
+      return "🔔";
   }
 }
 
@@ -48,7 +48,7 @@ export default function AppLayout() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notificationsPollingEnabled, setNotificationsPollingEnabled] = useState(true);
-   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [accountName, setAccountName] = useState("");
@@ -184,8 +184,8 @@ export default function AppLayout() {
   }
 
   function openAccountModal() {
-    setAccountName(currentUser?.name ?? "Admin User");
-    setAccountEmail(currentUser?.email ?? "admin@preylang.com");
+    setAccountName(currentUser?.name ?? t("user.admin_default_name"));
+    setAccountEmail(currentUser?.email ?? t("user.admin_default_email"));
     setAccountImagePreview(currentUser?.profile_image_url ?? null);
     setAccountImageFile(null);
     setAccountRemoveImage(false);
@@ -418,19 +418,19 @@ export default function AppLayout() {
             </div>
 
             <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={toggleTheme}
-                className={`inline-flex h-10 w-10 items-center justify-center rounded-full shadow-sm ${
-                  isDarkMode
-                    ? "border border-slate-600 bg-slate-800 text-amber-300"
-                    : "border border-[#E5D2BB] bg-white text-[#4B2E2B]"
-                }`}
-                aria-label={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
-                title={isDarkMode ? "Light mode" : "Dark mode"}
-              >
-                {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
-              </button>
+                <button
+                  type="button"
+                  onClick={toggleTheme}
+                  className={`inline-flex h-10 w-10 items-center justify-center rounded-full shadow-sm ${
+                    isDarkMode
+                      ? "border border-slate-600 bg-slate-800 text-amber-300"
+                      : "border border-[#E5D2BB] bg-white text-[#4B2E2B]"
+                  }`}
+                  aria-label={isDarkMode ? t("theme.switch_to_light_mode") : t("theme.switch_to_dark_mode")}
+                  title={isDarkMode ? t("theme.light_mode") : t("theme.dark_mode")}
+                >
+                  {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+                </button>
 
               <LanguageSwitcher
                 className={`w-[150px] ${
@@ -620,7 +620,7 @@ export default function AppLayout() {
                   </div>
                   <div className="flex-1">
                     <p className={`text-lg font-semibold ${isDarkMode ? "text-slate-100" : "text-[#4B2E2B]"}`}>
-                      {currentUser?.name ?? "Admin User"}
+                      {currentUser?.name ?? t("user.admin_default_name")}
                     </p>
                     <p className={`text-sm ${isDarkMode ? "text-slate-400" : "text-[#7C5D58]"}`}>{roleLabel(currentUser?.role)}</p>
                     <input
@@ -729,3 +729,5 @@ export default function AppLayout() {
     </div>
   );
 }
+
+

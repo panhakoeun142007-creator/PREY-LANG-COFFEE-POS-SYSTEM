@@ -22,9 +22,44 @@ const toSafeCents = (value) => {
   return Math.round(number * 100);
 };
 
+const hasAnySizedPrice = (item = {}) => {
+  return (
+    item.price_small != null ||
+    item.price_medium != null ||
+    item.price_large != null ||
+    item.discounted_price_small != null ||
+    item.discounted_price_medium != null ||
+    item.discounted_price_large != null
+  );
+};
+
+export const getPriceForSize = (product = {}, size = "M") => {
+  const s = String(size ?? "M").toUpperCase();
+
+  const chooseSized = (prefix) => {
+    if (s === "S") return toSafeCents(product[`${prefix}_small`]);
+    if (s === "L") return toSafeCents(product[`${prefix}_large`]);
+    return toSafeCents(product[`${prefix}_medium`]);
+  };
+
+  if (product.has_discount) {
+    const discountedCents = chooseSized("discounted_price");
+    if (discountedCents > 0) return discountedCents / 100;
+  }
+
+  if (hasAnySizedPrice(product)) {
+    const sizedCents = chooseSized("price");
+    if (sizedCents > 0) return sizedCents / 100;
+  }
+
+  // Fallback: older items store a single base price and fixed size extras.
+  const baseCents = toSafeCents(product.price);
+  const sizeExtraCents = SIZE_EXTRA_CENTS[s] ?? SIZE_EXTRA_CENTS.M;
+  return (baseCents + sizeExtraCents) / 100;
+};
+
 export const getItemUnitPrice = (item = {}) => {
-  const baseCents = toSafeCents(item.price);
-  const sizeExtraCents = SIZE_EXTRA_CENTS[item.selectedSize ?? "M"] ?? SIZE_EXTRA_CENTS.M;
+  const baseCents = toSafeCents(getPriceForSize(item, item.selectedSize));
   const milkExtraCents = MILK_EXTRA_CENTS[item.milkOption ?? "Whole"] ?? 0;
 
   const extras = item.extras ?? {};
@@ -32,7 +67,7 @@ export const getItemUnitPrice = (item = {}) => {
     return extras[key] ? sum + cents : sum;
   }, 0);
 
-  return (baseCents + sizeExtraCents + milkExtraCents + extrasCents) / 100;
+  return (baseCents + milkExtraCents + extrasCents) / 100;
 };
 
 export const getItemLineTotal = (item = {}) => {

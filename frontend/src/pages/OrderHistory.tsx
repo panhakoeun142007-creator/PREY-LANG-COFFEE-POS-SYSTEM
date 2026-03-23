@@ -41,11 +41,13 @@ import {
   DialogTitle,
   DialogDescription,
 } from "../components/ui/dialog"
+import { useI18n } from "../context/I18nContext"
 
 const KHR_PER_USD = 4100
 
 export default function OrderHistory() {
   const { currency } = useSettings()
+  const { t, lang } = useI18n()
   const [orders, setOrders] = useState<LiveOrder[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -129,7 +131,7 @@ export default function OrderHistory() {
       setTotal(response.total)
       setSummary(response.summary ?? null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load order history")
+      setError(err instanceof Error ? err.message : t("order_history.load_failed"))
       setOrders([])
       setTotal(0)
       setTotalPages(1)
@@ -155,15 +157,19 @@ export default function OrderHistory() {
   }
 
   const formatActorType = (actorType?: string | null) => {
-    if (!actorType) return "Unknown"
-    return actorType.charAt(0).toUpperCase() + actorType.slice(1)
+    const raw = String(actorType ?? "").toLowerCase().trim()
+    if (!raw) return t("common.unknown")
+    if (raw === "admin") return t("role.admin")
+    if (raw === "staff") return t("role.staff")
+    if (raw === "system") return t("actor.system")
+    return raw.charAt(0).toUpperCase() + raw.slice(1)
   }
 
   const latestActionFor = (order: LiveOrder) => order.actions?.[0] ?? null
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
-    return date.toLocaleDateString("en-US", {
+    return date.toLocaleDateString(lang === "km" ? "km-KH" : "en-US", {
       year: "numeric",
       month: "short",
       day: "numeric",
@@ -173,7 +179,7 @@ export default function OrderHistory() {
   }
 
   const formatCurrency = (amount: unknown) => {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat(lang === "km" ? "km-KH" : "en-US", {
       style: "currency",
       currency,
     }).format(toNumber(amount))
@@ -186,6 +192,32 @@ export default function OrderHistory() {
       maximumFractionDigits: 0,
     }).format(toNumber(amount))
   }
+
+  const paymentLabel = useCallback(
+    (method?: string | null) => {
+      const raw = String(method ?? "").toLowerCase()
+      if (raw === "cash") return t("payment.cash")
+      if (raw === "credit_card") return t("payment.credit_card")
+      if (raw === "aba_pay") return t("payment.aba_pay")
+      if (raw === "wing_money") return t("payment.wing_money")
+      if (raw === "khqr") return t("payment.khqr")
+      return method ? String(method) : "-"
+    },
+    [t],
+  )
+
+  const statusLabel = useCallback(
+    (status?: string | null) => {
+      const raw = String(status ?? "").toLowerCase()
+      if (raw === "pending") return t("status.pending")
+      if (raw === "preparing") return t("status.preparing")
+      if (raw === "ready") return t("status.ready")
+      if (raw === "completed") return t("status.completed")
+      if (raw === "cancelled") return t("status.cancelled")
+      return status ? String(status) : t("common.unknown")
+    },
+    [t],
+  )
 
   const handleViewDetails = (order: LiveOrder) => {
     setSelectedOrder(order)
@@ -209,10 +241,15 @@ export default function OrderHistory() {
         current?.id === order.id ? { ...current, ...updated } : current,
       )
 
-      toast.success(`Order #${order.queue_number} marked as ${nextStatus}.`)
+      toast.success(
+        t("order_history.marked_status", {
+          n: order.queue_number,
+          status: statusLabel(nextStatus),
+        }),
+      )
       await loadOrders()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to update order history status.")
+      toast.error(err instanceof Error ? err.message : t("order_history.update_failed"))
     } finally {
       setUpdatingOrderId(null)
     }
@@ -220,25 +257,14 @@ export default function OrderHistory() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Order History</h1>
-          <p className="text-gray-500">View completed and cancelled orders</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Receipt className="h-5 w-5 text-gray-400" />
-          <span className="text-sm text-gray-500">{total} total orders</span>
-        </div>
-      </div>
-
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-500">Completed Orders</p>
+                <p className="text-sm font-medium text-gray-500">{t("order_history.completed_orders")}</p>
+
                 <p className="text-2xl font-bold text-green-600">{stats.completed}</p>
               </div>
               <CheckCircle className="h-8 w-8 text-green-600" />
@@ -250,7 +276,7 @@ export default function OrderHistory() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-500">Cancelled Orders</p>
+                <p className="text-sm font-medium text-gray-500">{t("order_history.cancelled_orders")}</p>
                 <p className="text-2xl font-bold text-red-600">{stats.cancelled}</p>
               </div>
               <XCircle className="h-8 w-8 text-red-600" />
@@ -262,7 +288,7 @@ export default function OrderHistory() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-500">Total Revenue</p>
+                <p className="text-sm font-medium text-gray-500">{t("order_history.total_revenue")}</p>
                 <p className="text-2xl font-bold text-blue-600">{formatCurrency(stats.totalRevenue)}</p>
                 <p className="text-sm font-semibold text-[#4B2E2B]">
                   {formatRiel(stats.totalRevenueKhr)}
@@ -283,7 +309,7 @@ export default function OrderHistory() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
-                  placeholder="Search by Order ID, queue number, or table name..."
+                  placeholder={t("order_history.search_placeholder")}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSearch()}
@@ -295,24 +321,27 @@ export default function OrderHistory() {
             {/* Status Filter */}
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter by status" />
+                <SelectValue placeholder={t("order_history.filter_status")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-                <SelectItem value="cancelled">Cancelled</SelectItem>
+                <SelectItem value="all">{t("order_history.status_all")}</SelectItem>
+                <SelectItem value="completed">{t("status.completed")}</SelectItem>
+                <SelectItem value="cancelled">{t("status.cancelled")}</SelectItem>
               </SelectContent>
             </Select>
             
             {/* Payment Type Filter */}
             <Select value={paymentFilter} onValueChange={setPaymentFilter}>
               <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Payment type" />
+                <SelectValue placeholder={t("order_history.payment_type")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Payments</SelectItem>
-                <SelectItem value="cash">Cash</SelectItem>
-                <SelectItem value="khqr">KHQR</SelectItem>
+                <SelectItem value="all">{t("order_history.payment_all")}</SelectItem>
+                <SelectItem value="cash">{t("payment.cash")}</SelectItem>
+                <SelectItem value="credit_card">{t("payment.credit_card")}</SelectItem>
+                <SelectItem value="aba_pay">{t("payment.aba_pay")}</SelectItem>
+                <SelectItem value="wing_money">{t("payment.wing_money")}</SelectItem>
+                <SelectItem value="khqr">{t("payment.khqr")}</SelectItem>
               </SelectContent>
             </Select>
             
@@ -324,10 +353,11 @@ export default function OrderHistory() {
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
                 className="w-[150px]"
+                aria-label={t("order_history.date_from")}
               />
             </div>
             
-            <span className="text-gray-400">to</span>
+            <span className="text-gray-400">{t("order_history.date_to")}</span>
             
             {/* Date To */}
             <div className="flex items-center gap-2">
@@ -336,13 +366,14 @@ export default function OrderHistory() {
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
                 className="w-[150px]"
+                aria-label={t("order_history.date_to")}
               />
             </div>
             
             {/* Search Button */}
             <Button onClick={handleSearch}>
               <Filter className="h-4 w-4 mr-2" />
-              Apply Filters
+              {t("order_history.apply_filters")}
             </Button>
           </div>
         </CardContent>
@@ -359,29 +390,29 @@ export default function OrderHistory() {
             <div className="flex flex-col items-center justify-center h-64 text-red-500">
               <p>{error}</p>
               <Button variant="outline" onClick={loadOrders} className="mt-4">
-                Retry
+                {t("common.retry")}
               </Button>
             </div>
           ) : orders.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-gray-500">
               <Receipt className="h-12 w-12 mb-4" />
-              <p>No orders found</p>
+              <p>{t("order_history.no_orders_found")}</p>
             </div>
           ) : (
             <>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Order ID</TableHead>
-                    <TableHead>Queue #</TableHead>
-                    <TableHead>Table</TableHead>
-                    <TableHead>Items</TableHead>
-                    <TableHead>Total</TableHead>
-                    <TableHead>Payment</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Last Action</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead>{t("table.order_id")}</TableHead>
+                    <TableHead>{t("order_history.queue_number")}</TableHead>
+                    <TableHead>{t("table.table")}</TableHead>
+                    <TableHead>{t("common.items")}</TableHead>
+                    <TableHead>{t("table.total")}</TableHead>
+                    <TableHead>{t("receipts.payment")}</TableHead>
+                    <TableHead>{t("table.status")}</TableHead>
+                    <TableHead>{t("common.date")}</TableHead>
+                    <TableHead>{t("order_history.last_action")}</TableHead>
+                    <TableHead>{t("common.actions")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -391,10 +422,10 @@ export default function OrderHistory() {
                       <TableCell>
                         <span className="font-bold text-lg">#{order.queue_number}</span>
                       </TableCell>
-                      <TableCell>{order.table?.name || "Takeaway"}</TableCell>
+                      <TableCell>{order.table?.name || t("common.takeaway")}</TableCell>
                       <TableCell>
                         <span className="text-sm text-gray-500">
-                          {order.items.length} item{order.items.length !== 1 ? "s" : ""}
+                          {order.items.length} {t("common.items")}
                         </span>
                       </TableCell>
                       <TableCell className="font-semibold">
@@ -406,7 +437,7 @@ export default function OrderHistory() {
                             ? "bg-green-100 text-green-800" 
                             : "bg-blue-100 text-blue-800"
                         }`}>
-                          {order.payment_type.toUpperCase()}
+                          {paymentLabel(order.payment_type)}
                         </span>
                       </TableCell>
                       <TableCell>
@@ -426,7 +457,7 @@ export default function OrderHistory() {
                             </p>
                           </div>
                         ) : (
-                          <span className="text-sm text-gray-400">No actions yet</span>
+                          <span className="text-sm text-gray-400">{t("order_history.no_actions_yet")}</span>
                         )}
                       </TableCell>
                       <TableCell>
@@ -473,7 +504,7 @@ export default function OrderHistory() {
               {totalPages > 1 && (
                 <div className="flex items-center justify-between px-6 py-4 border-t">
                   <p className="text-sm text-gray-500">
-                    Page {currentPage} of {totalPages}
+                    {t("order_history.page_of", { page: currentPage, pages: totalPages })}
                   </p>
                   <div className="flex items-center gap-2">
                     <Button
@@ -504,7 +535,7 @@ export default function OrderHistory() {
       <Dialog open={showDetails} onOpenChange={setShowDetails}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Order Details #{selectedOrder?.queue_number}</DialogTitle>
+            <DialogTitle>{t("order_history.order_details", { n: selectedOrder?.queue_number ?? "" })}</DialogTitle>
             <DialogDescription>
               {selectedOrder && formatDate(selectedOrder.created_at)}
             </DialogDescription>
@@ -515,31 +546,31 @@ export default function OrderHistory() {
               {/* Order Info */}
               <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
                 <div>
-                  <p className="text-sm text-gray-500">Order ID</p>
+                  <p className="text-sm text-gray-500">{t("table.order_id")}</p>
                   <p className="font-medium">#{selectedOrder.id}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Queue Number</p>
+                  <p className="text-sm text-gray-500">{t("order_history.queue_number")}</p>
                   <p className="font-medium">#{selectedOrder.queue_number}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Table</p>
-                  <p className="font-medium">{selectedOrder.table?.name || "Takeaway"}</p>
+                  <p className="text-sm text-gray-500">{t("table.table")}</p>
+                  <p className="font-medium">{selectedOrder.table?.name || t("common.takeaway")}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Payment</p>
-                  <p className="font-medium uppercase">{selectedOrder.payment_type}</p>
+                  <p className="text-sm text-gray-500">{t("common.payment_method")}</p>
+                  <p className="font-medium">{paymentLabel(selectedOrder.payment_type)}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Status</p>
+                  <p className="text-sm text-gray-500">{t("table.status")}</p>
                   <StatusBadge status={selectedOrder.status} />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Last Updated</p>
+                  <p className="text-sm text-gray-500">{t("common.last_updated")}</p>
                   <p className="font-medium">{formatDate(selectedOrder.updated_at)}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Total</p>
+                  <p className="text-sm text-gray-500">{t("table.total")}</p>
                   <p className="font-bold text-lg text-blue-600">
                     {formatCurrency(selectedOrder.total_price)}
                   </p>
@@ -548,15 +579,15 @@ export default function OrderHistory() {
               
               {/* Items */}
               <div>
-                <h4 className="font-semibold mb-2">Order Items</h4>
+                <h4 className="font-semibold mb-2">{t("common.order_items")}</h4>
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Product</TableHead>
-                      <TableHead>Size</TableHead>
-                      <TableHead>Qty</TableHead>
-                      <TableHead>Price</TableHead>
-                      <TableHead className="text-right">Subtotal</TableHead>
+                      <TableHead>{t("common.product")}</TableHead>
+                      <TableHead>{t("common.size")}</TableHead>
+                      <TableHead>{t("common.qty")}</TableHead>
+                      <TableHead>{t("common.price")}</TableHead>
+                      <TableHead className="text-right">{t("common.subtotal")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -588,7 +619,7 @@ export default function OrderHistory() {
                   ) : (
                     <CheckCircle className="h-4 w-4 mr-2" />
                   )}
-                  Mark Completed
+                  {t("order_history.mark_completed")}
                 </Button>
                 <Button
                   variant="destructive"
@@ -600,12 +631,12 @@ export default function OrderHistory() {
                   ) : (
                     <XCircle className="h-4 w-4 mr-2" />
                   )}
-                  Mark Cancelled
+                  {t("order_history.mark_cancelled")}
                 </Button>
               </div>
 
               <div>
-                <h4 className="font-semibold mb-2">Action Timeline</h4>
+                <h4 className="font-semibold mb-2">{t("order_history.action_timeline")}</h4>
                 {selectedOrder.actions && selectedOrder.actions.length > 0 ? (
                   <div className="space-y-3">
                     {selectedOrder.actions.map((action) => (
@@ -622,11 +653,14 @@ export default function OrderHistory() {
                               </span>
                             </p>
                             <p className="text-sm text-gray-600">
-                              {action.description || "Order action recorded."}
+                              {action.description || t("order_history.action_recorded")}
                             </p>
                             {(action.from_status || action.to_status) && (
                               <p className="mt-1 text-xs text-gray-500">
-                                {action.from_status ?? "unknown"} to {action.to_status ?? "unknown"}
+                                {t("order_history.status_change", {
+                                  from: statusLabel(action.from_status),
+                                  to: statusLabel(action.to_status),
+                                })}
                               </p>
                             )}
                           </div>
@@ -639,7 +673,7 @@ export default function OrderHistory() {
                   </div>
                 ) : (
                   <p className="text-sm text-gray-500">
-                    No recorded staff/admin actions for this order yet.
+                    {t("order_history.no_recorded_actions")}
                   </p>
                 )}
               </div>

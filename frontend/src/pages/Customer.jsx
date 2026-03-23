@@ -13,6 +13,7 @@ import {
 } from "react-icons/fa";
 import { fetchCustomerCategories, fetchCustomerProducts, fetchCustomerPopularProducts } from "../services/api";
 import { useI18n } from "../context/I18nContext";
+import { getPriceForSize } from "../utils/pricing";
 
 const API_BASE = (() => {
   const raw = (import.meta.env.VITE_API_BASE_URL ?? "").trim().replace(/\/$/, "");
@@ -42,47 +43,6 @@ function normalizeImage(imageUrl, imagePath) {
   const v = source.trim();
   if (/^(https?:\/\/|data:|blob:)/i.test(v)) return v;
   return `${API_BASE}${v.startsWith("/") ? v : `/${v}`}`;
-}
-
-export function getPriceForSize(product, size) {
-  const s = (size ?? "M").toUpperCase();
-
-  // Check if product has discounted prices (from API)
-  if (product.has_discount) {
-    const discountedSmall = parseFloat(product.discounted_price_small ?? 0);
-    const discountedMedium = parseFloat(product.discounted_price_medium ?? 0);
-    const discountedLarge = parseFloat(product.discounted_price_large ?? 0);
-    if (s === "S") return Number.isFinite(discountedSmall) ? discountedSmall : 0;
-    if (s === "L") return Number.isFinite(discountedLarge) ? discountedLarge : 0;
-    return Number.isFinite(discountedMedium) ? discountedMedium : 0;
-  }
-
-  // Fall back to regular prices
-  const small = parseFloat(product.price_small ?? product.price ?? 0);
-  const medium = parseFloat(product.price_medium ?? product.price ?? 0);
-  const large = parseFloat(product.price_large ?? product.price ?? 0);
-  if (s === "S") return Number.isFinite(small) ? small : 0;
-  if (s === "L") return Number.isFinite(large) ? large : 0;
-  return Number.isFinite(medium) ? medium : 0;
-}
-
-// Milk add-on prices
-const MILK_PRICES = { "Oat Milk": 0.75, "Almond": 0.50 };
-
-// Extras add-on prices
-const EXTRA_PRICES = { extraShot: 1.25, whippedCream: 0.50, cinnamonSprinkles: 0.25 };
-
-// Full unit price including size base + milk add-on + extras add-ons
-export function getItemUnitPrice(item) {
-  const base = getPriceForSize(item, item.selectedSize);
-  const milk = MILK_PRICES[item.milkOption] ?? 0;
-  const extras = item.extras
-    ? Object.entries(item.extras).reduce(
-      (sum, [key, on]) => sum + (on ? (EXTRA_PRICES[key] ?? 0) : 0),
-      0
-    )
-    : 0;
-  return base + milk + extras;
 }
 
 function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", onToggleTheme }) {
@@ -162,12 +122,7 @@ function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", o
   };
 
   const createPopularProductSeed = (popularProduct) => ({
-    id: popularProduct.id,
-    name: popularProduct.name,
-    image: popularProduct.image,
-    price_small: popularProduct.price_small,
-    price_medium: popularProduct.price_medium,
-    price_large: popularProduct.price_large,
+    ...popularProduct,
     category: popularProduct.category || { name: "Popular" },
   });
 
@@ -186,7 +141,7 @@ function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", o
       const catMatch =
         selectedCategory === "all" ||
         String(p.category_id) === String(selectedCategory) ||
-        p.category?.id === selectedCategory;
+        String(p.category?.id) === String(selectedCategory);
       if (!catMatch) return false;
       if (!query) return true;
       return (
@@ -197,11 +152,16 @@ function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", o
   }, [products, selectedCategory, search]);
 
   useEffect(() => {
+    if (popularProducts.length <= 1) return;
     const interval = setInterval(() => {
-      setActivePopularIndex((prev) => (prev + 1) % (popularProducts.length || 1));
+      setActivePopularIndex((prev) => prev + 1);
     }, 6000);
     return () => clearInterval(interval);
-  }, []);
+  }, [popularProducts.length]);
+
+  const effectivePopularIndex = popularProducts.length
+    ? activePopularIndex % popularProducts.length
+    : 0;
 
   return (
     <div className="container">
@@ -285,7 +245,7 @@ function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", o
             {(popularProducts.length > 0 ? popularProducts : []).map((product, index) => (
               <article
                 key={product.id}
-                className={`popular-products-card ${index === activePopularIndex ? "active" : ""}`}
+                className={`popular-products-card ${index === effectivePopularIndex ? "active" : ""}`}
               >
                 <div className="popular-products-media">
                   <img src={product.image} alt={product.name} loading="lazy" />

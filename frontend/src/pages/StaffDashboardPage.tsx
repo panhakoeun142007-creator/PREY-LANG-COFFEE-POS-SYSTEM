@@ -1,9 +1,7 @@
-import { Bell, LogOut, Menu, Moon, Settings, Sun, User } from "lucide-react";
+﻿import { Bell, User } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, User } from "lucide-react";
 import Sidebar from "../components/Sidebar";
-import NotificationBell from "../components/NotificationBell";
 import DashboardPage from "./DashboardPage";
 import LiveOrders from "./LiveOrders";
 import OrderHistory from "./OrderHistory";
@@ -54,6 +52,25 @@ export default function StaffDashboardPage() {
   const [accountError, setAccountError] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [notificationsPollingEnabled, setNotificationsPollingEnabled] = useState(true);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", isDark);
+    localStorage.setItem("theme", isDark ? "dark" : "light");
+  }, [isDark]);
+
+  const openAccount = openAccountModal;
+  const closeAccount = closeAccountModal;
+
+  function getNotificationIcon(type: Notification["type"] | string) {
+    const key = String(type ?? "").toLowerCase();
+    if (key.includes("order")) return "🧾";
+    if (key.includes("payment") || key.includes("paid")) return "💳";
+    if (key.includes("warning") || key.includes("alert")) return "⚠️";
+    if (key.includes("error") || key.includes("fail")) return "❌";
+    if (key.includes("success") || key.includes("done")) return "✅";
+    return "🔔";
+  }
 
   useEffect(() => {
     const user = auth.getUser();
@@ -105,8 +122,8 @@ export default function StaffDashboardPage() {
   }, [notificationsPollingEnabled]);
 
   function openAccountModal() {
-    setAccountName(currentUser?.name ?? "Staff User");
-    setAccountEmail(currentUser?.email ?? "staff@preylang.com");
+    setAccountName(currentUser?.name ?? t("user.staff_default_name"));
+    setAccountEmail(currentUser?.email ?? t("user.staff_default_email"));
     setAccountImagePreview(currentUser?.profile_image_url ?? null);
     setAccountImageFile(null);
     setAccountRemoveImage(false);
@@ -132,7 +149,7 @@ export default function StaffDashboardPage() {
     }
 
     if (Object.keys(updateData).length === 0) {
-      setAccountError("No changes to save.");
+      setAccountError(t("account.no_changes"));
       return;
     }
 
@@ -147,7 +164,7 @@ export default function StaffDashboardPage() {
       setAccountImagePreview(updated.profile_image_url ?? null);
       setShowAccountModal(false);
     } catch (err) {
-      setAccountError(err instanceof Error ? err.message : "Failed to update account");
+      setAccountError(err instanceof Error ? err.message : t("account.update_failed"));
     } finally {
       setAccountSaving(false);
     }
@@ -199,82 +216,134 @@ export default function StaffDashboardPage() {
         })}
       />
 
-      <div className={`flex-1 ml-64 min-h-screen ${isDark ? "dark" : ""}`}>
-        {/* Top Notification Bar with Profile */}
-        <div className={`sticky top-0 z-40 border-b px-6 py-3 flex items-center justify-end gap-3 ${
-          isDark
-            ? "bg-slate-800 border-slate-700"
-            : "bg-white border-slate-200"
-        }`}>
+      <div className="flex-1 ml-64 min-h-screen">
+        {/* Top Nav Bar (sticky) */}
+        <div
+          className={`sticky top-0 z-20 flex items-center justify-end gap-3 px-4 py-4 backdrop-blur md:px-8 ${
+            isDark ? "border-b border-slate-700/80 bg-slate-950/70" : "border-b border-[#EAD6C0] bg-[#FFF8F0]/95"
+          }`}
+        >
+          <LanguageSwitcher
+            className={`w-[150px] ${
+              isDark ? "border-slate-700 bg-slate-900 text-slate-100" : ""
+            }`}
+          />
+
           <div className="relative">
             <button
               type="button"
               onClick={() => setProfileOpen((prev) => !prev)}
-              className={`flex items-center gap-2 rounded-xl px-2 py-1.5 shadow-sm md:px-3 ${
+              className={`flex items-center gap-3 rounded-2xl px-3 py-2 shadow-sm ${
                 isDark
-                  ? "border border-slate-700 bg-slate-900 text-slate-100"
-                  : "border border-slate-200 bg-white"
+                  ? "border border-slate-700 bg-slate-900 text-slate-100 hover:bg-slate-800"
+                  : "border border-[#E5D2BB] bg-white text-slate-900 hover:bg-slate-50"
               }`}
             >
               {currentUser?.profile_image_url ? (
                 <img
                   src={currentUser.profile_image_url}
-                  alt={currentUser.name}
-                  className="h-8 w-8 rounded-full object-cover"
+                  alt={currentUser.name ?? t("role.staff")}
+                  className="h-9 w-9 rounded-full object-cover"
                 />
               ) : (
-                <div className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold text-white ${
-                  isDark ? "bg-slate-700" : "bg-[#4B2E2B]"
-                }`}>
-                  {currentUser?.name
-                    ? currentUser.name
-                      .split(' ')
-                      .map(part => part[0])
-                      .join('')
-                      .toUpperCase()
-                      .substring(0, 2)
-                    : 'ST'}
+                <div
+                  className={`flex h-9 w-9 items-center justify-center rounded-full text-xs font-semibold text-white ${
+                    isDark ? "bg-slate-700" : "bg-[#4B2E2B]"
+                  }`}
+                >
+                  {(currentUser?.name ?? auth.getUser()?.name ?? "ST")
+                    .split(" ")
+                    .map((part) => part[0])
+                    .join("")
+                    .toUpperCase()
+                    .substring(0, 2)}
                 </div>
               )}
-              <div className="hidden text-left md:block">
-                <p className="text-sm font-semibold leading-tight">{currentUser?.name ?? 'Staff'}</p>
-                <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>Staff</p>
+              <div className="text-left leading-tight">
+                <p className="text-sm font-semibold">
+                  {currentUser?.name ?? auth.getUser()?.name ?? t("user.staff_member")}
+                </p>
+                <p className={isDark ? "text-xs text-slate-400" : "text-xs text-slate-500"}>
+                  {t("role.staff")}
+                </p>
               </div>
             </button>
 
             {profileOpen && (
-              <div className={`absolute right-0 top-12 z-50 w-48 rounded-xl p-2 shadow-lg ${
-              isDark ? "border border-slate-700 bg-slate-900" : "border border-slate-200 bg-white"
-            }`}>
+              <div className={`absolute right-0 top-12 z-50 w-48 rounded-xl p-2 shadow-lg ${isDark ? "border border-slate-700 bg-slate-900" : "border border-[#EAD6C0] bg-white"}`}>
                 <button
                   type="button"
                   onClick={() => {
                     setProfileOpen(false);
-                    openAccountModal();
+                    openAccount();
                   }}
                   className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm ${
-                    isDark ? "text-slate-100 hover:bg-slate-800" : "text-slate-700 hover:bg-slate-100"
+                    isDark ? "text-slate-100 hover:bg-slate-800" : "text-[#4B2E2B] hover:bg-[#F8EFE4]"
                   }`}
                 >
-                  <User size={16} />
-                  Account
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setProfileOpen(false);
-                    setShowLogoutConfirm(true);
-                  }}
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
-                >
-                  <LogOut size={16} />
-                  Logout
+                  <User className="h-4 w-4" />
+                  {t("nav.account")}
                 </button>
               </div>
             )}
           </div>
-          <NotificationBell />
+
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setNotificationsOpen((prev) => !prev)}
+              className={`relative inline-flex h-10 w-10 items-center justify-center rounded-full shadow-sm ${
+                isDark
+                  ? "border border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800"
+                  : "border border-[#E5D2BB] bg-white text-[#4B2E2B]"
+              }`}
+              aria-label={t("nav.notifications")}
+            >
+              <Bell size={18} />
+              {notifications.length > 0 && (
+                <span className="absolute right-1.5 top-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">
+                  {notifications.length}
+                </span>
+              )}
+            </button>
+
+            {notificationsOpen && (
+              <div
+                className={`absolute right-0 top-12 z-50 w-80 rounded-xl p-2 shadow-lg ${
+                  isDark ? "border border-slate-700 bg-slate-900" : "border border-[#EAD6C0] bg-white"
+                }`}
+              >
+                <div className={`px-3 py-2 ${isDark ? "border-b border-slate-700" : "border-b border-[#F1E3D3]"}`}>
+                  <h3 className={`font-semibold ${isDark ? "text-slate-100" : "text-[#4B2E2B]"}`}>{t("nav.notifications")}</h3>
+                </div>
+                <div className="max-h-80 overflow-y-auto">
+                  {notifications.length > 0 ? (
+                    notifications.slice(0, 10).map((notification) => (
+                      <div
+                        key={notification.id}
+                        className={`flex items-start gap-3 rounded-lg p-3 ${
+                          isDark ? "hover:bg-slate-800" : "hover:bg-[#F8EFE4]"
+                        } ${!notification.read ? (isDark ? "bg-slate-800/70" : "bg-amber-50") : ""}`}
+                      >
+                        <span className="text-xl">{getNotificationIcon(notification.type)}</span>
+                        <div className="min-w-0 flex-1">
+                          <p className={`text-sm font-medium ${isDark ? "text-slate-100" : "text-[#4B2E2B]"}`}>{notification.title}</p>
+                          <p className={`truncate text-xs ${isDark ? "text-slate-300" : "text-[#7C5D58]"}`}>{notification.message}</p>
+                          <p className={`text-xs ${isDark ? "text-slate-400" : "text-[#8E706B]"}`}>{notification.time}</p>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className={`p-4 text-center text-sm ${isDark ? "text-slate-400" : "text-[#7C5D58]"}`}>
+                      {t("msg.no_notifications")}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
+
         <main className="w-full p-4 md:p-6 lg:p-8 transition-colors duration-300">
           <div className="mb-6 flex items-center justify-between">
             <div>
@@ -287,218 +356,12 @@ export default function StaffDashboardPage() {
                     : activeTab === "receipts"
                       ? t("nav.receipts")
                       : t("nav.dashboard")}
-              </h1>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <LanguageSwitcher
-                className={`w-[150px] ${
-                  isDark ? "border-slate-700 bg-slate-900 text-slate-100" : ""
-                }`}
-              />
-
-              <div className="relative">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setNotificationsOpen((prev) => !prev)}
-                  aria-label={t("nav.notifications")}
-                  className={isDark ? "border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800" : ""}
-                >
-                  <Bell className="h-4 w-4" />
-                  {notifications.length > 0 && (
-                    <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">
-                      {notifications.length}
-                    </span>
-                  )}
-                </Button>
-
-                {notificationsOpen && (
-                  <div
-                    className={`absolute right-0 top-12 z-50 w-80 rounded-xl p-2 shadow-lg ${
-                      isDark ? "border border-slate-700 bg-slate-900" : "border border-[#EAD6C0] bg-white"
-                    }`}
-                  >
-                    <div className={`px-3 py-2 ${isDark ? "border-b border-slate-700" : "border-b border-[#F1E3D3]"}`}>
-                      <h3 className={`font-semibold ${isDark ? "text-slate-100" : "text-[#4B2E2B]"}`}>{t("nav.notifications")}</h3>
-                    </div>
-                    <div className="max-h-80 overflow-y-auto">
-                      {notifications.length > 0 ? (
-                        notifications.slice(0, 10).map((notification) => (
-                          <div
-                            key={notification.id}
-                            className={`flex items-start gap-3 rounded-lg p-3 ${
-                              isDark ? "hover:bg-slate-800" : "hover:bg-[#F8EFE4]"
-                            } ${!notification.read ? (isDark ? "bg-slate-800/70" : "bg-amber-50") : ""}`}
-                          >
-                            <span className="text-xl">{getNotificationIcon(notification.type)}</span>
-                            <div className="min-w-0 flex-1">
-                              <p className={`text-sm font-medium ${isDark ? "text-slate-100" : "text-[#4B2E2B]"}`}>{notification.title}</p>
-                              <p className={`truncate text-xs ${isDark ? "text-slate-300" : "text-[#7C5D58]"}`}>{notification.message}</p>
-                              <p className={`text-xs ${isDark ? "text-slate-400" : "text-[#8E706B]"}`}>{notification.time}</p>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className={`p-4 text-center text-sm ${isDark ? "text-slate-400" : "text-[#7C5D58]"}`}>
-                          {t("msg.no_notifications")}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
+                </h1>
               </div>
-
-              <div className="relative">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setProfileOpen((prev) => !prev)}
-                  className={`gap-2 ${isDark ? "border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800" : ""}`}
-                >
-                  <User className="h-4 w-4" />
-                  <span className="hidden md:inline">{auth.getUser()?.name ?? "Staff"}</span>
-                </Button>
-
-                {profileOpen && (
-                  <div className={`absolute right-0 top-12 z-50 w-48 rounded-xl p-2 shadow-lg ${isDark ? "border border-slate-700 bg-slate-900" : "border border-[#EAD6C0] bg-white"}`}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setProfileOpen(false);
-                        openAccount();
-                      }}
-                      className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm ${
-                        isDark ? "text-slate-100 hover:bg-slate-800" : "text-[#4B2E2B] hover:bg-[#F8EFE4]"
-                      }`}
-                    >
-                      <User className="h-4 w-4" />
-                      {t("nav.account")}
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
           </div>
           {renderContent()}
         </main>
       </div>
-
-      {/* Account Modal */}
-      {showAccountModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className={`w-full max-w-md rounded-2xl p-6 shadow-xl ${
-            isDark ? "border border-slate-700 bg-slate-900" : "bg-white"
-          }`}>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className={`text-xl font-semibold ${isDark ? "text-slate-100" : "text-slate-700"}`}>Account</h2>
-              <button
-                type="button"
-                onClick={closeAccountModal}
-                className={isDark ? "text-slate-400 hover:text-slate-100" : "text-slate-500 hover:text-slate-700"}
-              >
-                ✕
-              </button>
-            </div>
-            {accountError ? (
-              <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                {accountError}
-              </p>
-            ) : null}
-            <div className="space-y-5">
-              <div className="flex items-center gap-4">
-                <div className={`h-16 w-16 overflow-hidden rounded-full ${isDark ? "bg-slate-700" : "bg-slate-200"}`}>
-                  {accountImagePreview ? (
-                    <img
-                      src={accountImagePreview}
-                      alt="Profile"
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className={`flex h-full w-full items-center justify-center text-2xl font-semibold text-white ${
-                      isDark ? "bg-slate-700" : "bg-[#4B2E2B]"
-                    }`}>
-                      {currentUser?.name
-                        ? currentUser.name
-                          .split(' ')
-                          .map(part => part[0])
-                          .join('')
-                          .toUpperCase()
-                          .substring(0, 2)
-                        : 'ST'}
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1">
-                  <p className={`text-lg font-semibold ${isDark ? "text-slate-100" : "text-slate-700"}`}>
-                    {currentUser?.name ?? "Staff User"}
-                  </p>
-                  <p className={`text-sm ${isDark ? "text-slate-400" : "text-slate-500"}`}>Staff</p>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(event) => {
-                      const file = event.target.files?.[0] ?? null;
-                      setAccountImageFile(file);
-                      setAccountRemoveImage(false);
-                      if (file) {
-                        setAccountImagePreview(URL.createObjectURL(file));
-                      } else {
-                        setAccountImagePreview(currentUser?.profile_image_url ?? null);
-                      }
-                    }}
-                    className={`mt-2 block w-full text-xs file:mr-3 file:rounded-md file:border-0 file:px-2 file:py-1 file:text-xs file:font-medium ${
-                      isDark
-                        ? "text-slate-400 file:bg-slate-700 file:text-slate-100"
-                        : "text-slate-500 file:bg-slate-100 file:text-slate-700"
-                    }`}
-                  />
-                  {currentUser?.profile_image_url && !accountImageFile && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAccountRemoveImage(true);
-                        setAccountImagePreview(null);
-                      }}
-                      className={`mt-2 text-xs font-medium underline ${
-                        isDark ? "text-slate-300 hover:text-slate-100" : "text-slate-500 hover:text-slate-700"
-                      }`}
-                    >
-                      Remove profile image
-                    </button>
-                  )}
-                </div>
-              </div>
-              <div className="flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={closeAccountModal}
-                  className={`rounded-lg px-4 py-2 text-sm font-medium ${
-                    isDark
-                      ? "text-slate-300 hover:bg-slate-800"
-                      : "text-slate-600 hover:bg-slate-100"
-                  }`}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={saveAccount}
-                  disabled={accountSaving}
-                  className={`rounded-lg px-4 py-2 text-sm font-medium text-white ${
-                    isDark
-                      ? "bg-slate-700 hover:bg-slate-600"
-                      : "bg-[#4B2E2B] hover:bg-[#3d2524]"
-                  } ${accountSaving ? "opacity-50 cursor-not-allowed" : ""}`}
-                >
-                  {accountSaving ? "Saving..." : "Save"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       <LogoutConfirmModal
         open={showLogoutConfirm}
@@ -607,3 +470,5 @@ export default function StaffDashboardPage() {
     </div>
   );
 }
+
+

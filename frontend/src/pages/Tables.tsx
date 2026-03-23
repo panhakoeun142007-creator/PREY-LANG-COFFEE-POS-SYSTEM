@@ -292,7 +292,7 @@ export default function Tables() {
                       Capacity: {table.capacity}
                     </div>
                   </div>
-                  <StatusBadge status={table.status} />
+                  <StatusBadge status={table.status === "active" ? "active" : "inactive"} />
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">

@@ -1,11 +1,11 @@
-import { ChevronLeft, ChevronRight, LayoutDashboard, ShoppingBag, BookOpen, History, LogOut, Sun, Moon, Receipt } from 'lucide-react';
+import { ChevronLeft, ChevronRight, LayoutDashboard, ShoppingBag, History, LogOut, Sun, Moon, Receipt } from 'lucide-react';
 import { useState } from 'react';
 import LogoImage from '../assets/coffee.png';
 import { useI18n } from "../context/I18nContext";
 
 interface SidebarProps {
   activeTab: string;
-  setActiveTab: (tab: string) => void;
+  setActiveTab: (_tab: string) => void;
   onLogoutClick: () => void;
   isDark: boolean;
   onThemeToggle: () => void;
@@ -50,7 +50,13 @@ export default function Sidebar({
   const [collapsed, setCollapsed] = useState(false);
   const { t } = useI18n();
 
-  const labelMap: Record<string, string> = {
+  const groupTitleKeyByLabel: Record<string, string> = {
+    Dashboard: "group.dashboard",
+    Orders: "group.orders",
+    Receipts: "group.receipts",
+  };
+
+  const itemLabelKeyByLabel: Record<string, string> = {
     Dashboard: "nav.dashboard",
     Orders: "nav.live_orders",
     "Order History": "nav.order_history",
@@ -77,7 +83,7 @@ export default function Sidebar({
         {!collapsed && (
           <div className="leading-tight">
             <p className="text-sm font-bold tracking-wide">{shopName}</p>
-            <p className="text-xs text-white/80">POS System</p>
+            <p className="text-xs text-white/80">{t("app.pos_system")}</p>
           </div>
         )}
       </div>
@@ -89,7 +95,7 @@ export default function Sidebar({
             <div key={group.group} className="space-y-2">
               {!collapsed && (
                 <p className={`px-2 text-[11px] font-semibold uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-white/50'}`}>
-                  {t(labelMap[group.group] ?? group.group)}
+                  {t(groupTitleKeyByLabel[group.group] ?? group.group)}
                 </p>
               )}
               {group.items.map((item) => (
@@ -101,7 +107,7 @@ export default function Sidebar({
                   className={`flex w-full items-center rounded-xl px-3 py-2.5 text-sm transition ${statusClass(activeTab === item.id, isDark)}`}
                 >
                   <item.icon size={18} className="flex-shrink-0" />
-                  {!collapsed && <span className="ml-3">{t(labelMap[item.label] ?? item.label)}</span>}
+                  {!collapsed && <span className="ml-3">{t(itemLabelKeyByLabel[item.label] ?? item.label)}</span>}
                 </button>
               ))}
             </div>
@@ -114,11 +120,11 @@ export default function Sidebar({
         <button
           type="button"
           onClick={onThemeToggle}
-          title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+          title={isDark ? t("theme.switch_to_light_mode") : t("theme.switch_to_dark_mode")}
           className={`flex w-full items-center rounded-xl px-3 py-2.5 text-sm transition ${isDark ? 'text-slate-300 hover:bg-slate-800/70' : 'text-white/80 hover:bg-white/10'}`}
         >
           {isDark ? <Sun size={18} className="flex-shrink-0" /> : <Moon size={18} className="flex-shrink-0" />}
-          {!collapsed && <span className="ml-3">{isDark ? 'Light Mode' : 'Dark Mode'}</span>}
+          {!collapsed && <span className="ml-3">{isDark ? t("theme.light_mode") : t("theme.dark_mode")}</span>}
         </button>
         <button
           type="button"

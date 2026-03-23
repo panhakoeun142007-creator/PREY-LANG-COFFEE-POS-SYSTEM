@@ -1,5 +1,5 @@
 import "../cart.css";
-import { getItemUnitPrice } from "./Customer";
+import { getItemUnitPrice } from "../utils/pricing";
 
 const PACKAGING_FEE = 0.5;
 

@@ -30,6 +30,7 @@ import {
 import { deleteReceipt, fetchOrderHistory, fetchReceiptDetail, LiveOrder, ReceiptDetailResponse } from "../services/api";
 import { useSettings } from "../context/SettingsContext";
 import { auth } from "../utils/auth";
+import { useI18n } from "../context/I18nContext";
 
 type PaymentMethod = "cash" | "credit_card" | "aba_pay" | "wing_money" | "khqr";
 
@@ -45,16 +46,17 @@ interface ReceiptRow {
 }
 
 export default function ReceiptsPage() {
+  const { t, lang } = useI18n();
   const { currency, settings } = useSettings();
   const role = auth.getUser()?.role || "admin";
   const isAdmin = role === "admin";
   const money = useMemo(
     () =>
-      new Intl.NumberFormat("en-US", {
+      new Intl.NumberFormat(lang === "km" ? "km-KH" : "en-US", {
         style: "currency",
         currency,
       }),
-    [currency],
+    [currency, lang],
   );
   const [orders, setOrders] = useState<LiveOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,6 +70,17 @@ export default function ReceiptsPage() {
   const [detail, setDetail] = useState<ReceiptDetailResponse["receipt"] | null>(null);
   const [deleteOrderId, setDeleteOrderId] = useState<number | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+
+  const paymentLabel = useCallback(
+    (method: PaymentMethod) => {
+      if (method === "cash") return t("payment.cash");
+      if (method === "credit_card") return t("payment.credit_card");
+      if (method === "aba_pay") return t("payment.aba_pay");
+      if (method === "wing_money") return t("payment.wing_money");
+      return t("payment.khqr");
+    },
+    [t],
+  );
 
   const availablePayments = useMemo<PaymentMethod[]>(() => {
     const payment = settings?.payment;
@@ -87,13 +100,13 @@ export default function ReceiptsPage() {
       const response = await fetchOrderHistory();
       setOrders(response.data);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to load receipts";
+      const message = err instanceof Error ? err.message : t("receipts.load_failed");
       setError(message);
       setOrders([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     loadReceiptOrders();
@@ -111,14 +124,14 @@ export default function ReceiptsPage() {
         id: `REC-${order.id}`,
         orderNumericId: order.id,
         orderId: `ORD-${order.queue_number ?? order.id}`,
-        dateTime: new Date(order.created_at).toLocaleString("en-US", {
+        dateTime: new Date(order.created_at).toLocaleString(lang === "km" ? "km-KH" : "en-US", {
           year: "numeric",
           month: "short",
           day: "numeric",
           hour: "2-digit",
           minute: "2-digit",
         }),
-        customer: order.table?.name || "Walk-in",
+        customer: order.table?.name || t("receipts.walk_in"),
         amount: Number(order.total_price),
         paymentMethod: ((): PaymentMethod => {
           const raw = order.payment_type?.toLowerCase();
@@ -130,7 +143,7 @@ export default function ReceiptsPage() {
         })(),
         status: "paid",
       }));
-  }, [orders]);
+  }, [lang, orders, t]);
 
   const handleViewDetail = useCallback(async (orderId: number) => {
     setDetailOpen(true);
@@ -142,12 +155,12 @@ export default function ReceiptsPage() {
       const payload = await fetchReceiptDetail(orderId);
       setDetail(payload.receipt);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to load receipt details";
+      const message = err instanceof Error ? err.message : t("receipts.details_failed");
       setDetailError(message);
     } finally {
       setDetailLoading(false);
     }
-  }, []);
+  }, [t]);
 
   const handleDelete = useCallback(async () => {
     if (!deleteOrderId) return;
@@ -155,7 +168,7 @@ export default function ReceiptsPage() {
     setDeleteLoading(true);
     try {
       await deleteReceipt(deleteOrderId);
-      toast.success("Receipt deleted");
+      toast.success(t("receipts.deleted"));
       setDeleteOrderId(null);
       if (detail?.order?.id === deleteOrderId) {
         setDetailOpen(false);
@@ -163,11 +176,11 @@ export default function ReceiptsPage() {
       }
       await loadReceiptOrders();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to delete receipt");
+      toast.error(err instanceof Error ? err.message : t("receipts.delete_failed"));
     } finally {
       setDeleteLoading(false);
     }
-  }, [deleteOrderId, detail?.order?.id, loadReceiptOrders]);
+  }, [deleteOrderId, detail?.order?.id, loadReceiptOrders, t]);
 
   const filteredReceipts = useMemo(() => {
     return receiptRows.filter((receipt) => {
@@ -195,7 +208,7 @@ export default function ReceiptsPage() {
         <Card>
           <CardContent className="flex items-center justify-between p-5">
             <div>
-              <p className="text-sm text-[#7C5D58]">Total Receipts</p>
+              <p className="text-sm text-[#7C5D58]">{t("receipts.total_receipts")}</p>
               <p className="text-2xl font-semibold text-[#4B2E2B]">
                 {filteredReceipts.length}
               </p>
@@ -207,7 +220,7 @@ export default function ReceiptsPage() {
         <Card>
           <CardContent className="flex items-center justify-between p-5">
             <div>
-              <p className="text-sm text-[#7C5D58]">Total Collected</p>
+              <p className="text-sm text-[#7C5D58]">{t("receipts.total_collected")}</p>
               <p className="text-2xl font-semibold text-[#4B2E2B]">
                 {money.format(totalCollected)}
               </p>
@@ -237,14 +250,14 @@ export default function ReceiptsPage() {
             </div>
           )}
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <h2 className="text-lg font-semibold text-[#4B2E2B]">Receipt Archive</h2>
+            <h2 className="text-lg font-semibold text-[#4B2E2B]">{t("receipts.archive_title")}</h2>
             <div className="flex flex-col gap-3 md:flex-row">
               <div className="relative w-full md:w-72">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7C5D58]" />
                 <Input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search receipt, order, customer..."
+                  placeholder={t("receipts.search_placeholder")}
                   className="pl-9"
                 />
               </div>
@@ -255,15 +268,15 @@ export default function ReceiptsPage() {
                 }
               >
                 <SelectTrigger className="w-full md:w-48">
-                  <SelectValue placeholder="Payment Method" />
+                  <SelectValue placeholder={t("receipts.payment_method")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Payments</SelectItem>
-                  {availablePayments.includes("cash") ? <SelectItem value="cash">Cash</SelectItem> : null}
-                  {availablePayments.includes("khqr") ? <SelectItem value="khqr">KHQR</SelectItem> : null}
-                  {availablePayments.includes("credit_card") ? <SelectItem value="credit_card">Credit Card</SelectItem> : null}
-                  {availablePayments.includes("aba_pay") ? <SelectItem value="aba_pay">ABA Pay</SelectItem> : null}
-                  {availablePayments.includes("wing_money") ? <SelectItem value="wing_money">Wing Money</SelectItem> : null}
+                  <SelectItem value="all">{t("receipts.payment_all")}</SelectItem>
+                  {availablePayments.includes("cash") ? <SelectItem value="cash">{t("payment.cash")}</SelectItem> : null}
+                  {availablePayments.includes("khqr") ? <SelectItem value="khqr">{t("payment.khqr")}</SelectItem> : null}
+                  {availablePayments.includes("credit_card") ? <SelectItem value="credit_card">{t("payment.credit_card")}</SelectItem> : null}
+                  {availablePayments.includes("aba_pay") ? <SelectItem value="aba_pay">{t("payment.aba_pay")}</SelectItem> : null}
+                  {availablePayments.includes("wing_money") ? <SelectItem value="wing_money">{t("payment.wing_money")}</SelectItem> : null}
                 </SelectContent>
               </Select>
             </div>
@@ -273,24 +286,24 @@ export default function ReceiptsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Receipt ID</TableHead>
-                  <TableHead>Order ID</TableHead>
-                  <TableHead>Date & Time</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Payment</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>{t("receipts.receipt_id")}</TableHead>
+                  <TableHead>{t("receipts.order_id")}</TableHead>
+                  <TableHead>{t("receipts.date_time")}</TableHead>
+                  <TableHead>{t("receipts.customer")}</TableHead>
+                  <TableHead>{t("receipts.payment")}</TableHead>
+                  <TableHead className="text-right">{t("receipts.amount")}</TableHead>
+                  <TableHead>{t("receipts.status")}</TableHead>
+                  <TableHead className="text-right">{t("receipts.actions")}</TableHead>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
+            </TableHeader>
+            <TableBody>
+              {loading ? (
                   <TableRow>
                     <TableCell
                       colSpan={8}
                       className="py-8 text-center text-sm text-[#7C5D58]"
                     >
-                      Loading receipts...
+                      {t("receipts.loading")}
                     </TableCell>
                   </TableRow>
                 ) : filteredReceipts.length === 0 ? (
@@ -299,7 +312,7 @@ export default function ReceiptsPage() {
                       colSpan={8}
                       className="py-8 text-center text-sm text-[#7C5D58]"
                     >
-                      No paid orders yet
+                      {t("receipts.empty_paid")}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -316,7 +329,7 @@ export default function ReceiptsPage() {
                           ) : (
                             <Banknote className="h-3.5 w-3.5" />
                           )}
-                          {receipt.paymentMethod.toUpperCase()}
+                          {paymentLabel(receipt.paymentMethod)}
                         </span>
                       </TableCell>
                       <TableCell className="text-right font-medium">
@@ -324,7 +337,7 @@ export default function ReceiptsPage() {
                       </TableCell>
                       <TableCell>
                         <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold uppercase text-emerald-700">
-                          {receipt.status}
+                          {t("status.paid")}
                         </span>
                       </TableCell>
                       <TableCell className="text-right">
@@ -335,7 +348,7 @@ export default function ReceiptsPage() {
                             onClick={() => handleViewDetail(receipt.orderNumericId)}
                           >
                             <Eye className="h-4 w-4" />
-                            View
+                            {t("common.view")}
                           </Button>
                           {isAdmin ? (
                             <Button
@@ -344,7 +357,7 @@ export default function ReceiptsPage() {
                               onClick={() => setDeleteOrderId(receipt.orderNumericId)}
                             >
                               <Trash2 className="h-4 w-4" />
-                              Delete
+                              {t("common.delete")}
                             </Button>
                           ) : null}
                         </div>
@@ -359,56 +372,56 @@ export default function ReceiptsPage() {
       </Card>
 
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Receipt Details</DialogTitle>
-            <DialogDescription>
-              View items, totals, staff actions, and payment info.
-            </DialogDescription>
-          </DialogHeader>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>{t("receipts.details_title")}</DialogTitle>
+              <DialogDescription>
+                {t("receipts.details_desc")}
+              </DialogDescription>
+            </DialogHeader>
 
-          {detailLoading ? (
-            <div className="py-10 text-center text-sm text-[#7C5D58]">
-              Loading receipt details...
-            </div>
+            {detailLoading ? (
+              <div className="py-10 text-center text-sm text-[#7C5D58]">
+                {t("receipts.details_loading")}
+              </div>
           ) : detailError ? (
             <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
               {detailError}
             </div>
-          ) : !detail ? (
-            <div className="py-6 text-sm text-[#7C5D58]">No receipt selected.</div>
-          ) : (
+            ) : !detail ? (
+              <div className="py-6 text-sm text-[#7C5D58]">{t("receipts.no_receipt_selected")}</div>
+            ) : (
             <div className="space-y-5">
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                <div className="rounded-xl border border-[#EAD6C0] bg-[#FAF7F2] p-3">
-                  <p className="text-xs font-medium text-[#7C5D58]">Receipt</p>
-                  <p className="font-semibold text-[#4B2E2B]">{detail.receipt_id}</p>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                  <div className="rounded-xl border border-[#EAD6C0] bg-[#FAF7F2] p-3">
+                    <p className="text-xs font-medium text-[#7C5D58]">{t("receipts.label_receipt")}</p>
+                    <p className="font-semibold text-[#4B2E2B]">{detail.receipt_id}</p>
+                  </div>
+                  <div className="rounded-xl border border-[#EAD6C0] bg-[#FAF7F2] p-3">
+                    <p className="text-xs font-medium text-[#7C5D58]">{t("receipts.label_order")}</p>
+                    <p className="font-semibold text-[#4B2E2B]">{detail.order_id}</p>
+                  </div>
+                  <div className="rounded-xl border border-[#EAD6C0] bg-[#FAF7F2] p-3">
+                    <p className="text-xs font-medium text-[#7C5D58]">{t("receipts.label_customer_table")}</p>
+                    <p className="font-semibold text-[#4B2E2B]">{detail.customer_label}</p>
+                  </div>
                 </div>
-                <div className="rounded-xl border border-[#EAD6C0] bg-[#FAF7F2] p-3">
-                  <p className="text-xs font-medium text-[#7C5D58]">Order</p>
-                  <p className="font-semibold text-[#4B2E2B]">{detail.order_id}</p>
-                </div>
-                <div className="rounded-xl border border-[#EAD6C0] bg-[#FAF7F2] p-3">
-                  <p className="text-xs font-medium text-[#7C5D58]">Customer/Table</p>
-                  <p className="font-semibold text-[#4B2E2B]">{detail.customer_label}</p>
-                </div>
-              </div>
 
-              <div className="rounded-xl border border-[#EAD6C0] bg-white">
-                <div className="border-b border-[#EAD6C0] px-4 py-3 text-sm font-semibold text-[#4B2E2B]">
-                  Items
-                </div>
-                <div className="max-h-[40vh] overflow-auto p-4">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Item</TableHead>
-                        <TableHead>Size</TableHead>
-                        <TableHead className="text-right">Qty</TableHead>
-                        <TableHead className="text-right">Price</TableHead>
-                        <TableHead className="text-right">Total</TableHead>
-                      </TableRow>
-                    </TableHeader>
+                <div className="rounded-xl border border-[#EAD6C0] bg-white">
+                  <div className="border-b border-[#EAD6C0] px-4 py-3 text-sm font-semibold text-[#4B2E2B]">
+                    {t("receipts.items")}
+                  </div>
+                  <div className="max-h-[40vh] overflow-auto p-4">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>{t("receipts.item")}</TableHead>
+                          <TableHead>{t("receipts.size")}</TableHead>
+                          <TableHead className="text-right">{t("receipts.qty")}</TableHead>
+                          <TableHead className="text-right">{t("receipts.price")}</TableHead>
+                          <TableHead className="text-right">{t("receipts.total")}</TableHead>
+                        </TableRow>
+                      </TableHeader>
                     <TableBody>
                       {detail.items.map((item) => (
                         <TableRow key={item.id}>
@@ -430,54 +443,58 @@ export default function ReceiptsPage() {
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="rounded-xl border border-[#EAD6C0] bg-white p-4">
-                  <p className="text-sm font-semibold text-[#4B2E2B]">Staff / Source</p>
+                  <p className="text-sm font-semibold text-[#4B2E2B]">{t("receipts.staff_source")}</p>
                   <div className="mt-2 space-y-1 text-sm text-[#7C5D58]">
                     <div>
-                      Created by:{" "}
+                      {t("receipts.created_by")}:{" "}
                       <span className="font-medium text-[#4B2E2B]">
                         {detail.source.created_by
                           ? (detail.source.created_by.actor_type === "system"
-                              ? "System (customer)"
+                              ? t("receipts.system_customer")
                               : `${detail.source.created_by.actor_name} (${detail.source.created_by.actor_type})`)
-                          : "System (customer)"}
+                          : t("receipts.system_customer")}
                       </span>
                     </div>
                     <div>
-                      Completed by:{" "}
+                      {t("receipts.completed_by")}:{" "}
                       <span className="font-medium text-[#4B2E2B]">
                         {detail.source.completed_by
                           ? `${detail.source.completed_by.actor_name} (${detail.source.completed_by.actor_type})`
-                          : "Unknown"}
+                          : t("receipts.unknown")}
                       </span>
                     </div>
                     <div>
-                      Payment:{" "}
+                      {t("receipts.payment")}:{" "}
                       <span className="font-medium text-[#4B2E2B]">
-                        {detail.order.payment_type ? detail.order.payment_type.toUpperCase() : "-"}
+                        {detail.order.payment_type
+                          ? paymentLabel((detail.order.payment_type.toLowerCase() as PaymentMethod) ?? "cash")
+                          : "-"}
                       </span>
                     </div>
                     <div>
-                      Paid at:{" "}
+                      {t("receipts.paid_at")}:{" "}
                       <span className="font-medium text-[#4B2E2B]">
-                        {detail.order.paid_at ? new Date(detail.order.paid_at).toLocaleString() : "-"}
+                        {detail.order.paid_at
+                          ? new Date(detail.order.paid_at).toLocaleString(lang === "km" ? "km-KH" : "en-US")
+                          : "-"}
                       </span>
                     </div>
                   </div>
                 </div>
 
                 <div className="rounded-xl border border-[#EAD6C0] bg-white p-4">
-                  <p className="text-sm font-semibold text-[#4B2E2B]">Totals</p>
+                  <p className="text-sm font-semibold text-[#4B2E2B]">{t("receipts.totals")}</p>
                   <div className="mt-2 space-y-1 text-sm text-[#7C5D58]">
                     <div className="flex justify-between">
-                      <span>Subtotal</span>
+                      <span>{t("receipts.subtotal")}</span>
                       <span className="font-medium text-[#4B2E2B]">{money.format(detail.totals.subtotal)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Tax ({detail.totals.tax_rate}%)</span>
+                      <span>{t("receipts.tax", { rate: detail.totals.tax_rate })}</span>
                       <span className="font-medium text-[#4B2E2B]">{money.format(detail.totals.tax_amount)}</span>
                     </div>
                     <div className="flex justify-between border-t border-[#EAD6C0] pt-2">
-                      <span className="font-semibold text-[#4B2E2B]">Total</span>
+                      <span className="font-semibold text-[#4B2E2B]">{t("receipts.total")}</span>
                       <span className="font-semibold text-[#4B2E2B]">{money.format(detail.totals.total)}</span>
                     </div>
                   </div>
@@ -493,11 +510,11 @@ export default function ReceiptsPage() {
                 onClick={() => setDeleteOrderId(detail.order.id)}
               >
                 <Trash2 className="h-4 w-4" />
-                Delete Receipt
+                {t("receipts.delete_receipt")}
               </Button>
             ) : null}
             <Button variant="outline" onClick={() => setDetailOpen(false)}>
-              Close
+              {t("receipts.close")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -509,23 +526,23 @@ export default function ReceiptsPage() {
           if (!open) setDeleteOrderId(null);
         }}
       >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete receipt?</DialogTitle>
-            <DialogDescription>
-              This will permanently remove the receipt and its order items from the database.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteOrderId(null)} disabled={deleteLoading}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={deleteLoading}>
-              {deleteLoading ? "Deleting..." : "Delete"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t("receipts.delete_confirm_title")}</DialogTitle>
+              <DialogDescription>
+                {t("receipts.delete_confirm_desc")}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeleteOrderId(null)} disabled={deleteLoading}>
+                {t("btn.cancel")}
+              </Button>
+              <Button variant="destructive" onClick={handleDelete} disabled={deleteLoading}>
+                {deleteLoading ? t("receipts.deleting") : t("common.delete")}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
     </div>
   );
 }

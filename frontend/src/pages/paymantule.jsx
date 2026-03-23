@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import "../paymantule.css";
-import { getItemUnitPrice } from "./Customer";
+import { getItemUnitPrice } from "../utils/pricing";
 
 function getItemLineTotal(item) {
   return getItemUnitPrice(item) * (item.quantity || 1);

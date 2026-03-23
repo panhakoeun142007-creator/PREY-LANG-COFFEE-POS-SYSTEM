@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import "../detail.css";
-import { getPriceForSize, getItemUnitPrice } from "./Customer";
+import { getItemUnitPrice } from "../utils/pricing";
 
 // Preview price while user is still selecting options (not yet saved)
 function getPreviewUnitPrice(item, selectedSize, milkOption, extras) {
@@ -48,17 +48,27 @@ function Detail({
 
   useEffect(() => {
     if (!item) return;
-    setSelectedSize(item.selectedSize ?? "M");
-    setSugarLevel(item.sugarLevel ?? "100%");
-    setMilkOption(item.milkOption ?? "Whole");
-    setExtras(
-      item.extras ?? {
-        extraShot: false,
-        whippedCream: false,
-        cinnamonSprinkles: false,
-        milk: false,
-      }
-    );
+
+    let canceled = false;
+    Promise.resolve().then(() => {
+      if (canceled) return;
+      setSelectedSize(item.selectedSize ?? "M");
+      setSugarLevel(item.sugarLevel ?? "100%");
+      setMilkOption(item.milkOption ?? "Whole");
+      setQuantity(item.quantity ?? 1);
+      setExtras(
+        item.extras ?? {
+          extraShot: false,
+          whippedCream: false,
+          cinnamonSprinkles: false,
+          milk: false,
+        }
+      );
+    });
+
+    return () => {
+      canceled = true;
+    };
   }, [item]);
 
   if (!item) {

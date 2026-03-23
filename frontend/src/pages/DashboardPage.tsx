@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -11,6 +11,8 @@ import {
   YAxis,
 } from "recharts";
 import { fetchDashboardData, DashboardData } from "../services/api";
+import { useI18n } from "../context/I18nContext";
+import { auth } from "../utils/auth";
 
 const statusStyles: Record<string, string> = {
   pending: "bg-amber-100 text-amber-700",
@@ -18,6 +20,15 @@ const statusStyles: Record<string, string> = {
   ready: "bg-green-100 text-green-700",
   completed: "bg-neutral-200 text-neutral-700",
 };
+
+function statusKey(status: string): string | null {
+  if (status === "pending") return "status.pending";
+  if (status === "preparing") return "status.preparing";
+  if (status === "ready") return "status.ready";
+  if (status === "completed") return "status.completed";
+  if (status === "cancelled") return "status.cancelled";
+  return null;
+}
 
 const defaultData: DashboardData = {
   stats: [
@@ -49,9 +60,22 @@ const defaultData: DashboardData = {
 };
 
 export default function DashboardPage() {
+  const { t } = useI18n();
   const [data, setData] = useState<DashboardData>(defaultData);
   const [, setLoading] = useState(true);
   const [, setError] = useState<string | null>(null);
+
+  const statLabels = [
+    t("stats.total_revenue_today"),
+    t("stats.total_orders_today"),
+    t("stats.low_stock_items"),
+    t("stats.monthly_profit"),
+  ];
+
+  const currentUser = auth.getUser();
+  const displayName =
+    currentUser?.name ??
+    (currentUser?.role === "staff" ? t("user.staff_member") : t("user.admin_default_name"));
 
   useEffect(() => {
     async function loadData() {
@@ -61,21 +85,22 @@ export default function DashboardPage() {
         setError(null);
       } catch (err) {
         console.error("Failed to load dashboard data:", err);
-        setError("Failed to load data. Using default values.");
+        setError(t("common.failed_load_default"));
+        setData(defaultData);
       } finally {
         setLoading(false);
       }
     }
 
     loadData();
-  }, []);
+  }, [t]);
 
   return (
     <div className="space-y-8">
       <section className="rounded-2xl bg-gradient-to-r from-[#4B2E2B] to-[#6B4E4B] px-6 py-7 text-white shadow-md">
-        <h2 className="text-2xl font-semibold">Welcome back, Admin! ☕</h2>
+        <h2 className="text-2xl font-semibold">{t("dashboard.welcome_back", { name: displayName })}</h2>
         <p className="mt-2 text-sm text-white/85">
-          Here's what's happening with your coffee shop today
+          {t("dashboard.whats_happening_today")}
         </p>
       </section>
 
@@ -85,16 +110,16 @@ export default function DashboardPage() {
             key={index}
             className="rounded-2xl border border-[#EAD6C0] bg-white p-5 shadow-sm"
           >
-            <p className="text-sm text-[#7C5D58]">{card.label}</p>
+            <p className="text-sm text-[#7C5D58]">{statLabels[index] ?? card.label}</p>
             <p className="mt-2 text-3xl font-semibold text-[#4B2E2B]">{card.value}</p>
-            <p className={`mt-2 text-sm font-medium ${card.accent}`}>{card.trend}</p>
+            <p className={`mt-2 text-sm font-medium ${card.accent}`}>{card.trend === "Loading..." ? t("common.loading") : card.trend}</p>
           </div>
         ))}
       </section>
 
       <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <div className="rounded-2xl border border-[#EAD6C0] bg-white p-5 shadow-sm">
-          <h3 className="text-base font-semibold text-[#4B2E2B]">Revenue Over Time</h3>
+          <h3 className="text-base font-semibold text-[#4B2E2B]">{t("dashboard.revenue_over_time")}</h3>
           <div className="mt-4 h-72">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={data.revenueData}>
@@ -115,7 +140,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="rounded-2xl border border-[#EAD6C0] bg-white p-5 shadow-sm">
-          <h3 className="text-base font-semibold text-[#4B2E2B]">Orders by Category</h3>
+          <h3 className="text-base font-semibold text-[#4B2E2B]">{t("dashboard.orders_by_category")}</h3>
           <div className="mt-4 h-72">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data.categoryData}>
@@ -132,16 +157,16 @@ export default function DashboardPage() {
 
       <section className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <div className="xl:col-span-2 rounded-2xl border border-[#EAD6C0] bg-white p-5 shadow-sm">
-          <h3 className="text-base font-semibold text-[#4B2E2B]">Recent Orders</h3>
+          <h3 className="text-base font-semibold text-[#4B2E2B]">{t("dashboard.recent_orders")}</h3>
           <div className="mt-4 overflow-x-auto">
             {data.recentOrders.length > 0 ? (
               <table className="w-full min-w-[620px] text-left">
                 <thead>
                   <tr className="border-b border-[#F1E3D3] text-xs uppercase tracking-wide text-[#8E706B]">
-                    <th className="pb-3 font-semibold">Order ID</th>
-                    <th className="pb-3 font-semibold">Table</th>
-                    <th className="pb-3 font-semibold">Total</th>
-                    <th className="pb-3 font-semibold">Status</th>
+                    <th className="pb-3 font-semibold">{t("table.order_id")}</th>
+                    <th className="pb-3 font-semibold">{t("table.table")}</th>
+                    <th className="pb-3 font-semibold">{t("table.total")}</th>
+                    <th className="pb-3 font-semibold">{t("table.status")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -154,7 +179,10 @@ export default function DashboardPage() {
                         <span
                           className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${statusStyles[order.status]}`}
                         >
-                          {order.status}
+                          {(() => {
+                            const key = statusKey(order.status);
+                            return key ? t(key) : order.status;
+                          })()}
                         </span>
                       </td>
                     </tr>
@@ -162,13 +190,13 @@ export default function DashboardPage() {
                 </tbody>
               </table>
             ) : (
-              <p className="text-sm text-[#7C5D58] py-4">No recent orders</p>
+              <p className="text-sm text-[#7C5D58] py-4">{t("dashboard.no_recent_orders")}</p>
             )}
           </div>
         </div>
 
         <div className="rounded-2xl border border-[#EAD6C0] bg-white p-5 shadow-sm">
-          <h3 className="text-base font-semibold text-[#4B2E2B]">Low Stock Warning</h3>
+          <h3 className="text-base font-semibold text-[#4B2E2B]">{t("dashboard.low_stock_warning")}</h3>
           <div className="mt-4 space-y-4">
             {data.lowStockItems.length > 0 ? (
               data.lowStockItems.map((item) => (
@@ -176,7 +204,7 @@ export default function DashboardPage() {
                   <div className="mb-1 flex items-center justify-between text-sm">
                     <span className="text-[#6E4F4A]">{item.name}</span>
                     <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
-                      Low
+                      {t("stock.low")}
                     </span>
                   </div>
                   <div className="h-2 rounded-full bg-red-100">
@@ -188,7 +216,7 @@ export default function DashboardPage() {
                 </div>
               ))
             ) : (
-              <p className="text-sm text-[#7C5D58]">All stock levels are good</p>
+              <p className="text-sm text-[#7C5D58]">{t("dashboard.all_stock_good")}</p>
             )}
           </div>
         </div>
@@ -196,3 +224,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+
