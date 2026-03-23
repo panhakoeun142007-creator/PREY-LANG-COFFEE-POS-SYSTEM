@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, LayoutDashboard, ShoppingBag, BookOpen, History, LogOut, Sun, Moon } from 'lucide-react';
+import { ChevronLeft, ChevronRight, LayoutDashboard, ShoppingBag, BookOpen, History, LogOut, Sun, Moon, Receipt } from 'lucide-react';
 import { useState } from 'react';
 import LogoImage from '../assets/coffee.png';
 
@@ -33,8 +33,8 @@ const navGroups = [
     ],
   },
   {
-    group: 'Inventory',
-    items: [{ id: 'recipe', label: 'Receipt', icon: BookOpen }],
+    group: 'Receipts',
+    items: [{ id: 'receipts', label: 'Receipts', icon: Receipt }],
   },
 ];
 

@@ -2,42 +2,23 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
 use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 
-class ProductController extends Controller
+/**
+ * Product management controller.
+ */
+class ProductController extends BaseController
 {
-    /**
-     * Cache TTL for products (5 minutes).
-     */
     private const CACHE_TTL = 300;
-
     private const CACHE_VERSION_KEY = 'products_cache_version';
-          
-    /**
-     * Allowed image MIME types.
-     */
-    private const ALLOWED_IMAGE_TYPES = [
-        'image/jpeg',
-        'image/png',
-        'image/gif',
-        'image/webp',
-        'image/svg+xml',
-    ];
 
     /**
-     * Maximum image size in bytes (5MB).
-     */
-    private const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
-
-    /**
-     * Display a listing of products.
+     * List products with caching.
      */
     public function index(Request $request): JsonResponse
     {
@@ -48,25 +29,29 @@ class ProductController extends Controller
                 ->with('category:id,name,description,quantity,is_active');
 
             if ($request->has('category_id')) {
-                $query->where('category_id', $request->category_id);
+                $query->where('category_id', $request->integer('category_id'));
             }
 
             if ($request->has('is_available')) {
                 $query->where('is_available', $request->boolean('is_available'));
             }
 
-            if ($request->has('search') && $request->search) {
-                $search = trim((string) $request->search);
+            if ($request->boolean('is_popular')) {
+                $query->where('is_popular', true);
+            }
+
+            if ($request->filled('search')) {
+                $search = trim((string) $request->string('search'));
                 $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
-                      ->orWhere('sku', 'like', "%{$search}%");
+                        ->orWhere('sku', 'like', "%{$search}%");
                 });
             }
 
             return $query->orderBy('name')->get();
         });
 
-        $serializedProducts = $products->map(fn (Product $product) => $this->serializeProduct($product));
+        $serializedProducts = $products->map(fn (Product $p) => $this->serializeProduct($p));
 
         return response()->json([
             'data' => $serializedProducts,
@@ -78,34 +63,55 @@ class ProductController extends Controller
     }
 
     /**
-     * Store a newly created product.
+     * Get popular products (for customer menu highlighting).
+     */
+    public function popular(Request $request): JsonResponse
+    {
+        $products = Product::select($this->productSelectColumns())
+            ->with('category:id,name,description,quantity,is_active')
+            ->where('is_popular', true)
+            ->where('is_available', true)
+            ->orderBy('name')
+            ->get();
+
+        $serializedProducts = $products->map(fn (Product $p) => $this->serializeProduct($p));
+
+        return response()->json([
+            'data' => $serializedProducts,
+            'current_page' => 1,
+            'last_page' => 1,
+            'per_page' => $serializedProducts->count(),
+            'total' => $serializedProducts->count(),
+        ]);
+    }
+
+    /**
+     * Toggle product as popular.
+     */
+    public function togglePopular(Request $request, Product $product): JsonResponse
+    {
+        $request->validate([
+            'is_popular' => 'required|boolean',
+        ]);
+
+        $product->update(['is_popular' => $request->boolean('is_popular')]);
+        $product->load('category');
+
+        $this->clearProductsCache();
+
+        return response()->json($this->serializeProduct($product));
+    }
+
+    /**
+     * Create product.
      */
     public function store(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'category_id' => 'required|exists:categories,id',
-            'name' => 'required|string|max:255',
-            'sku' => 'nullable|string|max:100',
-            'price_small' => 'required|numeric|min:0',
-            'price_medium' => 'required|numeric|min:0',
-            'price_large' => 'required|numeric|min:0',
-            'image' => 'nullable',
-            'image_file' => 'nullable|file|mimes:jpeg,png,gif,webp,svg|max:5120',
-            'image_url' => 'nullable|string|url',
-            'is_available' => 'nullable',
-        ]);
+        $validated = $this->validateProductRequest($request);
 
-        // Convert is_available to boolean (handles JSON boolean, FormData string "true"/"false")
-        if (isset($validated['is_available'])) {
-            $v = $validated['is_available'];
-            $validated['is_available'] = is_bool($v) ? $v : in_array($v, ['true', '1', 'on', 'yes'], true);
-        } else {
-            $validated['is_available'] = true;
-        }
-
-        // Handle image upload
-        $imagePath = $this->handleImageUpload($request);
-
+        // Handle image
+        $imagePath = $this->imageService->handleUpload($request, 'image_file');
+        
         $productData = [
             'category_id' => $validated['category_id'],
             'name' => $validated['name'],
@@ -114,28 +120,28 @@ class ProductController extends Controller
             'price_medium' => $validated['price_medium'],
             'price_large' => $validated['price_large'],
             'is_available' => $validated['is_available'] ?? true,
+            'is_popular' => $validated['is_popular'] ?? false,
         ];
 
         // Set image - priority: uploaded file > URL > existing
         if ($imagePath) {
             $productData['image'] = $imagePath;
-        } elseif (isset($validated['image_url']) && $validated['image_url']) {
+        } elseif (!empty($validated['image_url'])) {
             $productData['image'] = $validated['image_url'];
-        } elseif (isset($validated['image']) && $validated['image']) {
+        } elseif (!empty($validated['image'])) {
             $productData['image'] = $validated['image'];
         }
 
         $product = Product::create($productData);
         $product->load('category');
 
-        // Clear product cache on create
         $this->clearProductsCache();
 
         return response()->json($this->serializeProduct($product), 201);
     }
 
     /**
-     * Display the specified product.
+     * Get single product.
      */
     public function show(Product $product): JsonResponse
     {
@@ -144,151 +150,107 @@ class ProductController extends Controller
     }
 
     /**
-     * Update the specified product.
+     * Update product.
      */
     public function update(Request $request, Product $product): JsonResponse
     {
-        $validated = $request->validate([
-            'category_id' => 'sometimes|required|exists:categories,id',
-            'name' => 'sometimes|required|string|max:255',
-            'sku' => 'nullable|string|max:100',
-            'price_small' => 'sometimes|required|numeric|min:0',
-            'price_medium' => 'sometimes|required|numeric|min:0',
-            'price_large' => 'sometimes|required|numeric|min:0',
-            'image' => 'nullable|string',
-            'image_file' => 'nullable|file|mimes:jpeg,png,gif,webp,svg|max:5120',
-            'image_url' => 'nullable|string|url',
-            'is_available' => 'nullable',
-        ]);
-
-        // Convert is_available to boolean (handles JSON boolean, FormData string "true"/"false")
-        if (isset($validated['is_available'])) {
-            $v = $validated['is_available'];
-            $validated['is_available'] = is_bool($v) ? $v : in_array($v, ['true', '1', 'on', 'yes'], true);
-        }
+        $validated = $this->validateProductRequest($request, true);
 
         $updateData = $validated;
 
         // Handle image upload
-        $imagePath = $this->handleImageUpload($request);
+        $imagePath = $this->imageService->handleUpload($request, 'image_file');
 
-        // Set image - priority: uploaded file > URL > existing string
         if ($imagePath) {
-            // Delete old image if it's a local file
-            if ($product->image && !str_starts_with($product->image, 'http')) {
-                $this->deleteImage($product->image);
-            }
+            // Delete old local image
+            $this->imageService->delete($product->image);
             $updateData['image'] = $imagePath;
-        } elseif (isset($validated['image_url']) && $validated['image_url']) {
-            // If URL is explicitly provided, use it
-            if ($product->image && !str_starts_with($product->image, 'http')) {
-                $this->deleteImage($product->image);
-            }
+        } elseif (!empty($validated['image_url'])) {
+            $this->imageService->delete($product->image);
             $updateData['image'] = $validated['image_url'];
         }
-        // If only 'image' is provided (string), use it
-        // If none provided, keep existing image
 
-        // Remove file and URL fields from update data (they're not model fields)
+        // Remove file fields from update
         unset($updateData['image_file'], $updateData['image_url']);
 
         $product->update($updateData);
         $product->load('category');
 
-        // Clear product cache on update
         $this->clearProductsCache();
 
         return response()->json($this->serializeProduct($product));
     }
 
     /**
-     * Remove the specified product.
+     * Delete product.
      */
     public function destroy(Product $product): JsonResponse
     {
-        // Delete associated image if it's a local file
-        if ($product->image && !str_starts_with($product->image, 'http')) {
-            $this->deleteImage($product->image);
-        }
+        // Delete associated image
+        $this->imageService->delete($product->image);
         
         $product->delete();
-        
-        // Clear product cache on delete
         $this->clearProductsCache();
         
         return response()->json(['message' => 'Product deleted successfully']);
     }
 
-    /**
-     * Handle image upload from file.
-     */
-    private function handleImageUpload(Request $request): ?string
+    // ==================== Private Helpers ====================
+
+    private function validateProductRequest(Request $request, bool $isUpdate = false): array
     {
-        if (!$request->hasFile('image_file')) {
-            return null;
+        $baseRules = [
+            'category_id' => $isUpdate ? 'sometimes|required|exists:categories,id' : 'required|exists:categories,id',
+            'name' => $isUpdate ? 'sometimes|required|string|max:255' : 'required|string|max:255',
+            'sku' => 'nullable|string|max:100',
+            'price_small' => $isUpdate ? 'sometimes|required|numeric|min:0' : 'required|numeric|min:0',
+            'price_medium' => $isUpdate ? 'sometimes|required|numeric|min:0' : 'required|numeric|min:0',
+            'price_large' => $isUpdate ? 'sometimes|required|numeric|min:0' : 'required|numeric|min:0',
+            'image' => 'nullable|string',
+            'image_file' => 'nullable|file|mimes:jpeg,png,gif,webp,svg|max:5120',
+            'image_url' => 'nullable|string|url',
+            'is_available' => 'nullable',
+            'is_popular' => 'nullable|boolean',
+            // Discount fields
+            'discount_type' => 'nullable|string|in:percentage,fixed,promo',
+            'discount_value' => 'nullable|numeric|min:0',
+            'discount_start_date' => 'nullable|date',
+            'discount_end_date' => 'nullable|date|after:discount_start_date',
+            'discount_active' => 'nullable|boolean',
+        ];
+
+        $validated = $request->validate($baseRules);
+
+        // Parse boolean
+        if (isset($validated['is_available'])) {
+            $validated['is_available'] = $this->parseBoolean($validated['is_available']);
+        } else {
+            $validated['is_available'] = true;
         }
 
-        $file = $request->file('image_file');
-
-        // Validate file type
-        if (!in_array($file->getMimeType(), self::ALLOWED_IMAGE_TYPES)) {
-            throw new \InvalidArgumentException('Invalid image type. Allowed types: JPEG, PNG, GIF, WebP, SVG.');
+        if (isset($validated['is_popular'])) {
+            $validated['is_popular'] = $this->parseBoolean($validated['is_popular']);
         }
 
-        // Validate file size
-        if ($file->getSize() > self::MAX_IMAGE_SIZE) {
-            throw new \InvalidArgumentException('Image size exceeds maximum allowed size of 5MB.');
+        if (isset($validated['discount_active'])) {
+            $validated['discount_active'] = $this->parseBoolean($validated['discount_active']);
         }
 
-        try {
-            // Store in public disk under product-images folder
-            $path = $file->store('product-images', 'public');
-            
-            Log::info('Product image uploaded successfully', [
-                'path' => $path,
-                'original_name' => $file->getClientOriginalName(),
-                'size' => $file->getSize()
-            ]);
-
-            return $path;
-        } catch (\Exception $e) {
-            Log::error('Failed to upload product image', [
-                'error' => $e->getMessage(),
-                'file' => $file->getClientOriginalName()
-            ]);
-            throw $e;
-        }
+        return $validated;
     }
 
-    /**
-     * Delete image file from storage.
-     */
-    private function deleteImage(?string $imagePath): void
+    private function serializeProduct(Product $product): array
     {
-        if (!$imagePath) {
-            return;
-        }
-
-        try {
-            if (Storage::disk('public')->exists($imagePath)) {
-                Storage::disk('public')->delete($imagePath);
-                Log::info('Product image deleted', ['path' => $imagePath]);
-            }
-        } catch (\Exception $e) {
-            Log::error('Failed to delete product image', [
-                'error' => $e->getMessage(),
-                'path' => $imagePath
-            ]);
-        }
-    }
-
-    /**
-     * Clear all products cache.
-     */
-    private function clearProductsCache(): void
-    {
-        Cache::forget('categories_list');
-        Cache::forever(self::CACHE_VERSION_KEY, ((int) Cache::get(self::CACHE_VERSION_KEY, 1)) + 1);
+        $payload = $product->toArray();
+        $payload['image_url'] = $this->imageService->buildUrl($product->image);
+        
+        // Add calculated discounted prices
+        $payload['has_discount'] = $product->hasActiveDiscount();
+        $payload['discounted_price_small'] = $product->getDiscountedPrice('small');
+        $payload['discounted_price_medium'] = $product->getDiscountedPrice('medium');
+        $payload['discounted_price_large'] = $product->getDiscountedPrice('large');
+        
+        return $payload;
     }
 
     private function buildProductsCacheKey(Request $request): string
@@ -315,53 +277,29 @@ class ProductController extends Controller
 
     private function productSelectColumns(): array
     {
-        return $this->filterExistingProductColumns([
-            'id',
-            'category_id',
-            'name',
-            'description',
-            'sku',
-            'price_small',
-            'price_medium',
-            'price_large',
-            'cost',
-            'supplier_id',
-            'image',
-            'is_available',
-            'created_at',
-            'updated_at',
+        return $this->filterExistingColumns('products', [
+            'id', 'category_id', 'name', 'description', 'sku',
+            'price_small', 'price_medium', 'price_large', 'cost',
+            'supplier_id', 'image', 'is_available', 'is_popular',
+            'discount_type', 'discount_value', 'discount_start_date', 'discount_end_date', 'discount_active',
+            'created_at', 'updated_at',
         ]);
     }
 
-    private function filterExistingProductColumns(array $columns): array
+    private function filterExistingColumns(string $table, array $columns): array
     {
-        static $availableColumns;
+        static $availableColumns = [];
 
-        if ($availableColumns === null) {
-            $availableColumns = array_flip(Schema::getColumnListing('products'));
+        if (!isset($availableColumns[$table])) {
+            $availableColumns[$table] = array_flip(Schema::getColumnListing($table));
         }
 
-        return array_values(array_filter($columns, fn (string $column) => isset($availableColumns[$column])));
+        return array_values(array_filter($columns, fn (string $c) => isset($availableColumns[$table][$c])));
     }
 
-    private function serializeProduct(Product $product): array
+    private function clearProductsCache(): void
     {
-        $payload = $product->toArray();
-        $payload['image_url'] = $this->buildImageUrl($product->image);
-
-        return $payload;
-    }
-
-    private function buildImageUrl(?string $image): ?string
-    {
-        if (!$image) {
-            return null;
-        }
-
-        if (str_starts_with($image, 'http://') || str_starts_with($image, 'https://') || str_starts_with($image, 'data:')) {
-            return $image;
-        }
-
-        return request()->getSchemeAndHttpHost() . '/media/' . ltrim($image, '/');
+        Cache::forget('categories_list');
+        Cache::forever(self::CACHE_VERSION_KEY, ((int) Cache::get(self::CACHE_VERSION_KEY, 1)) + 1);
     }
 }

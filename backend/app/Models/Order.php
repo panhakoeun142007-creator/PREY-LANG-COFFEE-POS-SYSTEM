@@ -22,6 +22,7 @@ class Order extends Model
         'total_price',
         'payment_type',
         'queue_number',
+        'cancellation_message',
     ];
 
     /**

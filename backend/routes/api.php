@@ -135,6 +135,8 @@ Route::middleware('staff.api')->group(function () {
     Route::get('/settings', [SettingController::class, 'show'])->middleware('api.cache');
     // Products - allow both admin and staff to manage
     Route::apiResource('products', ProductController::class);
+    Route::get('/products/popular', [ProductController::class, 'popular']);
+    Route::patch('/products/{product}/popular', [ProductController::class, 'togglePopular']);
     Route::get('/recipes-board', [RecipeController::class, 'boardIndex']);
     Route::post('/recipes-board', [RecipeController::class, 'boardStore']);
     Route::put('/recipes-board/{product}', [RecipeController::class, 'boardUpdate']);
@@ -150,6 +152,7 @@ Route::middleware('api.cache')->group(function () {
 // Public customer-facing routes (no auth required)
 Route::prefix('customer')->group(function () {
     Route::get('/products', [ProductController::class, 'index']);
+    Route::get('/products/popular', [ProductController::class, 'popular']);
     Route::get('/categories', [CategoryController::class, 'index']);
     Route::post('/orders', [OrderController::class, 'customerStore']);
     Route::get('/orders/{order}', [OrderController::class, 'customerStatus']);

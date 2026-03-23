@@ -144,7 +144,19 @@ export interface ApiProduct {
   cost?: number | string | null;
   supplier_id?: number | null;
   is_available?: boolean;
+  is_popular?: boolean;
   is_active?: boolean;
+  // Discount fields
+  discount_type?: 'percentage' | 'fixed' | 'promo' | null;
+  discount_value?: number | null;
+  discount_start_date?: string | null;
+  discount_end_date?: string | null;
+  discount_active?: boolean;
+  // Calculated discounted prices
+  has_discount?: boolean;
+  discounted_price_small?: number;
+  discounted_price_medium?: number;
+  discounted_price_large?: number;
   created_at?: string;
   updated_at?: string;
   category?: { id: number; name: string };
@@ -720,8 +732,14 @@ export const updateOrder = async (id: number, data: any): Promise<ApiOrder> =>
   });
 
 export const fetchLiveOrders = async (): Promise<LiveOrder[]> => apiGetCached("/orders/live", 4000);
-export const updateOrderStatus = async (id: number, status: string): Promise<LiveOrder> =>
-  apiRequest(`/orders/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }).then((payload) => {
+export const updateOrderStatus = async (id: number, status: string, cancellationMessage?: string): Promise<LiveOrder> =>
+  apiRequest(`/orders/${id}/status`, { 
+    method: "PATCH", 
+    body: JSON.stringify({ 
+      status,
+      cancellation_message: cancellationMessage || null
+    }) 
+  }).then((payload) => {
     clearApiCache((key) => key.includes("/orders") || key.includes("/dashboard") || key.includes("/notifications"));
     return payload;
   });
@@ -772,6 +790,15 @@ export const fetchCustomerCategories = async (): Promise<CategoryApiItem[]> =>
 export const fetchCustomerProducts = async (): Promise<PaginatedResponse<ApiProduct>> =>
   apiGetCached("/customer/products", 30000);
 
+export const fetchCustomerPopularProducts = async (): Promise<PaginatedResponse<ApiProduct>> =>
+  apiGetCached("/customer/products/popular", 30000);
+
+export const fetchPopularProducts = async (): Promise<PaginatedResponse<ApiProduct>> =>
+  apiGetCached("/products/popular", 30000);
+
+export const toggleProductPopular = async (id: number, isPopular: boolean): Promise<ApiProduct> =>
+  apiRequest(`/products/${id}/popular`, { method: "PATCH", body: JSON.stringify({ is_popular: isPopular }) });
+
 export const createCustomerOrder = async (data: {
   table_id: number;
   items: Array<{ product_id: number; size: string; qty: number; price: number }>;
@@ -785,6 +812,7 @@ export const fetchCustomerOrderStatus = async (orderId: number): Promise<{
   queue_number: number | null;
   table: string | null;
   updated_at: string;
+  cancellation_message: string | null;
 }> => apiGetCached(`/customer/orders/${orderId}`, 4000);
 
 export const markCustomerOrderPickedUp = async (orderId: number): Promise<ApiOrder> =>

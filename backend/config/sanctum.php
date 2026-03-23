@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'stateful' => explode(',', env('SANCTUM_STATEFUL_DOMAINS', 'localhost,127.0.0.1:5173,localhost:5173')),
+    'stateful' => explode(',', env('SANCTUM_STATEFUL_DOMAINS', 'localhost,127.0.0.1:5174,localhost:5174')),
     'guard' => ['web'],
     'expiration' => null,
     'token_prefix' => env('SANCTUM_TOKEN_PREFIX', ''),

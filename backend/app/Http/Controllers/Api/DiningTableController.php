@@ -16,18 +16,30 @@ class DiningTableController extends Controller
      *
      * @return array<string, mixed>
      */
+    private const CUSTOMER_APP_URL = 'http://localhost:5174';
+
     private function transform(DiningTable $table): array
     {
+        // Generate URL-based QR code if qr_code doesn't start with QR- (it's a URL, not a code)
+        $qrCode = $table->qr_code;
+        if ($qrCode && !str_starts_with($qrCode, 'QR-')) {
+            // Replace old port 5173 with current port 5174
+            $qrCode = str_replace('localhost:5173', 'localhost:5174', $qrCode);
+        } elseif (!$qrCode) {
+            // Generate new URL-based QR code
+            $qrCode = self::CUSTOMER_APP_URL . '/menu?table=' . $table->id . '&name=' . urlencode($table->name);
+        }
+
         return [
             'id' => (int) $table->id,
             'name' => $table->name,
             'capacity' => (int) $table->seats,
             'status' => $table->is_active ? 'active' : 'inactive',
-            'qrCode' => $table->qr_code ?: ('QR-TBL-' . str_pad((string) $table->id, 3, '0', STR_PAD_LEFT)),
+            'qrCode' => $qrCode,
             // Keep raw fields for compatibility with existing consumers.
             'seats' => (int) $table->seats,
             'is_active' => (bool) $table->is_active,
-            'qr_code' => $table->qr_code,
+            'qr_code' => $qrCode,
             'db_status' => $table->status,
         ];
     }
@@ -84,13 +96,21 @@ class DiningTableController extends Controller
         }
 
         $seats = $validated['capacity'] ?? $validated['seats'] ?? 2;
+        
+        // Create table first to get ID
         $table = DiningTable::create([
             'name' => $validated['name'],
             'seats' => $seats,
             'status' => $validated['status'] ?? 'available',
             'is_active' => $validated['is_active'] ?? true,
-            'qr_code' => $validated['qr_code'] ?? ('QR-' . Str::upper(Str::random(10))),
+            'qr_code' => $validated['qr_code'] ?? '', // Temporary, will update below
         ]);
+        
+        // Generate URL-based QR code for customer app
+        if (empty($validated['qr_code'])) {
+            $table->qr_code = self::CUSTOMER_APP_URL . '/menu?table=' . $table->id . '&name=' . urlencode($table->name);
+            $table->save();
+        }
 
         return response()->json($this->transform($table), 201);
     }

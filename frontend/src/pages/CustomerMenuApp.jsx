@@ -84,6 +84,7 @@ export default function CustomerMenuApp() {
     return localStorage.getItem("customer-theme") === "dark" ? "dark" : "light";
   });
   const [orderStatus, setOrderStatus] = useState(null);
+  const [cancellationMessage, setCancellationMessage] = useState(null);
   const [paymentCompleted, setPaymentCompleted] = useState(false);
   const [pendingPaymentMethod, setPendingPaymentMethod] = useState(() => {
     const s = readStoredState();
@@ -360,6 +361,12 @@ export default function CustomerMenuApp() {
         setOrderStatus(
           typeof data?.status === "string" ? data.status.toLowerCase() : "pending"
         );
+        // Get cancellation message if order is cancelled
+        if (data?.status?.toLowerCase() === "cancelled") {
+          setCancellationMessage(data.cancellation_message || "Sorry For Your Order Now We're not available");
+        } else {
+          setCancellationMessage(null);
+        }
       } catch (error) {
         console.error("Error fetching order status:", error);
       }
@@ -368,7 +375,7 @@ export default function CustomerMenuApp() {
     void loadOrderStatus();
     const interval = setInterval(() => {
       void loadOrderStatus();
-    }, 15000);
+    }, 5000);
 
     return () => {
       active = false;
@@ -377,8 +384,15 @@ export default function CustomerMenuApp() {
   }, [lastOrderId]);
 
   useEffect(() => {
+    // Only navigate to ready page if order is completed successfully (not cancelled)
     if (orderStatus === "ready" || orderStatus === "completed") {
       setCurrentPage("ready");
+    }
+    // Handle cancelled orders - show message but stay on order-confirmed page
+    // Do NOT show payment receipt for cancelled orders
+    if (orderStatus === "cancelled") {
+      setCancellationMessage((prev) => prev || "Sorry For Your Order Now We're not available");
+      // Don't navigate away - keep them on order-confirmed page with cancellation message
     }
   }, [orderStatus]);
 
@@ -450,6 +464,7 @@ export default function CustomerMenuApp() {
             setCurrentPage("menu");
           }}
           currentStage={currentStage}
+          cancellationMessage={cancellationMessage}
         />
       )}
       {effectivePage === "qr-payment" && (

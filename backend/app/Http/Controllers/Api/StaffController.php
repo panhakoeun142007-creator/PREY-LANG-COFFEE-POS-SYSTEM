@@ -2,105 +2,71 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
 use App\Models\Staff;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
-class StaffController extends Controller
+/**
+ * Staff management controller.
+ */
+class StaffController extends BaseController
 {
-    private ?Staff $resolvedCurrentStaff = null;
-
-    private bool $didResolveCurrentStaff = false;
+    private ?Staff $currentStaff = null;
+    private bool $staffResolved = false;
 
     /**
-     * Get current authenticated staff member.
+     * Get current authenticated staff.
      */
     public function me(): JsonResponse
     {
         $staff = $this->resolveCurrentStaff();
-
+        
         if (!$staff) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return $this->error('Unauthorized', 401);
         }
 
         return response()->json($this->serializeStaff($staff));
     }
 
     /**
-     * Update current staff member's profile image only.
-     * Staff can only upload profile image, cannot change name or email.
+     * Update current staff profile image.
      */
     public function updateMyProfile(Request $request): JsonResponse
     {
         $staff = $this->resolveCurrentStaff();
-
+        
         if (!$staff) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return $this->error('Unauthorized', 401);
         }
 
-        // Only allow profile_image update - name and email cannot be changed by staff
         $validated = $request->validate([
             'profile_image' => ['nullable', 'image', 'max:5120'],
             'remove_profile_image' => ['sometimes', 'boolean'],
         ]);
 
-        $existingProfileImage = (string) ($staff->getOriginal('profile_image') ?? '');
+        $existingImage = (string) $staff->getOriginal('profile_image') ?? '';
 
+        // Handle removal
         if (($validated['remove_profile_image'] ?? false) === true) {
-            if ($existingProfileImage !== '' && !str_starts_with($existingProfileImage, 'data:')) {
-                Storage::disk('public')->delete($existingProfileImage);
-            }
+            $this->imageService->delete($existingImage);
             $staff->profile_image = null;
             $staff->save();
         }
 
+        // Handle new upload
         if ($request->hasFile('profile_image')) {
             try {
-                $file = $request->file('profile_image');
-                if ($file) {
-                    // Validate file type
-                    $allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-                    $mime = $file->getClientMimeType();
-                    if (!in_array($mime, $allowedMimes)) {
-                        return response()->json([
-                            'message' => 'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.',
-                        ], 422);
-                    }
-
-                    $extension = $file->extension() ?: $file->guessExtension() ?: 'jpg';
-                    $filename = Str::uuid()->toString() . '.' . $extension;
-                    $path = $file->storePubliclyAs("profile-images/staffs/{$staff->id}", $filename, 'public');
-
-                    if ($path) {
-                        if ($existingProfileImage !== '' && !str_starts_with($existingProfileImage, 'data:')) {
-                            Storage::disk('public')->delete($existingProfileImage);
-                        }
-                        $staff->profile_image = $path;
-                        $staff->save();
-                    } else {
-                        Log::error('Failed to store staff profile image', [
-                            'staff_id' => $staff->id,
-                            'file' => $filename,
-                        ]);
-                        return response()->json([
-                            'message' => 'Failed to store profile image. Please try again.',
-                        ], 500);
-                    }
+                $newPath = $this->imageService->handleProfileUpload($request, $staff->id, 'staffs');
+                
+                if ($newPath) {
+                    $this->imageService->delete($existingImage);
+                    $staff->profile_image = $newPath;
+                    $staff->save();
                 }
             } catch (\Exception $e) {
-                Log::error('Staff profile image upload error', [
-                    'staff_id' => $staff->id,
-                    'error' => $e->getMessage(),
-                ]);
-                return response()->json([
-                    'message' => 'An error occurred while uploading the profile image: ' . $e->getMessage(),
-                ], 500);
+                return $this->error('Failed to upload profile image: ' . $e->getMessage(), 500);
             }
         }
 
@@ -108,13 +74,13 @@ class StaffController extends Controller
     }
 
     /**
-     * Display a listing of staff.
+     * List staff with pagination.
      */
     public function index(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'search' => ['nullable', 'string', 'max:120'],
-            'is_active' => ['nullable', 'in:0,1,true,false'],
+            'is_active' => ['nullable', 'boolean'],
             'page' => ['nullable', 'integer', 'min:1'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
@@ -123,9 +89,8 @@ class StaffController extends Controller
 
         if (!empty($validated['search'])) {
             $search = trim((string) $validated['search']);
-            $query->where(function ($inner) use ($search) {
-                $inner
-                    ->where('name', 'like', "%{$search}%")
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
                     ->orWhere('email', 'like', "%{$search}%");
             });
         }
@@ -134,18 +99,18 @@ class StaffController extends Controller
             $query->where('is_active', $request->boolean('is_active'));
         }
 
-        $perPage = isset($validated['per_page']) ? (int) $validated['per_page'] : 20;
+        $perPage = (int) ($validated['per_page'] ?? 20);
 
         $paginator = $query->paginate($perPage);
         $paginator->setCollection(
-            $paginator->getCollection()->map(fn (Staff $staff) => $this->serializeStaff($staff))
+            $paginator->getCollection()->map(fn (Staff $s) => $this->serializeStaff($s))
         );
 
         return response()->json($paginator);
     }
 
     /**
-     * Store a newly created staff.
+     * Create new staff.
      */
     public function store(Request $request): JsonResponse
     {
@@ -158,56 +123,33 @@ class StaffController extends Controller
             'profile_image' => ['nullable', 'image', 'max:5120'],
         ]);
 
-        if ($request->hasFile('profile_image')) {
-            try {
-                $file = $request->file('profile_image');
-                if ($file) {
-                    // Validate file type
-                    $allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-                    $mime = $file->getClientMimeType();
-                    if (!in_array($mime, $allowedMimes)) {
-                        return response()->json([
-                            'message' => 'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.',
-                        ], 422);
-                    }
+        // Store plain password for display
+        $validated['password_plain'] = $validated['password'];
 
-                    $extension = $file->extension() ?: $file->guessExtension() ?: 'jpg';
-                    $filename = Str::uuid()->toString() . '.' . $extension;
-                    
-                    // Create staff first to get ID, then store image
-                    $validated['password_plain'] = $validated['password'];
-                    $staff = Staff::create($validated);
-                    
-                    $path = $file->storePubliclyAs("profile-images/staffs/{$staff->id}", $filename, 'public');
-                    if ($path) {
-                        $staff->profile_image = $path;
-                        $staff->save();
-                    } else {
-                        Log::error('Failed to store staff profile image during creation', [
-                            'staff_id' => $staff->id,
-                            'file' => $filename,
-                        ]);
-                    }
+        // Handle profile image
+        if ($request->hasFile('profile_image')) {
+            $staff = Staff::create($validated);
+            
+            try {
+                $path = $this->imageService->handleProfileUpload($request, $staff->id, 'staffs');
+                if ($path) {
+                    $staff->profile_image = $path;
+                    $staff->save();
                 }
             } catch (\Exception $e) {
-                Log::error('Staff profile image upload error during creation', [
-                    'error' => $e->getMessage(),
-                ]);
+                // Log but continue - staff was created
             }
         } else {
-            $validated['password_plain'] = $validated['password'];
             $staff = Staff::create($validated);
         }
-        
-        // Clear staff cache
-        Cache::forget('staffs_list');
-        Cache::forget('staffs_list_paginated');
+
+        $this->clearStaffCache();
 
         return response()->json($this->serializeStaff($staff), 201);
     }
 
     /**
-     * Display the specified staff.
+     * Get single staff.
      */
     public function show(Staff $staff): JsonResponse
     {
@@ -215,7 +157,7 @@ class StaffController extends Controller
     }
 
     /**
-     * Update the specified staff.
+     * Update staff.
      */
     public function update(Request $request, Staff $staff): JsonResponse
     {
@@ -228,127 +170,72 @@ class StaffController extends Controller
             'profile_image' => ['nullable', 'image', 'max:5120'],
         ]);
 
-        if (array_key_exists('password', $validated) && !$validated['password']) {
+        // Handle password
+        if (empty($validated['password'])) {
             unset($validated['password']);
-        }
-
-        if (array_key_exists('password', $validated)) {
+        } else {
             $validated['password_plain'] = $validated['password'];
         }
 
+        // Handle profile image
         if ($request->hasFile('profile_image')) {
+            $existingImage = (string) $staff->getRawOriginal('profile_image') ?? '';
+            
             try {
-                $file = $request->file('profile_image');
-                if ($file) {
-                    // Validate file type
-                    $allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-                    $mime = $file->getClientMimeType();
-                    if (!in_array($mime, $allowedMimes)) {
-                        return response()->json([
-                            'message' => 'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.',
-                        ], 422);
-                    }
-
-                    $existingProfileImage = (string) ($staff->getRawOriginal('profile_image') ?? '');
-                    
-                    $extension = $file->extension() ?: $file->guessExtension() ?: 'jpg';
-                    $filename = Str::uuid()->toString() . '.' . $extension;
-                    $path = $file->storePubliclyAs("profile-images/staffs/{$staff->id}", $filename, 'public');
-
-                    if ($path) {
-                        if ($existingProfileImage !== '' && !str_starts_with($existingProfileImage, 'data:')) {
-                            Storage::disk('public')->delete($existingProfileImage);
-                        }
-                        $validated['profile_image'] = $path;
-                    } else {
-                        Log::error('Failed to store staff profile image during update', [
-                            'staff_id' => $staff->id,
-                            'file' => $filename,
-                        ]);
-                        return response()->json([
-                            'message' => 'Failed to store profile image. Please try again.',
-                        ], 500);
-                    }
+                $newPath = $this->imageService->handleProfileUpload($request, $staff->id, 'staffs');
+                if ($newPath) {
+                    $this->imageService->delete($existingImage);
+                    $validated['profile_image'] = $newPath;
                 }
             } catch (\Exception $e) {
-                Log::error('Staff profile image upload error during update', [
-                    'staff_id' => $staff->id,
-                    'error' => $e->getMessage(),
-                ]);
-                return response()->json([
-                    'message' => 'An error occurred while uploading the profile image: ' . $e->getMessage(),
-                ], 500);
+                return $this->error('Failed to upload profile image: ' . $e->getMessage(), 500);
             }
         }
 
         $staff->update($validated);
-        
-        // Clear staff cache
-        Cache::forget('staffs_list');
-        Cache::forget('staffs_list_paginated');
+        $this->clearStaffCache();
 
         return response()->json($this->serializeStaff($staff->fresh()));
     }
 
     /**
-     * Remove the specified staff.
+     * Delete staff.
      */
     public function destroy(Staff $staff): JsonResponse
     {
         $staff->delete();
-
-        // Clear staff cache
-        Cache::forget('staffs_list');
-        Cache::forget('staffs_list_paginated');
+        $this->clearStaffCache();
 
         return response()->json(['message' => 'Staff deleted']);
     }
 
+    // ==================== Private Helpers ====================
+
     private function serializeStaff(Staff $staff): array
     {
         $payload = $staff->toArray();
-        $payload['profile_image_url'] = null;
-        $payload['role'] = 'staff'; // Add role for frontend
+        $payload['profile_image_url'] = $this->imageService->buildUrl($staff->profile_image);
+        $payload['role'] = 'staff';
         $payload['initials'] = $this->getInitials($staff->name);
 
-        if ($staff->profile_image) {
-            if (str_starts_with($staff->profile_image, 'data:')) {
-                $payload['profile_image_url'] = $staff->profile_image;
-            } else {
-                $base = request()->getSchemeAndHttpHost();
-                $payload['profile_image_url'] = $base . '/media/' . ltrim($staff->profile_image, '/');
-            }
-        }
-        
-        // Handle encrypted password_plain that may fail to decrypt
+        // Handle encrypted password
         try {
             $payload['password_plain'] = $staff->password_plain;
         } catch (\Illuminate\Contracts\Encryption\DecryptException $e) {
-            // If decryption fails, try to get the raw value
             $payload['password_plain'] = $staff->getRawOriginal('password_plain') ?? '';
         }
 
         return $payload;
     }
 
-    private function getInitials(string $name): string
-    {
-        $words = explode(' ', trim($name));
-        if (count($words) >= 2) {
-            return strtoupper(substr($words[0], 0, 1) . substr($words[1], 0, 1));
-        }
-        return strtoupper(substr($name, 0, 2));
-    }
-
     private function resolveCurrentStaff(): ?Staff
     {
-        if ($this->didResolveCurrentStaff) {
-            return $this->resolvedCurrentStaff;
+        if ($this->staffResolved) {
+            return $this->currentStaff;
         }
 
-        $this->didResolveCurrentStaff = true;
+        $this->staffResolved = true;
 
-        // Get staff ID from cache token
         $token = request()->bearerToken();
         if (!$token) {
             return null;
@@ -361,9 +248,15 @@ class StaffController extends Controller
             return null;
         }
 
-        return $this->resolvedCurrentStaff = Staff::query()
+        return $this->currentStaff = Staff::query()
             ->where('id', $cached['subject_id'])
             ->where('is_active', true)
             ->first();
+    }
+
+    private function clearStaffCache(): void
+    {
+        Cache::forget('staffs_list');
+        Cache::forget('staffs_list_paginated');
     }
 }

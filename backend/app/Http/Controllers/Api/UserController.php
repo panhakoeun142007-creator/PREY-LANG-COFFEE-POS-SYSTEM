@@ -2,30 +2,28 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
-class UserController extends Controller
+/**
+ * Admin user management controller.
+ */
+class UserController extends BaseController
 {
-    private ?User $resolvedCurrentUser = null;
-
-    private bool $didResolveCurrentUser = false;
+    private ?User $currentUser = null;
+    private bool $userResolved = false;
 
     /**
-     * Get the current authenticated user.
+     * Get current authenticated admin.
      */
     public function me(): JsonResponse
     {
         $user = $this->resolveCurrentUser();
-
+        
         if (!$user) {
             return $this->unauthorizedResponse();
         }
@@ -34,27 +32,25 @@ class UserController extends Controller
     }
 
     /**
-     * Update current admin account.
+     * Update current admin profile.
      */
     public function updateMe(Request $request): JsonResponse
     {
         $user = $this->resolveCurrentUser();
+        
         if (!$user) {
             return $this->unauthorizedResponse();
         }
 
-        $validated = [];
-
-        // Allow partial updates - only validate fields that are provided
+        // Build dynamic validation rules
         $rules = [];
+        
         if ($request->has('name')) {
             $rules['name'] = ['required', 'string', 'max:255'];
         }
         if ($request->has('email')) {
             $rules['email'] = [
-                'required',
-                'email',
-                'max:255',
+                'required', 'email', 'max:255',
                 Rule::unique('users', 'email')->ignore($user->id),
             ];
         }
@@ -65,12 +61,11 @@ class UserController extends Controller
             $rules['remove_profile_image'] = ['boolean'];
         }
 
-        // Only validate if there are rules (at least one field provided)
         if (!empty($rules)) {
             $validated = $request->validate($rules);
         }
 
-        // Update only the fields that were provided
+        // Update name and email
         if ($request->has('name')) {
             $user->name = $request->input('name');
         }
@@ -78,54 +73,25 @@ class UserController extends Controller
             $user->email = $request->input('email');
         }
 
-        $existingProfileImage = (string) ($user->getOriginal('profile_image') ?? '');
+        $existingImage = (string) $user->getOriginal('profile_image') ?? '';
 
+        // Handle image removal
         if (($validated['remove_profile_image'] ?? false) === true) {
-            if ($existingProfileImage !== '' && !str_starts_with($existingProfileImage, 'data:')) {
-                Storage::disk('public')->delete($existingProfileImage);
-            }
+            $this->imageService->delete($existingImage);
             $user->profile_image = null;
         }
 
+        // Handle new image upload
         if ($request->hasFile('profile_image')) {
             try {
-                $file = $request->file('profile_image');
-                if ($file) {
-                    // Validate file type
-                    $allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-                    if (!in_array($file->getClientMimeType(), $allowedMimes)) {
-                        return response()->json([
-                            'message' => 'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.',
-                        ], 422);
-                    }
-
-                    $extension = $file->extension() ?: $file->guessExtension() ?: 'jpg';
-                    $filename = Str::uuid()->toString() . '.' . $extension;
-                    $path = $file->storePubliclyAs("profile-images/users/{$user->id}", $filename, 'public');
-
-                    if ($path) {
-                        if ($existingProfileImage !== '' && !str_starts_with($existingProfileImage, 'data:')) {
-                            Storage::disk('public')->delete($existingProfileImage);
-                        }
-                        $user->profile_image = $path;
-                    } else {
-                        Log::error('Failed to store profile image', [
-                            'user_id' => $user->id,
-                            'file' => $filename,
-                        ]);
-                        return response()->json([
-                            'message' => 'Failed to store profile image. Please try again.',
-                        ], 500);
-                    }
+                $newPath = $this->imageService->handleProfileUpload($request, $user->id, 'users');
+                
+                if ($newPath) {
+                    $this->imageService->delete($existingImage);
+                    $user->profile_image = $newPath;
                 }
             } catch (\Exception $e) {
-                Log::error('Profile image upload error', [
-                    'user_id' => $user->id,
-                    'error' => $e->getMessage(),
-                ]);
-                return response()->json([
-                    'message' => 'An error occurred while uploading the profile image: ' . $e->getMessage(),
-                ], 500);
+                return $this->error('Failed to upload profile image: ' . $e->getMessage(), 500);
             }
         }
 
@@ -134,25 +100,27 @@ class UserController extends Controller
         return response()->json($this->serializeUser($user));
     }
 
-    /**
-     * Get user initials from name.
-     */
-    private function getInitials(string $name): string
+    // ==================== Private Helpers ====================
+
+    private function serializeUser(User $user): array
     {
-        $words = explode(' ', trim($name));
-        if (count($words) >= 2) {
-            return strtoupper(substr($words[0], 0, 1) . substr($words[1], 0, 1));
-        }
-        return strtoupper(substr($name, 0, 2));
+        return [
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'role' => $user->role ?? 'admin',
+            'initials' => $this->getInitials($user->name),
+            'profile_image_url' => $this->imageService->buildUrl($user->profile_image),
+        ];
     }
 
     private function resolveCurrentUser(): ?User
     {
-        if ($this->didResolveCurrentUser) {
-            return $this->resolvedCurrentUser;
+        if ($this->userResolved) {
+            return $this->currentUser;
         }
 
-        $this->didResolveCurrentUser = true;
+        $this->userResolved = true;
 
         $token = request()->bearerToken();
         if (!$token) {
@@ -160,6 +128,8 @@ class UserController extends Controller
         }
 
         $session = Cache::get("api_auth_token:{$token}");
+        
+        // Handle legacy token format (integer)
         if (is_int($session) || (is_string($session) && ctype_digit($session))) {
             $session = [
                 'subject_type' => 'admin',
@@ -183,45 +153,7 @@ class UserController extends Controller
             return null;
         }
 
-        return $this->resolvedCurrentUser = $user;
-    }
-
-    private function serializeUser(User $user): array
-    {
-        $imageUrl = null;
-        if ($user->profile_image) {
-            if (str_starts_with($user->profile_image, 'data:')) {
-                $imageUrl = $user->profile_image;
-            } else {
-                $base = request()->getSchemeAndHttpHost();
-                $imageUrl = $base . '/media/' . ltrim($user->profile_image, '/');
-            }
-        }
-
-        return [
-            'id' => $user->id,
-            'name' => $user->name,
-            'email' => $user->email,
-            'role' => $user->role ?? 'admin',
-            'initials' => $this->getInitials($user->name),
-            'profile_image_url' => $imageUrl,
-        ];
-    }
-
-    private function unauthorizedResponse(): JsonResponse
-    {
-        $hasAdminColumns = $this->hasAdminColumns();
-        $hasActiveAdmin = $hasAdminColumns
-            ? User::query()->where('role', 'admin')->where('is_active', true)->exists()
-            : User::query()->exists();
-
-        if (!$hasActiveAdmin) {
-            return response()->json([
-                'message' => 'No active admin account found. Run: php artisan migrate --seed',
-            ], 401);
-        }
-
-        return response()->json(['message' => 'Unauthorized'], 401);
+        return $this->currentUser = $user;
     }
 
     private function hasAdminColumns(): bool
@@ -234,5 +166,19 @@ class UserController extends Controller
 
         return $hasAdminColumns;
     }
+
+    private function unauthorizedResponse(): JsonResponse
+    {
+        $hasAdminColumns = $this->hasAdminColumns();
+        
+        $hasActiveAdmin = $hasAdminColumns
+            ? User::query()->where('role', 'admin')->where('is_active', true)->exists()
+            : User::query()->exists();
+
+        if (!$hasActiveAdmin) {
+            return $this->error('No active admin account found. Run: php artisan migrate --seed', 401);
+        }
+
+        return $this->error('Unauthorized', 401);
+    }
 }
- 
