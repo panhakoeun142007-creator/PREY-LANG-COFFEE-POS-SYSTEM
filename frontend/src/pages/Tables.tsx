@@ -24,12 +24,14 @@ import {
 } from "../services/api";
 
 function createQrCode(id: number, name: string): string {
-  const baseUrl = window.location.origin;
+  const configured = (import.meta.env.VITE_CUSTOMER_APP_URL as string | undefined) || "";
+  const baseUrl = (configured.trim() ? configured : window.location.origin).replace(/\/+$/, "");
   return `${baseUrl}/menu?table=${id}&name=${encodeURIComponent(name)}`;
 }
 
 function getQrValue(table: ApiTable): string {
-  return table.qrCode ?? table.qr_code ?? "No QR";
+  // Prefer a real URL when available (backend now returns qrUrl/qr_url even if qrCode is "QR-...").
+  return table.qrUrl ?? table.qr_url ?? table.qrCode ?? table.qr_code ?? "No QR";
 }
 
 export default function Tables() {

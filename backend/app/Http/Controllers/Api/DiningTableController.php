@@ -16,30 +16,54 @@ class DiningTableController extends Controller
      *
      * @return array<string, mixed>
      */
-    private const CUSTOMER_APP_URL = 'http://localhost:5174';
+    private const CUSTOMER_APP_URL_FALLBACK = 'http://localhost:5174';
+
+    private function customerAppUrl(): string
+    {
+        $configured = (string) (config('app.customer_app_url') ?? '');
+        $value = trim($configured) !== '' ? $configured : self::CUSTOMER_APP_URL_FALLBACK;
+        return rtrim($value, '/');
+    }
+
+    private function buildCustomerMenuUrl(DiningTable $table): string
+    {
+        return $this->customerAppUrl()
+            . '/menu?table='
+            . $table->id
+            . '&name='
+            . urlencode($table->name);
+    }
+
+    private function isAbsoluteUrl(?string $value): bool
+    {
+        if (!$value) {
+            return false;
+        }
+
+        return Str::startsWith($value, ['http://', 'https://']);
+    }
 
     private function transform(DiningTable $table): array
     {
-        // Generate URL-based QR code if qr_code doesn't start with QR- (it's a URL, not a code)
-        $qrCode = $table->qr_code;
-        if ($qrCode && !str_starts_with($qrCode, 'QR-')) {
-            // Replace old port 5173 with current port 5174
-            $qrCode = str_replace('localhost:5173', 'localhost:5174', $qrCode);
-        } elseif (!$qrCode) {
-            // Generate new URL-based QR code
-            $qrCode = self::CUSTOMER_APP_URL . '/menu?table=' . $table->id . '&name=' . urlencode($table->name);
-        }
+        $qrRaw = $table->qr_code ?: null;
+        $qrUrl = $this->isAbsoluteUrl($qrRaw)
+            ? (string) $qrRaw
+            : $this->buildCustomerMenuUrl($table);
 
         return [
             'id' => (int) $table->id,
             'name' => $table->name,
             'capacity' => (int) $table->seats,
             'status' => $table->is_active ? 'active' : 'inactive',
-            'qrCode' => $qrCode,
+            // qrCode remains the raw value for compatibility (can be "QR-..." or a URL).
+            'qrCode' => $qrRaw ?? $qrUrl,
+            // qrUrl is always a URL that opens the customer menu.
+            'qrUrl' => $qrUrl,
+            'qr_url' => $qrUrl,
             // Keep raw fields for compatibility with existing consumers.
             'seats' => (int) $table->seats,
             'is_active' => (bool) $table->is_active,
-            'qr_code' => $qrCode,
+            'qr_code' => $qrRaw,
             'db_status' => $table->status,
         ];
     }
@@ -108,7 +132,7 @@ class DiningTableController extends Controller
         
         // Generate URL-based QR code for customer app
         if (empty($validated['qr_code'])) {
-            $table->qr_code = self::CUSTOMER_APP_URL . '/menu?table=' . $table->id . '&name=' . urlencode($table->name);
+            $table->qr_code = $this->buildCustomerMenuUrl($table);
             $table->save();
         }
 

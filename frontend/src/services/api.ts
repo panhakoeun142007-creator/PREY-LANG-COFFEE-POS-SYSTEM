@@ -209,6 +209,8 @@ export interface ApiTable {
   capacity: number;
   status: string; // 'active' | 'inactive' (plus any legacy statuses)
   qrCode?: string;
+  qrUrl?: string;
+  qr_url?: string;
   seats?: number;
   is_active: boolean;
   qr_code?: string | null;
@@ -475,6 +477,10 @@ function toFormData(data: Record<string, unknown>): FormData {
     if (value === undefined || value === null) continue;
     if (value instanceof File) {
       fd.append(key, value);
+      continue;
+    }
+    if (typeof value === "boolean") {
+      fd.append(key, value ? "1" : "0");
       continue;
     }
     fd.append(key, String(value));

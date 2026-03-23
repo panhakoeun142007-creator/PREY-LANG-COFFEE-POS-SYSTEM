@@ -56,6 +56,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Customer App URL
+    |--------------------------------------------------------------------------
+    |
+    | This URL is used to generate customer-facing links (QR codes) that open
+    | the customer menu. In development you may set it to your Vite dev server
+    | URL, and in production to your deployed frontend URL.
+    |
+    */
+
+    'customer_app_url' => env('CUSTOMER_APP_URL', env('FRONTEND_URL')),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |

@@ -99,7 +99,6 @@ Route::delete('/recipe-logs/{id}', [RecipeLogController::class, 'destroy']);
 Route::middleware('staff.api')->group(function () {
     Route::get('/user/me', [UserController::class, 'me']);
     Route::post('/user/me', [UserController::class, 'updateMe']);
-    Route::apiResource('staffs', StaffController::class);
     Route::apiResource('tables', DiningTableController::class);
     Route::apiResource('ingredients', IngredientController::class);
     Route::apiResource('recipes', RecipeController::class);
@@ -113,6 +112,7 @@ Route::middleware('staff.api')->group(function () {
 // Admin-only routes
 Route::middleware('admin.api')->group(function () {
     Route::put('/settings', [SettingController::class, 'update']);
+    Route::apiResource('staffs', StaffController::class);
     Route::apiResource('categories', CategoryController::class)->except(['index', 'show']);
     Route::delete('/receipts/{order}', [ReceiptController::class, 'destroy']);
 });

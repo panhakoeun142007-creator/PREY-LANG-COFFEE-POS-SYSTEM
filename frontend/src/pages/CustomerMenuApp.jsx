@@ -5,7 +5,8 @@ import {
   fetchCustomerOrderStatus,
   markCustomerOrderPickedUp,
 } from "../services/api";
-import Customer, { getPriceForSize, getItemUnitPrice } from "./Customer";
+import Customer from "./Customer";
+import { getItemUnitPrice } from "../utils/pricing";
 import Cart from "./cart";
 import Detail from "./Detail";
 import Checkout from "./checkout";

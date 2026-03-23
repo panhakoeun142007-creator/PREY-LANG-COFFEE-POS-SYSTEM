@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\Staff;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rule;
 
@@ -78,6 +80,10 @@ class StaffController extends BaseController
      */
     public function index(Request $request): JsonResponse
     {
+        if ($guard = $this->requireAdmin()) {
+            return $guard;
+        }
+
         $validated = $request->validate([
             'search' => ['nullable', 'string', 'max:120'],
             'is_active' => ['nullable', 'boolean'],
@@ -114,6 +120,10 @@ class StaffController extends BaseController
      */
     public function store(Request $request): JsonResponse
     {
+        if ($guard = $this->requireAdmin()) {
+            return $guard;
+        }
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'email', 'max:255', Rule::unique('staffs', 'email')],
@@ -153,6 +163,10 @@ class StaffController extends BaseController
      */
     public function show(Staff $staff): JsonResponse
     {
+        if ($guard = $this->requireAdmin()) {
+            return $guard;
+        }
+
         return response()->json($this->serializeStaff($staff));
     }
 
@@ -161,6 +175,10 @@ class StaffController extends BaseController
      */
     public function update(Request $request, Staff $staff): JsonResponse
     {
+        if ($guard = $this->requireAdmin()) {
+            return $guard;
+        }
+
         $validated = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:120'],
             'email' => ['sometimes', 'required', 'email', 'max:255', Rule::unique('staffs', 'email')->ignore($staff->id)],
@@ -203,6 +221,10 @@ class StaffController extends BaseController
      */
     public function destroy(Staff $staff): JsonResponse
     {
+        if ($guard = $this->requireAdmin()) {
+            return $guard;
+        }
+
         $staff->delete();
         $this->clearStaffCache();
 
@@ -258,5 +280,19 @@ class StaffController extends BaseController
     {
         Cache::forget('staffs_list');
         Cache::forget('staffs_list_paginated');
+    }
+
+    private function requireAdmin(): ?JsonResponse
+    {
+        $user = Auth::user();
+        if (!$user instanceof User) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        if (($user->role ?? 'admin') !== 'admin') {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        return null;
     }
 }
