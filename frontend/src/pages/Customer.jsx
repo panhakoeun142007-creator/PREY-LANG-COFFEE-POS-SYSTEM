@@ -56,7 +56,7 @@ export function getPriceForSize(product, size) {
     if (s === "L") return Number.isFinite(discountedLarge) ? discountedLarge : 0;
     return Number.isFinite(discountedMedium) ? discountedMedium : 0;
   }
-  
+
   // Fall back to regular prices
   const small = parseFloat(product.price_small ?? product.price ?? 0);
   const medium = parseFloat(product.price_medium ?? product.price ?? 0);
@@ -243,7 +243,7 @@ function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", o
               </div>
             </div>
           </div>
-          
+
           <div className="navbar">
             <div className="logo-section">
               <img src={image} alt="Prey Lang Coffee Logo" />
@@ -290,7 +290,7 @@ function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", o
                 <div className="popular-products-media">
                   <img src={product.image} alt={product.name} loading="lazy" />
                   {product.has_discount && (
-                    <span className="popular-products-badge" style={{background: '#10b981'}}>SALE</span>
+                    <span className="popular-products-badge" style={{ background: '#10b981' }}>SALE</span>
                   )}
                   {!product.has_discount && (
                     <span className="popular-products-badge">Popular choice</span>
@@ -307,8 +307,8 @@ function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", o
                     </span>
                   )}
                   <span className="popular-products-price">
-                    {product.has_discount && product.discounted_price_medium 
-                      ? `${Number(product.discounted_price_medium).toFixed(2)}` 
+                    {product.has_discount && product.discounted_price_medium
+                      ? `${Number(product.discounted_price_medium).toFixed(2)}`
                       : `${Number(product.price_medium || product.price_small || product.price_large || 0).toFixed(2)}`}
                   </span>
                   <button
@@ -357,7 +357,7 @@ function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", o
                     </div>
                   )}
                   {item.has_discount && (
-                    <span className="badge" style={{background: '#10b981'}}>SALE</span>
+                    <span className="badge" style={{ background: '#10b981' }}>SALE</span>
                   )}
                   {item.category?.name && (
                     <span className="badge">{item.category.name.toUpperCase()}</span>
