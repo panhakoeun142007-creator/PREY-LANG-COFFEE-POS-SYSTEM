@@ -79,7 +79,7 @@ const POPULAR_PRODUCTS = [
     price: "$5.50",
     priceValue: 5.5,
     image:
-      "https://images.unsplash.com/photo-1511920170033-f8396924c348?auto=format&fit=crop&w=800&q=80",
+      "https://i.pinimg.com/1200x/02/d3/d5/02d3d53f06208bd21ebf396828a1777d.jpg",
   },
   {
     id: "caramel-cold-brew",
@@ -88,7 +88,7 @@ const POPULAR_PRODUCTS = [
     price: "$6.25",
     priceValue: 6.25,
     image:
-      "https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=800&q=80",
+      "https://i.pinimg.com/736x/03/b8/34/03b8349eebab1cf920d06f25b79eca22.jpg",
   },
   {
     id: "hazelnut-mocha",
@@ -98,6 +98,15 @@ const POPULAR_PRODUCTS = [
     priceValue: 6.95,
     image:
       "https://abeautifulmess.com/wp-content/uploads/2024/04/matcha-boba-recipe.jpg",
+  },
+  {
+    id: "hazelnut-mocha",
+    name: "Hazelnut Mocha",
+    description: "Dark chocolate, toasted hazelnut, and espresso crafted warm and rich.",
+    price: "$6.95",
+    priceValue: 6.95,
+    image:
+      "https://i.pinimg.com/1200x/81/72/60/81726082c6d0780cb89ef2d45a02684d.jpg",
   },
 ];
 
