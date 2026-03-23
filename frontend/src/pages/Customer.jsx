@@ -10,7 +10,6 @@ import {
   FaSun,
   FaUtensils,
   FaMapMarkerAlt,
-  FaBars,
 } from "react-icons/fa";
 import { fetchCustomerCategories, fetchCustomerProducts, fetchCustomerPopularProducts } from "../services/api";
 
@@ -85,14 +84,6 @@ export function getItemUnitPrice(item) {
   return base + milk + extras;
 }
 
->>>>>>> 6c58a2c2fc13cbf4e07f44b53624e5996ce61a47
-=======
-
-=======
-
-
-=======
->>>>>>> 6c58a2c2fc13cbf4e07f44b53624e5996ce61a47
 function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", onToggleTheme }) {
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
@@ -219,9 +210,6 @@ function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", o
               <span>Prey Lang Coffee - Phnom Penh</span>
             </div>
             <div className="header-icons">
-              <button className="header-icon-btn" aria-label="Menu">
-                <FaBars />
-              </button>
               <button
                 className="header-icon-btn"
                 onClick={onToggleTheme}
