@@ -31,8 +31,30 @@ function createQrCode(id: number, name: string): string {
 }
 
 function getQrValue(table: ApiTable): string {
-  // Prefer a real URL when available (backend now returns qrUrl/qr_url even if qrCode is "QR-...").
-  return table.qrUrl ?? table.qr_url ?? table.qrCode ?? table.qr_code ?? "No QR";
+  const configured = (import.meta.env.VITE_CUSTOMER_APP_URL as string | undefined) || "";
+  const baseUrl = (configured.trim() ? configured : window.location.origin).replace(/\/+$/, "");
+
+  const raw =
+    table.qrUrl ??
+    table.qr_url ??
+    table.qrCode ??
+    table.qr_code ??
+    "";
+
+  // If backend already provides a full URL, use it.
+  if (typeof raw === "string" && raw.trim()) {
+    const value = raw.trim();
+    if (/^https?:\/\//i.test(value)) return value;
+    if (value.startsWith("/")) return `${baseUrl}${value}`;
+  }
+
+  // Fallback: always generate a real customer menu URL from table id + name.
+  // This prevents QR codes like "QR-TABLE-A1" from being unscannable on phones.
+  if (typeof table.id === "number" && table.name) {
+    return createQrCode(table.id, table.name);
+  }
+
+  return "No QR";
 }
 
 export default function Tables() {
