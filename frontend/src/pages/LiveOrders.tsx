@@ -45,6 +45,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "../components/ui/dialog"
+import { useAutoRefresh } from "../hooks"
 
 function formatTimeAgo(
   t: (_key: string, _vars?: Record<string, string | number>) => string,
@@ -137,7 +138,7 @@ export default function LiveOrders() {
   const loadOrders = useCallback(async () => {
     try {
       setError(null)
-      const data = await fetchLiveOrders()
+      const data = await fetchLiveOrders(true)
       setOrders(data)
     } catch (err) {
       const message = err instanceof Error ? err.message : t("live_orders.failed_fetch")
@@ -148,15 +149,7 @@ export default function LiveOrders() {
     }
   }, [t])
 
-  // Initial load and auto-refresh
-  useEffect(() => {
-    loadOrders()
-
-    if (autoRefresh) {
-      const interval = setInterval(loadOrders, 10000)
-      return () => clearInterval(interval)
-    }
-  }, [autoRefresh, loadOrders])
+  useAutoRefresh(loadOrders, { enabled: autoRefresh, intervalMs: 10000 })
 
   // Filter orders
   const filteredOrders = useMemo(() => {

@@ -22,6 +22,7 @@ import {
   fetchTables,
   updateTable,
 } from "../services/api";
+import { useAutoRefresh } from "../hooks";
 
 function createQrCode(id: number, name: string): string {
   const configured = (import.meta.env.VITE_CUSTOMER_APP_URL as string | undefined) || "";
@@ -60,25 +61,21 @@ export default function Tables() {
   const [previewTable, setPreviewTable] = useState<ApiTable | null>(null);
   const qrRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    let isMounted = true;
-    const loadTables = async () => {
+  useAutoRefresh(
+    async () => {
       try {
         setIsLoading(true);
         setError(null);
         const result = await fetchTables();
-        if (!isMounted) return;
         setTables(result.data ?? []);
       } catch (err) {
-        if (!isMounted) return;
         setError(err instanceof Error ? err.message : "Failed to load tables");
       } finally {
-        if (isMounted) setIsLoading(false);
+        setIsLoading(false);
       }
-    };
-    loadTables();
-    return () => { isMounted = false; };
-  }, []);
+    },
+    { intervalMs: 15000 },
+  );
 
   const counts = useMemo(() => {
     const total = tables.length;

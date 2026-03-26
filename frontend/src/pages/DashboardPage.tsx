@@ -13,6 +13,7 @@ import {
 import { fetchDashboardData, DashboardData } from "../services/api";
 import { useI18n } from "../context/I18nContext";
 import { auth } from "../utils/auth";
+import { useAutoRefresh } from "../hooks";
 
 const statusStyles: Record<string, string> = {
   pending: "bg-amber-100 text-amber-700",
@@ -77,10 +78,10 @@ export default function DashboardPage() {
     currentUser?.name ??
     (currentUser?.role === "staff" ? t("user.staff_member") : t("user.admin_default_name"));
 
-  useEffect(() => {
-    async function loadData() {
+  useAutoRefresh(
+    async () => {
       try {
-        const dashboardData = await fetchDashboardData();
+        const dashboardData = await fetchDashboardData(true);
         setData(dashboardData);
         setError(null);
       } catch (err) {
@@ -90,10 +91,9 @@ export default function DashboardPage() {
       } finally {
         setLoading(false);
       }
-    }
-
-    loadData();
-  }, [t]);
+    },
+    { intervalMs: 15000 },
+  );
 
   return (
     <div className="space-y-8">

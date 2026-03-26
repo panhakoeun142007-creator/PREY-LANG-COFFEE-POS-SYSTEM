@@ -42,6 +42,7 @@ import {
   DialogDescription,
 } from "../components/ui/dialog"
 import { useI18n } from "../context/I18nContext"
+import { useAutoRefresh } from "../hooks"
 
 const KHR_PER_USD = 4100
 
@@ -125,7 +126,7 @@ export default function OrderHistory() {
       if (appliedFilters.dateFrom) params.date_from = appliedFilters.dateFrom
       if (appliedFilters.dateTo) params.date_to = appliedFilters.dateTo
       
-      const response: PaginatedOrderHistoryResponse = await fetchOrderHistory(params)
+      const response: PaginatedOrderHistoryResponse = await fetchOrderHistory(params, true)
       setOrders(response.data)
       setTotalPages(response.last_page)
       setTotal(response.total)
@@ -141,9 +142,7 @@ export default function OrderHistory() {
     }
   }, [currentPage, appliedFilters])
 
-  useEffect(() => {
-    loadOrders()
-  }, [loadOrders])
+  useAutoRefresh(loadOrders, { intervalMs: 10000 })
 
   const handleSearch = () => {
     setAppliedFilters({

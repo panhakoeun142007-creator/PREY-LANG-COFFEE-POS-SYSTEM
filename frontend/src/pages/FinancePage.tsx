@@ -37,6 +37,7 @@ import {
   type ExpenseCategory,
 } from "../services/api";
 import { useSettings } from "../context/SettingsContext";
+import { useAutoRefresh } from "../hooks";
 
 const EXPENSE_CATEGORIES: ExpenseCategory[] = ["ingredients", "utilities", "salary", "rent", "other"];
 
@@ -83,7 +84,7 @@ export default function FinancePage() {
     setError(null);
     try {
       const [dashboard, expensePage] = await Promise.all([
-        fetchDashboardData(),
+        fetchDashboardData(true),
         fetchExpenses({ category: categoryFilter === "all" ? undefined : categoryFilter }),
       ]);
       setDashboardData(dashboard);
@@ -95,9 +96,7 @@ export default function FinancePage() {
     }
   }, [categoryFilter]);
 
-  useEffect(() => {
-    loadFinanceData();
-  }, [loadFinanceData]);
+  useAutoRefresh(loadFinanceData, { intervalMs: 15000 });
 
   const revenueToday = useMemo(() => {
     const value = dashboardData?.stats.find((s) => s.label === "Total Revenue Today")?.value;

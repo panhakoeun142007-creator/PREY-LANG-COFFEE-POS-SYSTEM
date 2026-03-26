@@ -31,6 +31,7 @@ import { deleteReceipt, fetchOrderHistory, fetchReceiptDetail, LiveOrder, Receip
 import { useSettings } from "../context/SettingsContext";
 import { auth } from "../utils/auth";
 import { useI18n } from "../context/I18nContext";
+import { useAutoRefresh } from "../hooks";
 
 type PaymentMethod = "cash" | "credit_card" | "aba_pay" | "wing_money" | "khqr";
 
@@ -97,7 +98,7 @@ export default function ReceiptsPage() {
     setLoading(true);
     try {
       setError(null);
-      const response = await fetchOrderHistory();
+      const response = await fetchOrderHistory({}, true);
       setOrders(response.data);
     } catch (err) {
       const message = err instanceof Error ? err.message : t("receipts.load_failed");
@@ -108,9 +109,7 @@ export default function ReceiptsPage() {
     }
   }, [t]);
 
-  useEffect(() => {
-    loadReceiptOrders();
-  }, [loadReceiptOrders]);
+  useAutoRefresh(loadReceiptOrders, { intervalMs: 10000 });
 
   const receiptRows = useMemo<ReceiptRow[]>(() => {
     return orders

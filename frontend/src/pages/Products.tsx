@@ -36,6 +36,7 @@ import {
 } from "../services/api";
 import { useCategoryContext } from "../context/CategoryContext";
 import { CATEGORY_UPDATE_EVENT } from "../context/CategoryContext";
+import { useAutoRefresh } from "../hooks";
 
 // Form interface matching API
 interface ProductFormData {
@@ -227,7 +228,7 @@ export default function Products() {
   // Fetch data with useCallback for performance
   const loadProducts = useCallback(async () => {
     try {
-      const productsResult = await fetchProducts();
+      const productsResult = await fetchProducts(true);
       
       if (productsResult?.data) {
         setProducts(productsResult.data);
@@ -241,9 +242,7 @@ export default function Products() {
     }
   }, []);
 
-  useEffect(() => {
-    void loadProducts();
-  }, [loadProducts]);
+  useAutoRefresh(loadProducts, { intervalMs: 15000 });
 
   useEffect(() => {
     const handleCategoryUpdate = () => {

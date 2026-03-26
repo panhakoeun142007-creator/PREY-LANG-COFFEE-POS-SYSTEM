@@ -64,6 +64,10 @@ async function apiGetCached<T>(path: string, ttlMs: number): Promise<T> {
   return request;
 }
 
+function invalidateCachedGet(path: string): void {
+  cachedGetResponses.delete(buildGetCacheKey(path));
+}
+
 export interface PaginatedResponse<T> {
   data: T[];
   current_page: number;
@@ -508,7 +512,10 @@ export const fetchCurrentUser = async (): Promise<CurrentUser> => {
 
 export const fetchManager = async (): Promise<ManagerInfo> => apiGetCached("/manager", 10000);
 
-export const fetchNotifications = async (): Promise<{ notifications: Notification[] }> => {
+export const fetchNotifications = async (fresh = false): Promise<{ notifications: Notification[] }> => {
+  if (fresh) {
+    invalidateCachedGet("/notifications");
+  }
   return apiGetCached("/notifications", 5000);
 };
 
@@ -585,7 +592,12 @@ export const deleteCategory = async (id: number): Promise<any> =>
     return payload;
   });
 
-export const fetchProducts = async (): Promise<PaginatedResponse<ApiProduct>> => apiGetCached("/products", 30000);
+export const fetchProducts = async (fresh = false): Promise<PaginatedResponse<ApiProduct>> => {
+  if (fresh) {
+    invalidateCachedGet("/products");
+  }
+  return apiGetCached("/products", 30000);
+};
 
 export const createProduct = async (data: any): Promise<ApiProduct> => {
   // Check if there's a file to upload
@@ -735,7 +747,12 @@ export const updateOrder = async (id: number, data: any): Promise<ApiOrder> =>
     return payload;
   });
 
-export const fetchLiveOrders = async (): Promise<LiveOrder[]> => apiGetCached("/orders/live", 4000);
+export const fetchLiveOrders = async (fresh = false): Promise<LiveOrder[]> => {
+  if (fresh) {
+    invalidateCachedGet("/orders/live");
+  }
+  return apiGetCached("/orders/live", 4000);
+};
 export const updateOrderStatus = async (id: number, status: string, cancellationMessage?: string): Promise<LiveOrder> =>
   apiRequest(`/orders/${id}/status`, { 
     method: "PATCH", 
@@ -748,8 +765,16 @@ export const updateOrderStatus = async (id: number, status: string, cancellation
     return payload;
   });
 
-export const fetchOrderHistory = async (params: OrderHistoryParams = {}): Promise<PaginatedOrderHistoryResponse> =>
-  apiGetCached(withQuery("/orders/history", params), 4000);
+export const fetchOrderHistory = async (
+  params: OrderHistoryParams = {},
+  fresh = false,
+): Promise<PaginatedOrderHistoryResponse> => {
+  const path = withQuery("/orders/history", params);
+  if (fresh) {
+    invalidateCachedGet(path);
+  }
+  return apiGetCached(path, 4000);
+};
 
 export type ReceiptActor = {
   actor_type: string;
@@ -824,7 +849,12 @@ export const updateSettings = async (data: Partial<AppSettings>): Promise<AppSet
     return payload;
   });
 
-export const fetchDashboardData = async (): Promise<DashboardData> => apiGetCached("/dashboard", 10000);
+export const fetchDashboardData = async (fresh = false): Promise<DashboardData> => {
+  if (fresh) {
+    invalidateCachedGet("/dashboard");
+  }
+  return apiGetCached("/dashboard", 10000);
+};
 export const fetchSalesAnalyticsData = async (): Promise<{
   monthlyTrendData: SalesTrendDataPoint[];
   peakHoursData: PeakHourDataPoint[];

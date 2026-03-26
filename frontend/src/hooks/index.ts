@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 // Re-export all hooks
 export { useLiveOrders, useOrderHistory, useCreateOrder } from './useOrders';
@@ -78,4 +78,82 @@ export function usePolling<T>(fetchFn: () => Promise<T>, intervalMs: number, ena
   }, [fetchData, intervalMs, enabled]);
 
   return { data, loading, error, refresh: fetchData };
+}
+
+type AutoRefreshOptions = {
+  enabled?: boolean;
+  intervalMs?: number;
+  immediate?: boolean;
+  refreshOnFocus?: boolean;
+  refreshOnVisible?: boolean;
+};
+
+/**
+ * Hook for keeping page data fresh without a manual browser refresh.
+ */
+export function useAutoRefresh(
+  refreshFn: () => Promise<unknown> | void,
+  {
+    enabled = true,
+    intervalMs = 10000,
+    immediate = true,
+    refreshOnFocus = true,
+    refreshOnVisible = true,
+  }: AutoRefreshOptions = {},
+) {
+  const refreshRef = useRef(refreshFn);
+
+  useEffect(() => {
+    refreshRef.current = refreshFn;
+  }, [refreshFn]);
+
+  const runRefresh = useCallback(() => {
+    return refreshRef.current();
+  }, []);
+
+  useEffect(() => {
+    if (!enabled) return;
+
+    if (immediate) {
+      void runRefresh();
+    }
+
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        void runRefresh();
+      }
+    }, intervalMs);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [enabled, immediate, intervalMs, runRefresh]);
+
+  useEffect(() => {
+    if (!enabled || !refreshOnFocus) return;
+
+    const handleFocus = () => {
+      void runRefresh();
+    };
+
+    window.addEventListener("focus", handleFocus);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [enabled, refreshOnFocus, runRefresh]);
+
+  useEffect(() => {
+    if (!enabled || !refreshOnVisible) return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void runRefresh();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [enabled, refreshOnVisible, runRefresh]);
 }
