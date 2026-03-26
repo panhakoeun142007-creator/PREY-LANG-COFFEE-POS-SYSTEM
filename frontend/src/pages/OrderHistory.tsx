@@ -51,6 +51,7 @@ export default function OrderHistory() {
   const { t, lang } = useI18n()
   const [orders, setOrders] = useState<LiveOrder[]>([])
   const [loading, setLoading] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedOrder, setSelectedOrder] = useState<LiveOrder | null>(null)
   const [showDetails, setShowDetails] = useState(false)
@@ -111,9 +112,16 @@ export default function OrderHistory() {
   }, [orders, summary])
 
   // Fetch orders
-  const loadOrders = useCallback(async () => {
-    setLoading(true)
-    setError(null)
+  const loadOrders = useCallback(async ({ background = false }: { background?: boolean } = {}) => {
+    if (background) {
+      setIsRefreshing(true)
+    } else {
+      setLoading(true)
+    }
+
+    if (!background) {
+      setError(null)
+    }
     
     try {
       const params: OrderHistoryParams = {
@@ -132,17 +140,27 @@ export default function OrderHistory() {
       setTotal(response.total)
       setSummary(response.summary ?? null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("order_history.load_failed"))
-      setOrders([])
-      setTotal(0)
-      setTotalPages(1)
-      setSummary(null)
+      if (!background) {
+        setError(err instanceof Error ? err.message : t("order_history.load_failed"))
+        setOrders([])
+        setTotal(0)
+        setTotalPages(1)
+        setSummary(null)
+      }
     } finally {
-      setLoading(false)
+      if (background) {
+        setIsRefreshing(false)
+      } else {
+        setLoading(false)
+      }
     }
-  }, [currentPage, appliedFilters])
+  }, [currentPage, appliedFilters, t])
 
-  useAutoRefresh(loadOrders, { intervalMs: 10000 })
+  useEffect(() => {
+    void loadOrders()
+  }, [loadOrders])
+
+  useAutoRefresh(() => loadOrders({ background: true }), { intervalMs: 10000, immediate: false })
 
   const handleSearch = () => {
     setAppliedFilters({
@@ -380,7 +398,17 @@ export default function OrderHistory() {
 
       {/* Orders Table */}
       <Card>
-        <CardContent className="p-0">
+        <CardContent className="p-0 relative">
+          {isRefreshing && !loading && (
+            <div
+              className="absolute right-3 top-3 z-10 flex items-center gap-2 rounded-full bg-white/80 px-2 py-1 text-xs text-gray-600 shadow-sm backdrop-blur"
+              aria-label="Refreshing"
+              title="Refreshing"
+            >
+              <RefreshCw className="h-3 w-3 animate-spin" />
+              <span className="hidden sm:inline">Refreshing</span>
+            </div>
+          )}
           {loading ? (
             <div className="flex items-center justify-center h-64">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -388,7 +416,7 @@ export default function OrderHistory() {
           ) : error ? (
             <div className="flex flex-col items-center justify-center h-64 text-red-500">
               <p>{error}</p>
-              <Button variant="outline" onClick={loadOrders} className="mt-4">
+              <Button variant="outline" onClick={() => void loadOrders()} className="mt-4">
                 {t("common.retry")}
               </Button>
             </div>

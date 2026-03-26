@@ -277,6 +277,22 @@ Then deploy.
 
 This repo now includes `frontend/vercel.json` so React BrowserRouter routes should work on refresh.
 
+## 10A. Auto-deploy on updates (recommended)
+
+Frontend (Vercel):
+
+- If your Vercel project is connected to the GitHub repo, Vercel will automatically deploy on every push to the connected branch.
+
+Backend (AWS EC2):
+
+- This repo includes an optional GitHub Actions workflow: `.github/workflows/deploy-backend-ec2.yml`
+- To enable auto-deploy on push, add these GitHub repo secrets:
+  - `EC2_HOST` (example: `1.2.3.4`)
+  - `EC2_USER` (example: `ubuntu`)
+  - `EC2_SSH_KEY` (your private key contents)
+  - `EC2_PORT` (optional; default `22`)
+  - `EC2_REPO_DIR` (example: `/var/www/PREY-LANG-COFFEE-POS-SYSTEM`)
+
 ## 11. Connect GoDaddy domain
 
 For the root frontend domain:
