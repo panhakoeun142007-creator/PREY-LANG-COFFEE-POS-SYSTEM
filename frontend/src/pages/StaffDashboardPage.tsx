@@ -56,6 +56,10 @@ export default function StaffDashboardPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [notificationsPollingEnabled, setNotificationsPollingEnabled] = useState(true);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const seenStorageKey = useState(() => {
+    const id = (auth.getUser() as { id?: number | string } | null)?.id ?? "unknown";
+    return `prey-lang-pos:notifications:seen:${id}`;
+  })[0];
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDark);
@@ -64,6 +68,20 @@ export default function StaffDashboardPage() {
 
   const openAccount = openAccountModal;
   const closeAccount = closeAccountModal;
+
+  const readSeen = () => {
+    try {
+      const raw = localStorage.getItem(seenStorageKey);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed.map(String) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const writeSeen = (keys: string[]) => {
+    localStorage.setItem(seenStorageKey, JSON.stringify(keys));
+  };
 
   function getNotificationIcon(type: Notification["type"] | string) {
     const key = String(type ?? "").toLowerCase();
@@ -132,7 +150,12 @@ export default function StaffDashboardPage() {
     async function loadNotifications() {
       try {
         const data = await fetchNotifications();
-        setNotifications(data.notifications);
+        const seen = new Set(readSeen());
+        const hydrated = (data.notifications || []).map((notification) => ({
+          ...notification,
+          read: seen.has(String(notification.id ?? "")),
+        }));
+        setNotifications(hydrated);
       } catch (err) {
         if (isConnectionError(err)) {
           setNotificationsPollingEnabled(false);
@@ -147,6 +170,8 @@ export default function StaffDashboardPage() {
     const interval = setInterval(loadNotifications, 30000);
     return () => clearInterval(interval);
   }, [notificationsPollingEnabled]);
+
+  const unreadCount = notifications.filter((notification) => !notification.read).length;
 
   function openAccountModal() {
     setAccountName(currentUser?.name ?? t("user.staff_default_name"));
@@ -321,7 +346,19 @@ export default function StaffDashboardPage() {
           <div className="relative">
             <button
               type="button"
-              onClick={() => setNotificationsOpen((prev) => !prev)}
+              onClick={() => {
+                setNotificationsOpen((prev) => {
+                  const next = !prev;
+                  if (!prev) {
+                    const keys = notifications.map((notification) => String(notification.id ?? ""));
+                    writeSeen(keys);
+                    setNotifications((current) =>
+                      current.map((notification) => ({ ...notification, read: true })),
+                    );
+                  }
+                  return next;
+                });
+              }}
               className={`relative inline-flex h-10 w-10 items-center justify-center rounded-full shadow-sm ${
                 isDark
                   ? "border border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800"
@@ -330,9 +367,9 @@ export default function StaffDashboardPage() {
               aria-label={t("nav.notifications")}
             >
               <Bell size={18} />
-              {notifications.length > 0 && (
+              {unreadCount > 0 && (
                 <span className="absolute right-1.5 top-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">
-                  {notifications.length}
+                  {unreadCount}
                 </span>
               )}
             </button>

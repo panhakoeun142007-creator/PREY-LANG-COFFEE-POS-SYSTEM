@@ -64,6 +64,28 @@ export default function AppLayout() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const seenStorageKey = useMemo(() => {
+    const id = (auth.getUser() as { id?: number | string } | null)?.id ?? "unknown";
+    return `prey-lang-pos:notifications:seen:${id}`;
+  }, []);
+
+  const readSeen = useMemo(() => {
+    return () => {
+      try {
+        const raw = localStorage.getItem(seenStorageKey);
+        const parsed = raw ? JSON.parse(raw) : [];
+        return Array.isArray(parsed) ? parsed.map(String) : [];
+      } catch {
+        return [];
+      }
+    };
+  }, [seenStorageKey]);
+
+  const writeSeen = useMemo(() => {
+    return (keys: string[]) => {
+      localStorage.setItem(seenStorageKey, JSON.stringify(keys));
+    };
+  }, [seenStorageKey]);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme");
@@ -152,7 +174,13 @@ export default function AppLayout() {
     async function loadNotifications() {
       try {
         const data = await fetchNotifications();
-        setNotifications(data.notifications);
+        const list = data.notifications || [];
+        const seen = new Set(readSeen());
+        const hydrated = list.map((notification) => ({
+          ...notification,
+          read: seen.has(String(notification.id ?? "")),
+        }));
+        setNotifications(hydrated);
       } catch (err) {
         if (isConnectionError(err)) {
           setNotificationsPollingEnabled(false);
@@ -169,7 +197,7 @@ export default function AppLayout() {
     return () => clearInterval(interval);
   }, [notificationsPollingEnabled]);
 
-  // We removed unreadCount because we are using total count in the bell
+  const unreadCount = notifications.filter((notification) => !notification.read).length;
 
   const userRole = currentUser?.role === 'admin' ? 'admin' : 'staff';
   const filteredNavGroups = useMemo(() => {
@@ -471,7 +499,19 @@ export default function AppLayout() {
               <div className="relative">
                 <button
                   type="button"
-                  onClick={() => setNotificationsOpen((prev) => !prev)}
+                  onClick={() => {
+                    setNotificationsOpen((prev) => {
+                      const next = !prev;
+                      if (!prev) {
+                        const keys = notifications.map((notification) => String(notification.id ?? ""));
+                        writeSeen(keys);
+                        setNotifications((current) =>
+                          current.map((notification) => ({ ...notification, read: true })),
+                        );
+                      }
+                      return next;
+                    });
+                  }}
                   className={`relative inline-flex h-10 w-10 items-center justify-center rounded-full shadow-sm ${
                     isDarkMode
                       ? "border border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800"
@@ -480,9 +520,9 @@ export default function AppLayout() {
                   aria-label={t("nav.notifications")}
                 >
                   <Bell size={18} />
-                  {notifications.length > 0 && (
+                  {unreadCount > 0 && (
                     <span className="absolute right-1.5 top-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">
-                      {notifications.length}
+                      {unreadCount}
                     </span>
                   )}
                 </button>
