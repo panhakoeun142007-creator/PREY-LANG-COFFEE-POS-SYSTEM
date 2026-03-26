@@ -1,4 +1,4 @@
-﻿import { Bell, User } from "lucide-react";
+﻿import { Bell, User, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
@@ -14,6 +14,7 @@ import {
   logoutAdmin,
   Notification,
   updateCurrentUser,
+  dismissNotification,
 } from "../services/api";
 import LogoutConfirmModal from "../components/LogoutConfirmModal";
 import LanguageSwitcher from "../components/LanguageSwitcher";
@@ -53,6 +54,20 @@ export default function StaffDashboardPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [notificationsPollingEnabled, setNotificationsPollingEnabled] = useState(true);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+
+  const dismissedStorageKey = "prey-lang-pos:notifications:dismissed";
+  const readDismissed = () => {
+    try {
+      const raw = localStorage.getItem(dismissedStorageKey);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed.map(String) : [];
+    } catch {
+      return [];
+    }
+  };
+  const writeDismissed = (keys: string[]) => {
+    localStorage.setItem(dismissedStorageKey, JSON.stringify(keys));
+  };
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDark);
@@ -105,7 +120,9 @@ export default function StaffDashboardPage() {
     async function loadNotifications() {
       try {
         const data = await fetchNotifications();
-        setNotifications(data.notifications);
+        const dismissed = new Set(readDismissed());
+        const filtered = (data.notifications || []).filter((n) => !dismissed.has(String(n.id ?? "")));
+        setNotifications(filtered);
       } catch (err) {
         if (isConnectionError(err)) {
           setNotificationsPollingEnabled(false);
@@ -120,6 +137,19 @@ export default function StaffDashboardPage() {
     const interval = setInterval(loadNotifications, 30000);
     return () => clearInterval(interval);
   }, [notificationsPollingEnabled]);
+
+  async function handleDismissNotification(notificationId: number | string) {
+    const key = String(notificationId);
+    try {
+      await dismissNotification(key);
+    } catch (err) {
+      console.error("Failed to dismiss notification:", err);
+    } finally {
+      const merged = Array.from(new Set([...readDismissed(), key]));
+      writeDismissed(merged);
+      setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
+    }
+  }
 
   function openAccountModal() {
     setAccountName(currentUser?.name ?? t("user.staff_default_name"));
@@ -321,9 +351,16 @@ export default function StaffDashboardPage() {
                     notifications.slice(0, 10).map((notification) => (
                       <div
                         key={notification.id}
-                        className={`flex items-start gap-3 rounded-lg p-3 ${
+                        className={`flex items-start gap-3 rounded-lg p-3 cursor-pointer ${
                           isDark ? "hover:bg-slate-800" : "hover:bg-[#F8EFE4]"
                         } ${!notification.read ? (isDark ? "bg-slate-800/70" : "bg-amber-50") : ""}`}
+                        onClick={() => {
+                          setNotificationsOpen(false);
+                          setActiveTab("orders");
+                          setNotifications((prev) =>
+                            prev.map((n) => (n.id === notification.id ? { ...n, read: true } : n)),
+                          );
+                        }}
                       >
                         <span className="text-xl">{getNotificationIcon(notification.type)}</span>
                         <div className="min-w-0 flex-1">
@@ -331,6 +368,22 @@ export default function StaffDashboardPage() {
                           <p className={`truncate text-xs ${isDark ? "text-slate-300" : "text-[#7C5D58]"}`}>{notification.message}</p>
                           <p className={`text-xs ${isDark ? "text-slate-400" : "text-[#8E706B]"}`}>{notification.time}</p>
                         </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDismissNotification(notification.id);
+                          }}
+                          className={`ml-1 inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full transition-colors ${
+                            isDark
+                              ? "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+                              : "text-[#9A7B74] hover:text-[#4B2E2B] hover:bg-[#F1E3D3]"
+                          }`}
+                          aria-label="Remove notification"
+                          title="Remove notification"
+                        >
+                          <X size={16} />
+                        </button>
                       </div>
                     ))
                   ) : (
