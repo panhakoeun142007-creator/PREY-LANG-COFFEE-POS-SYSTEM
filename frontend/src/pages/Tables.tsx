@@ -25,14 +25,42 @@ import {
 import { useAutoRefresh } from "../hooks";
 
 function resolveCustomerBaseUrl(): string {
-  const configured = (import.meta.env.VITE_CUSTOMER_APP_URL as string | undefined) || "";
-  const fallbackOrigin = window.location.origin;
-  const candidate = (configured.trim() ? configured.trim() : fallbackOrigin).replace(/\/+$/, "");
+  const configured = ((import.meta.env.VITE_CUSTOMER_APP_URL as string | undefined) || "").trim();
+  const origin = new URL(window.location.origin);
 
-  // Allow setting `VITE_CUSTOMER_APP_URL=panha-tech-web-code.site` (no protocol)
-  if (/^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(candidate)) return candidate;
-  if (candidate.startsWith("localhost") || candidate.startsWith("127.0.0.1")) return `http://${candidate}`;
-  return `https://${candidate}`;
+  const normalizeToUrl = (value: string): URL | null => {
+    const candidate = value.replace(/\/+$/, "");
+    try {
+      if (/^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(candidate)) return new URL(candidate);
+      if (candidate.startsWith("localhost") || candidate.startsWith("127.0.0.1")) return new URL(`http://${candidate}`);
+      return new URL(`https://${candidate}`);
+    } catch {
+      return null;
+    }
+  };
+
+  const configuredUrl = configured ? normalizeToUrl(configured) : null;
+  if (!configuredUrl) return origin.toString().replace(/\/+$/, "");
+
+  // If configured is just an apex/www variant of the current frontend host, prefer the current host.
+  // This avoids QR links pointing at a domain that may not have a valid SSL certificate yet.
+  const originHost = origin.hostname.toLowerCase();
+  const configuredHost = configuredUrl.hostname.toLowerCase();
+  const isLocalOrigin =
+    originHost === "localhost" ||
+    originHost === "127.0.0.1" ||
+    originHost.endsWith(".localhost");
+
+  if (!isLocalOrigin) {
+    const originWithoutWww = originHost.startsWith("www.") ? originHost.slice(4) : originHost;
+    const configuredWithoutWww = configuredHost.startsWith("www.") ? configuredHost.slice(4) : configuredHost;
+
+    if (originWithoutWww === configuredWithoutWww) {
+      return origin.toString().replace(/\/+$/, "");
+    }
+  }
+
+  return configuredUrl.toString().replace(/\/+$/, "");
 }
 
 function createQrCode(id: number, name: string): string {
