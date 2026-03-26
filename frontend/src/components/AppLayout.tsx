@@ -1,11 +1,13 @@
 ﻿import { Bell, ChevronLeft, ChevronRight, LogOut, Menu, Moon, Settings, Sun, User } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { navGroups, pageTitleKeyByPath } from "../data/mockData";
 import { useSettings } from "../context/SettingsContext";
 import { useI18n } from "../context/I18nContext";
+import { AuthContext } from "../App.jsx";
 import { auth } from "../utils/auth";
 import {
+  fetchCurrentUser,
   fetchNotifications,
   Notification,
   CurrentUser,
@@ -40,7 +42,7 @@ function getNotificationIcon(type: string) {
 }
 
 export default function AppLayout() {
-  // We'll just use local state and localStorage - no need for AuthContext
+  const authContext = useContext(AuthContext);
   const [collapsed, setCollapsed] = useState(false);
   const { settings } = useSettings();
   const { t } = useI18n();
@@ -88,7 +90,7 @@ export default function AppLayout() {
   }, [isDarkMode]);
 
   useEffect(() => {
-    const user = auth.getUser();
+    const user = authContext.user ?? auth.getUser();
     if (!user) {
       setCurrentUser(null);
       setAccountName("");
@@ -97,18 +99,38 @@ export default function AppLayout() {
       return;
     }
 
-    try {
-      setCurrentUser(user);
-      setAccountName(user.name ?? "");
-      setAccountEmail(user.email ?? "");
-      setAccountImagePreview(user.profile_image_url ?? null);
-    } catch (err) {
-      console.error("Failed to parse stored user:", err);
-      setCurrentUser(null);
-      setAccountName("");
-      setAccountEmail("");
-      setAccountImagePreview(null);
+    setCurrentUser(user);
+    setAccountName(user.name ?? "");
+    setAccountEmail(user.email ?? "");
+    setAccountImagePreview(user.profile_image_url ?? null);
+  }, [authContext.user]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function refreshCurrentUser() {
+      if (!auth.getToken()) return;
+
+      try {
+        const user = await fetchCurrentUser();
+        if (!isMounted) return;
+
+        setCurrentUser(user);
+        setAccountName(user.name ?? "");
+        setAccountEmail(user.email ?? "");
+        setAccountImagePreview(user.profile_image_url ?? null);
+        auth.setUser(user);
+        authContext.updateUser(user);
+      } catch (err) {
+        console.error("Failed to refresh current user:", err);
+      }
     }
+
+    void refreshCurrentUser();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -202,12 +224,17 @@ export default function AppLayout() {
 
   async function saveAccount() {
     const name = accountName.trim();
+    const email = accountEmail.trim();
+    const isAdmin = currentUser?.role === "admin";
 
     // Build update data - only include fields that have values
     const updateData: { name?: string; email?: string; profile_image?: File | null; remove_profile_image?: boolean } = {};
     
     if (name && name !== (currentUser?.name ?? "")) {
       updateData.name = name;
+    }
+    if (isAdmin && email && email !== (currentUser?.email ?? "")) {
+      updateData.email = email;
     }
     if (accountRemoveImage) {
       updateData.remove_profile_image = true;
@@ -228,6 +255,9 @@ export default function AppLayout() {
       const updated = await updateCurrentUser(updateData);
       setCurrentUser(updated);
       auth.setUser(updated);
+      authContext.updateUser(updated);
+      setAccountName(updated.name ?? "");
+      setAccountEmail(updated.email ?? "");
       setAccountImageFile(null);
       setAccountRemoveImage(false);
       setAccountImagePreview(updated.profile_image_url ?? null);
@@ -681,11 +711,16 @@ export default function AppLayout() {
                     <input
                       type="email"
                       value={accountEmail}
-                      disabled
+                      onChange={(event) => setAccountEmail(event.target.value)}
+                      disabled={currentUser?.role !== "admin"}
                       className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${
-                        isDarkMode
-                          ? "border-slate-700 bg-slate-800/50 text-slate-500 cursor-not-allowed"
-                          : "border-[#EAD6C0] bg-gray-50 text-gray-500 cursor-not-allowed"
+                        currentUser?.role === "admin"
+                          ? isDarkMode
+                            ? "border-slate-600 bg-slate-800 text-slate-100 focus:border-slate-400"
+                            : "border-[#EAD6C0] text-[#4B2E2B] focus:border-[#B28A6E]"
+                          : isDarkMode
+                            ? "border-slate-700 bg-slate-800/50 text-slate-500 cursor-not-allowed"
+                            : "border-[#EAD6C0] bg-gray-50 text-gray-500 cursor-not-allowed"
                       }`}
                     />
                   </div>

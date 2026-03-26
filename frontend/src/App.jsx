@@ -5,6 +5,7 @@ import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import { CategoryProvider } from "./context/CategoryContext";
 import { I18nProvider } from "./context/I18nContext";
 import { SettingsProvider } from "./context/SettingsContext";
+import { fetchCurrentUser } from "./services/api";
 import { auth } from "./utils/auth";
 
 const AuthContext = createContext({
@@ -37,8 +38,6 @@ const VerifySuccessful = lazy(() => import("./pages/VerifySuccessful"));
 const SessionExpired = lazy(() => import("./pages/SessionExpired"));
 const CustomerMenuApp = lazy(() => import("./pages/CustomerMenuApp"));
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
-
 function RouteFallback() {
   return (
     <div className="rounded-lg border border-[#EAD6C0] bg-white p-4 text-sm text-[#7C5D58]">
@@ -67,13 +66,11 @@ function ProtectedRoute({ children, requireAdmin = false }) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // Staff trying to access admin routes → redirect to staff dashboard
-  if (requireAdmin && authCtx.user?.role !== 'admin') {
+  if (requireAdmin && authCtx.user?.role !== "admin") {
     return <Navigate to="/staff-dashboard" replace />;
   }
 
-  // Admin trying to access staff dashboard → redirect to admin dashboard
-  if (!requireAdmin && location.pathname === '/staff-dashboard' && authCtx.user?.role === 'admin') {
+  if (!requireAdmin && location.pathname === "/staff-dashboard" && authCtx.user?.role === "admin") {
     return <Navigate to="/" replace />;
   }
 
@@ -103,7 +100,7 @@ function AdminRoute({ children }) {
 function RoleRedirect() {
   const authContext = useContext(AuthContext);
   const role = authContext.user?.role || auth.getUser()?.role;
-  if (role === 'staff') return <Navigate to="/staff-dashboard" replace />;
+  if (role === "staff") return <Navigate to="/staff-dashboard" replace />;
   return withSuspense(<DashboardPage />);
 }
 
@@ -128,33 +125,9 @@ function AuthProvider({ children }) {
     return () => window.removeEventListener("auth:unauthorized", handler);
   }, [navigate]);
 
-  const fetchUserData = useCallback(async (token, role) => {
+  const fetchUserData = useCallback(async () => {
     try {
-      // Only call the correct endpoint based on role — never cross-check
-      const endpoint = role === 'staff'
-        ? `${API_BASE_URL}/staff/me`
-        : `${API_BASE_URL}/user/me`;
-
-      const response = await fetch(endpoint, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        if (response.status === 401 || response.status === 403) {
-          auth.clear();
-          setIsAuthenticated(false);
-          setUser(null);
-          setUserFetched(false);
-          return false;
-        }
-        // Network/server error — keep existing cached user
-        return true;
-      }
-
-      const data = await response.json();
+      const data = await fetchCurrentUser();
       if (data && data.id) {
         setUser(data);
         auth.setUser(data);
@@ -162,7 +135,7 @@ function AuthProvider({ children }) {
       }
       return false;
     } catch (error) {
-      console.error('User fetch error:', error);
+      console.error("User fetch error:", error);
       return true;
     }
   }, []);
@@ -176,7 +149,7 @@ function AuthProvider({ children }) {
       setIsAuthenticated(true);
 
       if (!userFetched) {
-        fetchUserData(token, userData?.role).then((success) => {
+        fetchUserData().then((success) => {
           if (!success) {
             setIsAuthenticated(false);
           }
@@ -257,9 +230,7 @@ export default function App() {
               </ProtectedRoute>
             }
           >
-            <Route index element={
-              <RoleRedirect />
-            } />
+            <Route index element={<RoleRedirect />} />
             <Route path="live-orders" element={withSuspense(<LiveOrders />)} />
             <Route path="order-history" element={withSuspense(<OrderHistory />)} />
             <Route path="receipts" element={withSuspense(<ReceiptsPage />)} />

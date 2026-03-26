@@ -1,15 +1,17 @@
 ﻿import { Bell, User } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import DashboardPage from "./DashboardPage";
 import LiveOrders from "./LiveOrders";
 import OrderHistory from "./OrderHistory";
 import ReceiptsPage from "./ReceiptsPage";
+import { AuthContext } from "../App.jsx";
 import { SettingsProvider } from "../context/SettingsContext";
 import { auth } from "../utils/auth";
 import {
   CurrentUser,
+  fetchCurrentUser,
   fetchNotifications,
   logoutAdmin,
   Notification,
@@ -30,6 +32,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 
 export default function StaffDashboardPage() {
+  const authContext = useContext(AuthContext);
   const navigate = useNavigate();
   const { t } = useI18n();
   const [isDark, setIsDark] = useState<boolean>(() => {
@@ -73,17 +76,41 @@ export default function StaffDashboardPage() {
   }
 
   useEffect(() => {
-    const user = auth.getUser();
-    if (user) {
+    const user = authContext.user ?? auth.getUser();
+    if (!user) return;
+
+    setCurrentUser(user);
+    setAccountName(user.name ?? "");
+    setAccountEmail(user.email ?? "");
+    setAccountImagePreview(user.profile_image_url ?? null);
+  }, [authContext.user]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function refreshCurrentUser() {
+      if (!auth.getToken()) return;
+
       try {
+        const user = await fetchCurrentUser();
+        if (!isMounted) return;
+
         setCurrentUser(user);
         setAccountName(user.name ?? "");
         setAccountEmail(user.email ?? "");
         setAccountImagePreview(user.profile_image_url ?? null);
+        auth.setUser(user);
+        authContext.updateUser(user);
       } catch (err) {
-        console.error("Failed to parse stored user:", err);
+        console.error("Failed to refresh current user:", err);
       }
     }
+
+    void refreshCurrentUser();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -159,6 +186,9 @@ export default function StaffDashboardPage() {
       const updated = await updateCurrentUser(updateData);
       setCurrentUser(updated);
       auth.setUser(updated);
+      authContext.updateUser(updated);
+      setAccountName(updated.name ?? "");
+      setAccountEmail(updated.email ?? "");
       setAccountImageFile(null);
       setAccountRemoveImage(false);
       setAccountImagePreview(updated.profile_image_url ?? null);
