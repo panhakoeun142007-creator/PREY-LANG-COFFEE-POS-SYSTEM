@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Eye, Pencil, Plus, QrCode, RefreshCw, Trash2, Users, Download, Printer } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { Eye, Pencil, Plus, RefreshCw, Trash2, Users, Download, Printer } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -24,15 +24,39 @@ import {
 } from "../services/api";
 import { useAutoRefresh } from "../hooks";
 
-function createQrCode(id: number, name: string): string {
+function resolveCustomerBaseUrl(): string {
   const configured = (import.meta.env.VITE_CUSTOMER_APP_URL as string | undefined) || "";
-  const baseUrl = (configured.trim() ? configured : window.location.origin).replace(/\/+$/, "");
+  const fallbackOrigin = window.location.origin;
+  const base = (configured.trim() ? configured : fallbackOrigin).replace(/\/+$/, "");
+
+  // If the deployment only has a valid cert on `www`, avoid the apex host in QR links.
+  // This helps iOS/Safari which will block an invalid/mismatched certificate hard.
+  try {
+    const url = new URL(base);
+    const host = url.hostname.toLowerCase();
+    const isLocal =
+      host === "localhost" ||
+      host === "127.0.0.1" ||
+      host.endsWith(".localhost");
+
+    if (!configured.trim() && !isLocal && !host.startsWith("www.") && url.protocol === "https:") {
+      url.hostname = `www.${host}`;
+      return url.toString().replace(/\/+$/, "");
+    }
+  } catch {
+    // ignore; keep base as-is
+  }
+
+  return base;
+}
+
+function createQrCode(id: number, name: string): string {
+  const baseUrl = resolveCustomerBaseUrl();
   return `${baseUrl}/menu?table=${id}&name=${encodeURIComponent(name)}`;
 }
 
 function getQrValue(table: ApiTable): string {
-  const configured = (import.meta.env.VITE_CUSTOMER_APP_URL as string | undefined) || "";
-  const baseUrl = (configured.trim() ? configured : window.location.origin).replace(/\/+$/, "");
+  const baseUrl = resolveCustomerBaseUrl();
 
   const raw =
     table.qrUrl ??
