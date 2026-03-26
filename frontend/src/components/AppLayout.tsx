@@ -41,6 +41,33 @@ function getNotificationIcon(type: string) {
   }
 }
 
+function resolveNotificationPath(notification: Notification): string {
+  const type = String(notification.type ?? "").toLowerCase();
+  const content = `${notification.title ?? ""} ${notification.message ?? ""}`.toLowerCase();
+
+  if (type === "order" || type === "ready" || content.includes("order")) {
+    return "/live-orders";
+  }
+
+  if (type === "stock" || type === "near_stock" || content.includes("stock")) {
+    return "/stock";
+  }
+
+  if (type.includes("receipt") || content.includes("receipt")) {
+    return "/receipts";
+  }
+
+  if (type.includes("payment") || type.includes("finance") || content.includes("payment")) {
+    return "/finance";
+  }
+
+  if (type.includes("analytics") || content.includes("report")) {
+    return "/analytics";
+  }
+
+  return "/";
+}
+
 export default function AppLayout() {
   const authContext = useContext(AuthContext);
   const [collapsed, setCollapsed] = useState(false);
@@ -301,6 +328,11 @@ export default function AppLayout() {
     setIsDarkMode((prev) => !prev);
   }
 
+  function handleNotificationClick(notification: Notification): void {
+    setNotificationsOpen(false);
+    navigate(resolveNotificationPath(notification));
+  }
+
   return (
     <div
       className={`h-screen ${
@@ -535,13 +567,15 @@ export default function AppLayout() {
                     <div className="max-h-80 overflow-y-auto">
                       {notifications.length > 0 ? (
                         notifications.slice(0, 10).map((notification) => (
-                          <div
+                          <button
+                            type="button"
                             key={notification.id}
+                            onClick={() => handleNotificationClick(notification)}
                             className={`flex items-start gap-3 rounded-lg p-3 ${
                               isDarkMode ? "hover:bg-slate-800" : "hover:bg-[#F8EFE4]"
                             } ${
                               !notification.read ? (isDarkMode ? "bg-slate-800/70" : "bg-amber-50") : ""
-                            }`}
+                            } w-full text-left`}
                           >
                             <span className="text-xl">{getNotificationIcon(notification.type)}</span>
                             <div className="flex-1 min-w-0">
@@ -549,7 +583,7 @@ export default function AppLayout() {
                               <p className={`truncate text-xs ${isDarkMode ? "text-slate-300" : "text-[#7C5D58]"}`}>{notification.message}</p>
                               <p className={`text-xs ${isDarkMode ? "text-slate-400" : "text-[#8E706B]"}`}>{notification.time}</p>
                             </div>
-                          </div>
+                          </button>
                         ))
                       ) : (
                         <div className={`p-4 text-center text-sm ${isDarkMode ? "text-slate-400" : "text-[#7C5D58]"}`}>

@@ -93,6 +93,30 @@ export default function StaffDashboardPage() {
     return "🔔";
   }
 
+  function handleNotificationClick(notification: Notification): void {
+    const type = String(notification.type ?? "").toLowerCase();
+    const content = `${notification.title ?? ""} ${notification.message ?? ""}`.toLowerCase();
+
+    setNotificationsOpen(false);
+
+    if (type === "order" || type === "ready" || content.includes("order")) {
+      setActiveTab("orders");
+      return;
+    }
+
+    if (type.includes("receipt") || content.includes("receipt")) {
+      setActiveTab("receipts");
+      return;
+    }
+
+    if (content.includes("history")) {
+      setActiveTab("history");
+      return;
+    }
+
+    setActiveTab("dashboard");
+  }
+
   useEffect(() => {
     const user = authContext.user ?? auth.getUser();
     if (!user) return;
@@ -386,11 +410,13 @@ export default function StaffDashboardPage() {
                 <div className="max-h-80 overflow-y-auto">
                   {notifications.length > 0 ? (
                     notifications.slice(0, 10).map((notification) => (
-                      <div
+                      <button
+                        type="button"
                         key={notification.id}
+                        onClick={() => handleNotificationClick(notification)}
                         className={`flex items-start gap-3 rounded-lg p-3 ${
                           isDark ? "hover:bg-slate-800" : "hover:bg-[#F8EFE4]"
-                        } ${!notification.read ? (isDark ? "bg-slate-800/70" : "bg-amber-50") : ""}`}
+                        } ${!notification.read ? (isDark ? "bg-slate-800/70" : "bg-amber-50") : ""} w-full text-left`}
                       >
                         <span className="text-xl">{getNotificationIcon(notification.type)}</span>
                         <div className="min-w-0 flex-1">
@@ -398,7 +424,7 @@ export default function StaffDashboardPage() {
                           <p className={`truncate text-xs ${isDark ? "text-slate-300" : "text-[#7C5D58]"}`}>{notification.message}</p>
                           <p className={`text-xs ${isDark ? "text-slate-400" : "text-[#8E706B]"}`}>{notification.time}</p>
                         </div>
-                      </div>
+                      </button>
                     ))
                   ) : (
                     <div className={`p-4 text-center text-sm ${isDark ? "text-slate-400" : "text-[#7C5D58]"}`}>
