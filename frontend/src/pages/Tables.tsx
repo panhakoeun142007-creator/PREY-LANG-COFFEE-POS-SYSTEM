@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Eye, Pencil, Plus, RefreshCw, Trash2, Users, Download, Printer } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
@@ -111,6 +111,7 @@ function getQrValue(table: ApiTable): string {
 export default function Tables() {
   const [tables, setTables] = useState<ApiTable[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [updatingIds, setUpdatingIds] = useState<Set<number>>(new Set());
 
@@ -134,21 +135,38 @@ export default function Tables() {
   const [previewTable, setPreviewTable] = useState<ApiTable | null>(null);
   const qrRef = useRef<HTMLDivElement>(null);
 
-  useAutoRefresh(
-    async () => {
+  const loadTables = useCallback(
+    async ({ background = false }: { background?: boolean } = {}) => {
       try {
-        setIsLoading(true);
-        setError(null);
+        if (background) {
+          setIsRefreshing(true);
+        } else {
+          setIsLoading(true);
+          setError(null);
+        }
+
         const result = await fetchTables();
         setTables(result.data ?? []);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load tables");
+        if (!background) {
+          setError(err instanceof Error ? err.message : "Failed to load tables");
+        }
       } finally {
-        setIsLoading(false);
+        if (background) {
+          setIsRefreshing(false);
+        } else {
+          setIsLoading(false);
+        }
       }
     },
-    { intervalMs: 15000 },
+    [],
   );
+
+  useEffect(() => {
+    void loadTables();
+  }, [loadTables]);
+
+  useAutoRefresh(() => loadTables({ background: true }), { intervalMs: 15000, immediate: false });
 
   const counts = useMemo(() => {
     const total = tables.length;
@@ -325,7 +343,15 @@ export default function Tables() {
 
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-[#4B2E2B]">Tables</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl md:text-3xl font-bold text-[#4B2E2B]">Tables</h1>
+            {isRefreshing && !isLoading && (
+              <span className="inline-flex items-center gap-2 rounded-full bg-white px-2 py-1 text-xs text-[#7C5D58] border border-[#EAD6C0]">
+                <RefreshCw className="h-3 w-3 animate-spin" />
+                Refreshing
+              </span>
+            )}
+          </div>
           <p className="mt-1 text-[#7C5D58]">
             Total Tables: <span className="font-semibold">{counts.total}</span>
           </p>
