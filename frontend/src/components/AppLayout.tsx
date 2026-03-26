@@ -1,4 +1,4 @@
-﻿import { Bell, ChevronLeft, ChevronRight, LogOut, Menu, Moon, Settings, Sun, User } from "lucide-react";
+﻿import { Bell, ChevronLeft, ChevronRight, LogOut, Menu, Moon, Settings, Sun, User, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { navGroups, pageTitleKeyByPath } from "../data/mockData";
@@ -11,6 +11,7 @@ import {
   CurrentUser,
   logoutAdmin,
   updateCurrentUser,
+  dismissNotification,
 } from "../services/api";
 import LogoutConfirmModal from "./LogoutConfirmModal";
 import LanguageSwitcher from "./LanguageSwitcher";
@@ -62,6 +63,20 @@ export default function AppLayout() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+
+  const dismissedStorageKey = "prey-lang-pos:notifications:dismissed";
+  const readDismissed = () => {
+    try {
+      const raw = localStorage.getItem(dismissedStorageKey);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed.map(String) : [];
+    } catch {
+      return [];
+    }
+  };
+  const writeDismissed = (keys: string[]) => {
+    localStorage.setItem(dismissedStorageKey, JSON.stringify(keys));
+  };
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme");
@@ -130,7 +145,9 @@ export default function AppLayout() {
     async function loadNotifications() {
       try {
         const data = await fetchNotifications();
-        setNotifications(data.notifications);
+        const dismissed = new Set(readDismissed());
+        const filtered = (data.notifications || []).filter((n) => !dismissed.has(String(n.id ?? "")));
+        setNotifications(filtered);
       } catch (err) {
         if (isConnectionError(err)) {
           setNotificationsPollingEnabled(false);
@@ -241,6 +258,19 @@ export default function AppLayout() {
 
   function toggleTheme(): void {
     setIsDarkMode((prev) => !prev);
+  }
+
+  async function handleDismissNotification(notificationId: number | string) {
+    const key = String(notificationId);
+    try {
+      await dismissNotification(key);
+    } catch (err) {
+      console.error("Failed to dismiss notification:", err);
+    } finally {
+      const merged = Array.from(new Set([...readDismissed(), key]));
+      writeDismissed(merged);
+      setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
+    }
   }
 
   return (
@@ -467,11 +497,18 @@ export default function AppLayout() {
                         notifications.slice(0, 10).map((notification) => (
                           <div
                             key={notification.id}
-                            className={`flex items-start gap-3 rounded-lg p-3 ${
+                            className={`flex items-start gap-3 rounded-lg p-3 cursor-pointer ${
                               isDarkMode ? "hover:bg-slate-800" : "hover:bg-[#F8EFE4]"
                             } ${
                               !notification.read ? (isDarkMode ? "bg-slate-800/70" : "bg-amber-50") : ""
                             }`}
+                            onClick={() => {
+                              setNotificationsOpen(false);
+                              setNotifications((prev) =>
+                                prev.map((n) => (n.id === notification.id ? { ...n, read: true } : n)),
+                              );
+                              navigate("/live-orders");
+                            }}
                           >
                             <span className="text-xl">{getNotificationIcon(notification.type)}</span>
                             <div className="flex-1 min-w-0">
@@ -479,6 +516,22 @@ export default function AppLayout() {
                               <p className={`truncate text-xs ${isDarkMode ? "text-slate-300" : "text-[#7C5D58]"}`}>{notification.message}</p>
                               <p className={`text-xs ${isDarkMode ? "text-slate-400" : "text-[#8E706B]"}`}>{notification.time}</p>
                             </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDismissNotification(notification.id);
+                              }}
+                              className={`ml-1 inline-flex flex-shrink-0 items-center justify-center rounded-full p-1 transition-colors ${
+                                isDarkMode
+                                  ? "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+                                  : "text-[#9A7B74] hover:text-[#4B2E2B] hover:bg-[#F1E3D3]"
+                              }`}
+                              aria-label="Remove notification"
+                              title="Remove notification"
+                            >
+                              <X size={16} />
+                            </button>
                           </div>
                         ))
                       ) : (
