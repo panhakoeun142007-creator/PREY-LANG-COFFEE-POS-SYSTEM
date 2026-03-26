@@ -271,6 +271,7 @@ Add these environment variables in Vercel Project Settings:
 ```env
 VITE_BACKEND_URL=https://api.panha-tech-web-code.site
 VITE_API_URL=https://api.panha-tech-web-code.site/api
+VITE_CUSTOMER_APP_URL=https://panha-tech-web-code.site
 ```
 
 Then deploy.

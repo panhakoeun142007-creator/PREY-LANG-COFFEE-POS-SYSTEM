@@ -27,27 +27,12 @@ import { useAutoRefresh } from "../hooks";
 function resolveCustomerBaseUrl(): string {
   const configured = (import.meta.env.VITE_CUSTOMER_APP_URL as string | undefined) || "";
   const fallbackOrigin = window.location.origin;
-  const base = (configured.trim() ? configured : fallbackOrigin).replace(/\/+$/, "");
+  const candidate = (configured.trim() ? configured.trim() : fallbackOrigin).replace(/\/+$/, "");
 
-  // If the deployment only has a valid cert on `www`, avoid the apex host in QR links.
-  // This helps iOS/Safari which will block an invalid/mismatched certificate hard.
-  try {
-    const url = new URL(base);
-    const host = url.hostname.toLowerCase();
-    const isLocal =
-      host === "localhost" ||
-      host === "127.0.0.1" ||
-      host.endsWith(".localhost");
-
-    if (!configured.trim() && !isLocal && !host.startsWith("www.") && url.protocol === "https:") {
-      url.hostname = `www.${host}`;
-      return url.toString().replace(/\/+$/, "");
-    }
-  } catch {
-    // ignore; keep base as-is
-  }
-
-  return base;
+  // Allow setting `VITE_CUSTOMER_APP_URL=panha-tech-web-code.site` (no protocol)
+  if (/^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(candidate)) return candidate;
+  if (candidate.startsWith("localhost") || candidate.startsWith("127.0.0.1")) return `http://${candidate}`;
+  return `https://${candidate}`;
 }
 
 function createQrCode(id: number, name: string): string {
@@ -57,6 +42,7 @@ function createQrCode(id: number, name: string): string {
 
 function getQrValue(table: ApiTable): string {
   const baseUrl = resolveCustomerBaseUrl();
+  const configured = ((import.meta.env.VITE_CUSTOMER_APP_URL as string | undefined) || "").trim();
 
   const raw =
     table.qrUrl ??
@@ -68,7 +54,20 @@ function getQrValue(table: ApiTable): string {
   // If backend already provides a full URL, use it.
   if (typeof raw === "string" && raw.trim()) {
     const value = raw.trim();
-    if (/^https?:\/\//i.test(value)) return value;
+    if (/^https?:\/\//i.test(value)) {
+      if (configured && typeof table.id === "number" && table.name) {
+        try {
+          const stored = new URL(value);
+          const expected = new URL(baseUrl);
+          if (stored.host.toLowerCase() !== expected.host.toLowerCase()) {
+            return createQrCode(table.id, table.name);
+          }
+        } catch {
+          // ignore and keep stored value
+        }
+      }
+      return value;
+    }
     if (value.startsWith("/")) return `${baseUrl}${value}`;
   }
 
