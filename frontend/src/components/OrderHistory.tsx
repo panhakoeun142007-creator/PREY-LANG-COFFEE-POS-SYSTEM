@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Printer, Search, Bell, X, Hash, Info } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 import coffeeLogo from '../assets/coffee.png';
 import { fetchNotifications, dismissNotification, type Notification } from '../services/api';
 import { auth } from '../utils/auth';
@@ -98,6 +99,7 @@ function ReceiptCard({ order, displayId }: { order: Order; displayId: string }) 
 }
 
 const OrderHistory: React.FC<OrderHistoryProps> = ({ orders = [], onNotificationClick }) => {
+  const navigate = useNavigate();
   const [orderToPrint, setOrderToPrint] = useState<Order | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isSavingPrintLog, setIsSavingPrintLog] = useState(false);
@@ -177,6 +179,38 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ orders = [], onNotification
       default:
         return <Bell size={16} className="text-white" />;
     }
+  };
+
+  const handleNotificationClick = (notification: Notification) => {
+    if (onNotificationClick) {
+      onNotificationClick(notification);
+      return;
+    }
+
+    const type = String(notification.type ?? '').toLowerCase();
+    const content = `${notification.title ?? ''} ${notification.message ?? ''}`.toLowerCase();
+
+    if (type === 'order' || type === 'ready' || content.includes('order')) {
+      navigate('/live-orders');
+      return;
+    }
+
+    if (type === 'stock' || type === 'near_stock' || content.includes('stock')) {
+      navigate('/stock');
+      return;
+    }
+
+    if (type.includes('receipt') || content.includes('receipt')) {
+      navigate('/receipts');
+      return;
+    }
+
+    if (type.includes('payment') || type.includes('finance') || content.includes('payment')) {
+      navigate('/finance');
+      return;
+    }
+
+    navigate('/');
   };
 
   useEffect(() => {
@@ -552,7 +586,7 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ orders = [], onNotification
                         key={notification.id}
                         onClick={() => {
                           setShowNotifications(false);
-                          onNotificationClick?.(notification);
+                          handleNotificationClick(notification);
                         }}
                         className="p-4 border-b border-slate-50 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
                       >

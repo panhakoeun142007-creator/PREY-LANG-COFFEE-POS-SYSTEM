@@ -12,6 +12,7 @@ import {
   Check
 } from 'lucide-react';
 import { motion } from 'framer-motion'; // Fixed import to match common usage
+import { useNavigate } from 'react-router-dom';
 import { fetchNotifications, fetchDashboard, dismissNotification, type Notification } from '../services/api';
 import { auth } from '../utils/auth';
 
@@ -58,6 +59,7 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ orders, historyOrders = [], onViewDetails, currentUser, onProfileClick, summaryCounts, onViewAllOrders, onNotificationClick }) => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'Live' | 'Completed' | 'Cancelled'>('Live');
   const [showAllOrders, setShowAllOrders] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -204,6 +206,38 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, historyOrders = [], onVie
     return 'bg-slate-100 dark:bg-white/5';
   };
 
+  const handleNotificationClick = (notification: Notification) => {
+    if (onNotificationClick) {
+      onNotificationClick(notification);
+      return;
+    }
+
+    const type = String(notification.type ?? '').toLowerCase();
+    const content = `${notification.title ?? ''} ${notification.message ?? ''}`.toLowerCase();
+
+    if (type === 'order' || type === 'ready' || content.includes('order')) {
+      navigate('/live-orders');
+      return;
+    }
+
+    if (type === 'stock' || type === 'near_stock' || content.includes('stock')) {
+      navigate('/stock');
+      return;
+    }
+
+    if (type.includes('receipt') || content.includes('receipt')) {
+      navigate('/receipts');
+      return;
+    }
+
+    if (type.includes('payment') || type.includes('finance') || content.includes('payment')) {
+      navigate('/finance');
+      return;
+    }
+
+    navigate('/');
+  };
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
@@ -282,7 +316,7 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, historyOrders = [], onVie
                         key={notification.id}
                         onClick={() => {
                           setShowNotifications(false);
-                          onNotificationClick?.(notification);
+                          handleNotificationClick(notification);
                         }}
                         className="p-4 border-b border-slate-50 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
                       >

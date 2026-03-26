@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { Bell, X, Check, Clock } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { fetchNotifications, Notification } from "../services/api";
 
 export default function NotificationBell() {
+    const navigate = useNavigate();
     const [isOpen, setIsOpen] = useState(false);
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
@@ -73,6 +75,35 @@ export default function NotificationBell() {
         }
     };
 
+    const handleNotificationClick = (notification: Notification) => {
+        const type = String(notification.type ?? "").toLowerCase();
+        const content = `${notification.title ?? ""} ${notification.message ?? ""}`.toLowerCase();
+
+        setIsOpen(false);
+
+        if (type === "order" || type === "ready" || content.includes("order")) {
+            navigate("/live-orders");
+            return;
+        }
+
+        if (type === "stock" || type === "near_stock" || content.includes("stock")) {
+            navigate("/stock");
+            return;
+        }
+
+        if (type.includes("receipt") || content.includes("receipt")) {
+            navigate("/receipts");
+            return;
+        }
+
+        if (type.includes("payment") || type.includes("finance") || content.includes("payment")) {
+            navigate("/finance");
+            return;
+        }
+
+        navigate("/");
+    };
+
     return (
         <div className="relative" ref={dropdownRef}>
             {/* Bell Button */}
@@ -121,8 +152,9 @@ export default function NotificationBell() {
                                 {notifications.map((notification) => (
                                     <div
                                         key={notification.id}
+                                        onClick={() => handleNotificationClick(notification)}
                                         className={`flex items-start gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors ${!notification.read ? "bg-blue-50/50 dark:bg-blue-900/10" : ""
-                                            }`}
+                                            } cursor-pointer`}
                                     >
                                         {/* Icon */}
                                         <div
