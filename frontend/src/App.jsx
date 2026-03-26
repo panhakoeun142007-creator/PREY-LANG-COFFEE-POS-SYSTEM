@@ -116,6 +116,10 @@ function AuthProvider({ children }) {
       setIsAuthenticated(false);
       setUser(null);
       setUserFetched(false);
+      // Customer menu is a public route; avoid redirecting scanned QR users to /login.
+      if (window.location.pathname.startsWith("/menu")) {
+        return;
+      }
       if (window.location.pathname !== "/login") {
         navigate("/login", { replace: true });
       }
