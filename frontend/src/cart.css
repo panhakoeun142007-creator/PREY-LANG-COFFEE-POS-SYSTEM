@@ -20,18 +20,30 @@
 }
 
 .cart-back-icon {
-  border: none;
-  background: transparent;
+  border: 1px solid #e8edf3;
+  background: #fff;
   color: var(--text-primary);
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 1rem;
+  font-size: 1.1rem;
   cursor: pointer;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.cart-back-icon:hover {
+  transform: translateX(-1px);
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.09);
+}
+
+.cart-back-icon:focus-visible {
+  outline: 2px solid #ff5f25;
+  outline-offset: 2px;
 }
 
 .cart-list {

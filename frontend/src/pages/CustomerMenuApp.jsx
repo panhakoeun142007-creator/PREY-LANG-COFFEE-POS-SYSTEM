@@ -477,7 +477,7 @@ export default function CustomerMenuApp() {
           totalDue={getCartTotalWithTax(cartItems)}
           orderNumber={qrOrderNumber}
           paymentMethod={pendingPaymentMethod ?? "card"}
-          onBack={() => setCurrentPage("order-confirmed")}
+          onBack={() => setCurrentPage("checkout")}
           onPaymentComplete={handleQRPaymentComplete}
         />
       )}
