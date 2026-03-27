@@ -94,6 +94,10 @@ export default function CustomerMenuApp() {
     return typeof s?.pendingPaymentMethod === "string" ? s.pendingPaymentMethod : null;
   });
   const [cartSnapshot, setCartSnapshot] = useState(null);
+  const [detailDrafts, setDetailDrafts] = useState(() => {
+    const s = readStoredState();
+    return s && typeof s?.detailDrafts === "object" && s.detailDrafts ? s.detailDrafts : {};
+  });
 
   const { settings } = useSettings();
   const receiptSettings = settings?.receipt;
@@ -126,9 +130,10 @@ export default function CustomerMenuApp() {
         qrOrderNumber,
         lastOrderId,
         pendingPaymentMethod,
+        detailDrafts,
       })
     );
-  }, [cartItems, currentPage, detailTarget, qrOrderNumber, lastOrderId, pendingPaymentMethod]);
+  }, [cartItems, currentPage, detailTarget, qrOrderNumber, lastOrderId, pendingPaymentMethod, detailDrafts]);
 
   // Store the full item snapshot in detailTarget so lookup never fails
   const activeDetailItem = detailTarget ?? null;
@@ -249,55 +254,78 @@ export default function CustomerMenuApp() {
     setDetailTarget(cartItems[nextIndex]);
   };
 
+  const applyDetailUpdate = (items, targetKey, targetSize, details) => {
+    const index = items.findIndex(
+      (i) => i.productKey === targetKey && i.selectedSize === targetSize
+    );
+    if (index === -1) return items;
+
+    const updated = {
+      ...items[index],
+      selectedSize: details.selectedSize,
+      sugarLevel: details.sugarLevel,
+      milkOption: details.milkOption,
+      extras: details.extras,
+      quantity: details.quantity ?? items[index].quantity ?? 1,
+    };
+
+    if ((updated.quantity ?? 0) === 0) {
+      return items.filter(
+        (i) => !(i.productKey === targetKey && i.selectedSize === targetSize)
+      );
+    }
+
+    const mergeIndex = items.findIndex(
+      (i, idx) =>
+        idx !== index &&
+        i.productKey === updated.productKey &&
+        i.selectedSize === updated.selectedSize
+    );
+    if (mergeIndex > -1) {
+      return items
+        .map((item, idx) => {
+          if (idx === index) return null;
+          if (idx === mergeIndex) {
+            const existingQty = item.quantity ?? 1;
+            return {
+              ...item,
+              quantity: existingQty + (updated.quantity ?? 1),
+              sugarLevel: updated.sugarLevel,
+              milkOption: updated.milkOption,
+              extras: updated.extras,
+            };
+          }
+          return item;
+        })
+        .filter(Boolean);
+    }
+
+    return items.map((item, idx) => (idx === index ? updated : item));
+  };
+
   const saveDetailChanges = (details) => {
     if (!detailTarget) return;
-    const targetKey = detailTarget.productKey;
-    const targetSize = detailTarget.selectedSize;
+
+    // Save all pending draft changes (from prev/next navigation), then go to My Cart.
     setCartItems((prev) => {
-      const index = prev.findIndex(
-        (i) => i.productKey === targetKey && i.selectedSize === targetSize
-      );
-      if (index === -1) return prev;
+      let next = prev;
 
-      const updated = {
-        ...prev[index],
-        selectedSize: details.selectedSize,
-        sugarLevel: details.sugarLevel,
-        milkOption: details.milkOption,
-        extras: details.extras,
-        quantity: details.quantity ?? prev[index].quantity ?? 1,
-      };
+      const drafts = detailDrafts && typeof detailDrafts === "object" ? detailDrafts : {};
+      for (const [key, draft] of Object.entries(drafts)) {
+        if (!draft) continue;
+        const sep = key.indexOf("::");
+        if (sep === -1) continue;
+        const k = key.slice(0, sep);
+        const s = key.slice(sep + 2);
+        next = applyDetailUpdate(next, k, s, draft);
+      }
 
-      if (updated.quantity === 0) {
-        return prev.filter((i) => !(i.productKey === targetKey && i.selectedSize === targetSize));
-      }
-      
-      const mergeIndex = prev.findIndex(
-        (i, idx) =>
-          idx !== index &&
-          i.productKey === updated.productKey &&
-          i.selectedSize === updated.selectedSize
-      );
-      if (mergeIndex > -1) {
-        return prev
-          .map((item, idx) => {
-            if (idx === index) return null;
-            if (idx === mergeIndex) {
-              const existingQty = item.quantity ?? 1;
-              return {
-                ...item,
-                quantity: existingQty + (updated.quantity ?? 1),
-                sugarLevel: updated.sugarLevel,
-                milkOption: updated.milkOption,
-                extras: updated.extras,
-              };
-            }
-            return item;
-          })
-          .filter(Boolean);
-      }
-      return prev.map((item, idx) => (idx === index ? updated : item));
+      // Also apply the current detail screen values (covers "Save immediately" before draft effect runs).
+      next = applyDetailUpdate(next, detailTarget.productKey, detailTarget.selectedSize, details);
+      return next;
     });
+
+    setDetailDrafts({});
     setCurrentPage("cart");
     setDetailTarget(null);
   };
@@ -485,12 +513,28 @@ export default function CustomerMenuApp() {
       )}
 {effectivePage === "detail" && (
         <Detail
-          key={activeDetailItem ? `${activeDetailItem.productKey}-${activeDetailItem.selectedSize}` : 'detail'}
+          key={activeDetailItem ? `${activeDetailItem.productKey}-${activeDetailItem.selectedSize}` : "detail"}
           item={activeDetailItem}
-          isCartComplete={cartItems.every((item) => {
-            const extras = item.extras || {};
-            return Object.values(extras).some((val) => Boolean(val));
-          })}
+          draft={
+            detailTarget
+              ? detailDrafts?.[`${detailTarget.productKey}::${detailTarget.selectedSize}`] ?? null
+              : null
+          }
+          onDraftChange={(nextDraft) => {
+            if (!detailTarget) return;
+            const k = `${detailTarget.productKey}::${detailTarget.selectedSize}`;
+            setDetailDrafts((prev) => {
+              const base = prev && typeof prev === "object" ? prev : {};
+              if (!nextDraft) {
+                if (!Object.prototype.hasOwnProperty.call(base, k)) return base;
+                const next = { ...base };
+                delete next[k];
+                return next;
+              }
+              return { ...base, [k]: nextDraft };
+            });
+          }}
+          hasAnyDrafts={Object.keys(detailDrafts || {}).length > 0}
           onBack={() => setCurrentPage("cart")}
           onSave={saveDetailChanges}
           onAddMore={handleDetailAddMore}

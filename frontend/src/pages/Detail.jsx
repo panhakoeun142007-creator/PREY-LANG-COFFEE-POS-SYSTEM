@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import "../detail.css";
 import { getItemUnitPrice } from "../utils/pricing";
 
@@ -24,6 +24,9 @@ const SUGAR_OPTIONS = ["0%", "25%", "50%", "75%", "100%"];
 
 function Detail({
   item,
+  draft,
+  onDraftChange,
+  hasAnyDrafts = false,
   onBack,
   onSave,
   onAddMore,
@@ -34,35 +37,79 @@ function Detail({
   detailIndex = -1,
   detailCount = 0,
 }) {
-  const [selectedSize, setSelectedSize] = useState(item?.selectedSize ?? "M");
-  const [sugarLevel, setSugarLevel] = useState(item?.sugarLevel ?? "100%");
-  const [milkOption, setMilkOption] = useState(item?.milkOption ?? "Whole");
-  const [quantity, setQuantity] = useState(item?.quantity ?? 1);
+  const initial = draft ?? item;
+  const [selectedSize, setSelectedSize] = useState(initial?.selectedSize ?? "M");
+  const [sugarLevel, setSugarLevel] = useState(initial?.sugarLevel ?? "100%");
+  const [milkOption, setMilkOption] = useState(initial?.milkOption ?? "Whole");
+  const [quantity, setQuantity] = useState(initial?.quantity ?? 1);
   const [extras, setExtras] = useState(
-    item?.extras ?? {
+    initial?.extras ?? {
       extraShot: false,
       whippedCream: false,
       cinnamonSprinkles: false,
       milk: false,
     }
   );
+  const loadedItemKeyRef = useRef(null);
 
   useEffect(() => {
     if (!item) return;
+    // Only reset local state when the displayed cart item changes.
+    const currentKey = `${item.productKey}::${item.selectedSize}`;
+    if (loadedItemKeyRef.current === currentKey) return;
+    loadedItemKeyRef.current = currentKey;
 
-    setSelectedSize(item.selectedSize ?? "M");
-    setSugarLevel(item.sugarLevel ?? "100%");
-    setMilkOption(item.milkOption ?? "Whole");
-    setQuantity(item.quantity ?? 1);
+    const source = draft ?? item;
+    setSelectedSize(source.selectedSize ?? "M");
+    setSugarLevel(source.sugarLevel ?? "100%");
+    setMilkOption(source.milkOption ?? "Whole");
+    setQuantity(source.quantity ?? 1);
     setExtras(
-      item.extras ?? {
+      source.extras ?? {
         extraShot: false,
         whippedCream: false,
         cinnamonSprinkles: false,
         milk: false,
       }
     );
-  }, [item]);
+  }, [item, draft]);
+
+  const hasChanges = useMemo(() => {
+    if (!item) return false;
+    const defaultExtras = {
+      extraShot: false,
+      whippedCream: false,
+      cinnamonSprinkles: false,
+      milk: false,
+      ...item.extras,
+    };
+    const extrasChanged = Object.keys(defaultExtras).some(
+      (key) => extras[key] !== defaultExtras[key]
+    );
+    return (
+      selectedSize !== (item.selectedSize ?? "M") ||
+      sugarLevel !== (item.sugarLevel ?? "100%") ||
+      milkOption !== (item.milkOption ?? "Whole") ||
+      quantity !== (item.quantity ?? 1) ||
+      extrasChanged
+    );
+  }, [extras, item, milkOption, quantity, sugarLevel, selectedSize]);
+
+  useEffect(() => {
+    if (!item) return;
+    if (!onDraftChange) return;
+    if (!hasChanges) {
+      onDraftChange(null);
+      return;
+    }
+    onDraftChange({
+      selectedSize,
+      sugarLevel,
+      milkOption,
+      extras,
+      quantity,
+    });
+  }, [extras, hasChanges, milkOption, onDraftChange, quantity, selectedSize, sugarLevel]);
 
   if (!item) {
     return null;
@@ -85,26 +132,7 @@ function Detail({
   const previewUnitPrice = getPreviewUnitPrice(item, selectedSize, milkOption, extras);
   const previewTotalPrice = previewUnitPrice * quantity;
 
-  const hasChanges = useMemo(() => {
-    if (!item) return true;
-    const defaultExtras = {
-      extraShot: false,
-      whippedCream: false,
-      cinnamonSprinkles: false,
-      milk: false,
-      ...item.extras,
-    };
-    const extrasChanged = Object.keys(defaultExtras).some(
-      (key) => extras[key] !== defaultExtras[key]
-    );
-    return (
-      selectedSize !== (item.selectedSize ?? "M") ||
-      sugarLevel !== (item.sugarLevel ?? "100%") ||
-      milkOption !== (item.milkOption ?? "Whole") ||
-      quantity !== (item.quantity ?? 1) ||
-      extrasChanged
-    );
-  }, [extras, item, milkOption, quantity, sugarLevel, selectedSize]);
+  const canSave = hasChanges || hasAnyDrafts;
 
   return (
     <div className="detail-page">
@@ -225,9 +253,9 @@ function Detail({
             Add More
           </button>
           <button
-            className={`detail-save-btn ${!hasChanges ? "detail-save-btn--inactive" : ""}`}
+            className={`detail-save-btn ${!canSave ? "detail-save-btn--inactive" : ""}`}
             onClick={save}
-            disabled={!hasChanges}
+            disabled={!canSave}
           >
             Save
           </button>

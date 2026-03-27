@@ -193,18 +193,17 @@ const handleAddPopularProduct = (popularProduct) => {
               >
                 {theme === "dark" ? <FaSun /> : <FaMoon />}
               </button>
-            <div
-              className="cart-icon-mini"
-              onClick={onCartClick}
-              onKeyDown={(e) => e.key === "Enter" && onCartClick?.()}
-              role="button"
-              tabIndex={0}
-              style={{ position: 'relative', cursor: 'pointer' }}
-            >
-              <FaShoppingCart style={{ fontSize: '0.9rem' }} />
-              {cartCount > 0 && <span className="cart-count-mini">{cartCount}</span>}
-              {lastAdded && <span className="cart-quick-note">{lastAdded}</span>}
-            </div>
+              <button
+                type="button"
+                className="cart-icon-mini cart-icon-mini-btn"
+                onClick={onCartClick}
+                aria-label="Open cart"
+                style={{ position: "relative", cursor: "pointer" }}
+              >
+                <FaShoppingCart style={{ fontSize: "0.9rem" }} />
+                {cartCount > 0 && <span className="cart-count-mini">{cartCount}</span>}
+                {lastAdded && <span className="cart-quick-note">{lastAdded}</span>}
+              </button>
             </div>
           </div>
 

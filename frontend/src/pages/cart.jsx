@@ -68,6 +68,9 @@ function Cart({
         <div className="cart-list">
           {cartItems.map((item) => {
             const itemId = `${item.productKey}-${item.selectedSize}`;
+            const qty = item.quantity || 1;
+            const unitPrice = getItemUnitPrice(item);
+            const lineTotal = unitPrice * qty;
 
             return (
               <div className="cart-item" key={itemId}>
@@ -78,7 +81,7 @@ function Cart({
                   {Object.entries(item.extras || {}).map(([k, v]) => v && <p key={k}>{k.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())} </p>)}
                 </div>
                 <div className="cart-item-right">
-                  <p className="cart-item-price">${getItemLineTotal(item).toFixed(2)}</p>
+                  <p className="cart-item-price">${lineTotal.toFixed(2)}</p>
                   <div className="cart-item-actions">
                     <button
                       className="remove-btn"
