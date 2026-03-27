@@ -70,7 +70,7 @@ const DICTS: Record<Language, Dictionary> = {
     "user.staff_default_name": "Staff User",
     "user.staff_default_email": "staff@preylang.com",
     "user.admin_default_name": "Admin User",
-    "user.admin_default_email": "admin@preylang.com",
+    "user.admin_default_email": "panha.koeun142007@gmail.com",
 
     "common.loading": "Loading...",
     "common.just_now": "Just now",
@@ -310,7 +310,7 @@ const DICTS: Record<Language, Dictionary> = {
     "user.staff_default_name": "បុគ្គលិក",
     "user.staff_default_email": "staff@preylang.com",
     "user.admin_default_name": "អ្នកគ្រប់គ្រង",
-    "user.admin_default_email": "admin@preylang.com",
+    "user.admin_default_email": "panha.koeun142007@gmail.com",
 
     "common.loading": "កំពុងផ្ទុក...",
     "common.just_now": "មុននេះបន្តិច",

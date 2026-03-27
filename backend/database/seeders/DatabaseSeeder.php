@@ -6,8 +6,7 @@ use Illuminate\Database\Seeder;
 use App\Models\Staff;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
-use Illuminate\Support\Facades\Hash;
-use RuntimeException;
+use Illuminate\Support\Facades\Schema;
 
 class DatabaseSeeder extends Seeder
 {
@@ -26,67 +25,64 @@ class DatabaseSeeder extends Seeder
             RecipeSeeder::class,
             OrderSeeder::class,
         ]);
-        
-        // Create admin user with proper role and is_active
-        $adminEmailEnv = env('ADMIN_EMAIL');
-        $adminPasswordEnv = env('ADMIN_PASSWORD');
 
-        if (app()->environment('production')) {
-            if (!is_string($adminEmailEnv) || trim($adminEmailEnv) === '') {
-                throw new RuntimeException('Missing ADMIN_EMAIL in backend .env (required in production before db:seed).');
-            }
-            if (!is_string($adminPasswordEnv) || trim($adminPasswordEnv) === '') {
-                throw new RuntimeException('Missing ADMIN_PASSWORD in backend .env (required in production before db:seed).');
-            }
-        }
-
-        $adminEmail = (string) ($adminEmailEnv ?: 'admin@example.com');
         $adminName = (string) env('ADMIN_NAME', 'Admin User');
-        $adminPassword = (string) ($adminPasswordEnv ?: 'ChangeMe123!');
+        $adminEmail = (string) env('ADMIN_EMAIL', 'panha.koeun142007@gmail.com');
+        $adminPassword = (string) env('ADMIN_PASSWORD', 'panha123!@#');
 
-        $admin = User::where('email', $adminEmail)->first();
+        /** @var array<string, mixed> $adminAttributes */
+        $adminAttributes = [
+            'name' => $adminName,
+            'email' => $adminEmail,
+            // Uses the model "hashed" cast to store a secure hash.
+            'password' => $adminPassword,
+        ];
 
-        if ($admin) {
-            $admin->name = $adminName;
-            $admin->email = $adminEmail;
-            $admin->password = Hash::make($adminPassword);
-            $admin->role = 'admin';
-            $admin->is_active = true;
-            $admin->email_verified_at = now();
-            $admin->save();
-        } else {
-            User::create([
-                'name' => $adminName,
-                'email' => $adminEmail,
-                'password' => Hash::make($adminPassword),
-                'role' => 'admin',
-                'is_active' => true,
-                'email_verified_at' => now(),
-            ]);
+        if (Schema::hasColumn('users', 'role')) {
+            $adminAttributes['role'] = 'admin';
         }
 
-        // Also ensure test user exists
-        User::updateOrCreate(
-            ['email' => 'test@example.com'],
-            [
-                'name' => 'Test User',
-                'password' => Hash::make('password'),
-                'role' => 'admin',
-                'is_active' => true,
-                'email_verified_at' => now(),
-            ]
-        );
+        if (Schema::hasColumn('users', 'is_active')) {
+            $adminAttributes['is_active'] = true;
+        }
 
-        // Create staff user
-        $staffEmail = (string) env('STAFF_EMAIL', 'staff@preylang.com');
+        $admin = User::query()->updateOrCreate(['email' => $adminEmail], $adminAttributes);
+
+        if (Schema::hasColumn('users', 'email_verified_at') && !$admin->email_verified_at) {
+            $admin->forceFill(['email_verified_at' => now()])->save();
+        }
+
+        if (app()->environment(['local', 'testing'])) {
+            /** @var array<string, mixed> $demoAttributes */
+            $demoAttributes = [
+                'name' => 'Test User',
+                'password' => 'password',
+            ];
+
+            if (Schema::hasColumn('users', 'role')) {
+                $demoAttributes['role'] = 'admin';
+            }
+
+            if (Schema::hasColumn('users', 'is_active')) {
+                $demoAttributes['is_active'] = true;
+            }
+
+            $demoUser = User::query()->updateOrCreate(['email' => 'test@example.com'], $demoAttributes);
+
+            if (Schema::hasColumn('users', 'email_verified_at') && !$demoUser->email_verified_at) {
+                $demoUser->forceFill(['email_verified_at' => now()])->save();
+            }
+        }
+
         $staffName = (string) env('STAFF_NAME', 'Staff Member');
+        $staffEmail = (string) env('STAFF_EMAIL', 'staff@preylang.com');
         $staffPassword = (string) env('STAFF_PASSWORD', 'staff123');
 
-        Staff::updateOrCreate(
+        Staff::query()->updateOrCreate(
             ['email' => $staffEmail],
             [
                 'name' => $staffName,
-                'password' => Hash::make($staffPassword),
+                'password' => $staffPassword,
                 'password_plain' => $staffPassword,
                 'salary' => 250.00,
                 'is_active' => true,
