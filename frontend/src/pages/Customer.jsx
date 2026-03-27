@@ -45,7 +45,7 @@ function normalizeImage(imageUrl, imagePath) {
   return `${API_BASE}${v.startsWith("/") ? v : `/${v}`}`;
 }
 
-function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", onToggleTheme, lastAdded }) {
+function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", onToggleTheme }) {
   const { lang, setLang, t } = useI18n();
   // Guard: only allow expected values in DOM select
   const safeLang = lang === "km" ? "km" : "en";
@@ -202,7 +202,7 @@ const handleAddPopularProduct = (popularProduct) => {
               >
                 <FaShoppingCart style={{ fontSize: "0.9rem" }} />
                 {cartCount > 0 && <span className="cart-count-mini">{cartCount}</span>}
-                {lastAdded && <span className="cart-quick-note">{lastAdded}</span>}
+
               </button>
             </div>
           </div>

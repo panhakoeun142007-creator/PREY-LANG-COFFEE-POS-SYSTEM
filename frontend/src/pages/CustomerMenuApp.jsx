@@ -85,7 +85,6 @@ export default function CustomerMenuApp() {
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem("customer-theme") === "dark" ? "dark" : "light";
   });
-  const [lastAdded, setLastAdded] = useState(null);
   const [orderStatus, setOrderStatus] = useState(null);
   const [cancellationMessage, setCancellationMessage] = useState(null);
   const [paymentCompleted, setPaymentCompleted] = useState(false);
@@ -105,12 +104,6 @@ export default function CustomerMenuApp() {
   useEffect(() => {
     localStorage.setItem("customer-theme", theme);
   }, [theme]);
-
-  useEffect(() => {
-    if (!lastAdded) return;
-    const timer = setTimeout(() => setLastAdded(null), 2000);
-    return () => clearTimeout(timer);
-  }, [lastAdded]);
 
   useEffect(() => {
     if (cartItems.length === 0 && currentPage !== "menu" && currentPage !== "cart") {
@@ -179,7 +172,6 @@ export default function CustomerMenuApp() {
       );
     }
     const productName = detailPayload?.name || product?.name || productKey;
-    setLastAdded(productName);
     alert(`${productName} added to cart`);
     if (openDetail) {
       setDetailTarget(detailPayload);
@@ -497,7 +489,6 @@ export default function CustomerMenuApp() {
           onCartClick={handleCartIconClick}
           theme={theme}
           onToggleTheme={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
-          lastAdded={lastAdded}
         />
       )}
       {effectivePage === "cart" && (
