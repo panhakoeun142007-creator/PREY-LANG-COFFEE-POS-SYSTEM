@@ -11,7 +11,36 @@ function resolveApiBaseUrl(): string {
     "";
 
   if (envApiUrl.trim()) {
-    return envApiUrl.trim().replace(/\/+$/, "");
+    const raw = envApiUrl.trim();
+    // Support either:
+    // - "/api" (recommended for Vercel proxy)
+    // - "https://api.example.com/api" (direct calls)
+    // - "https://api.example.com" (we normalize to ".../api")
+    if (raw.startsWith("/")) {
+      return raw.replace(/\/+$/, "");
+    }
+
+    if (/^https?:\/\//i.test(raw)) {
+      try {
+        const url = new URL(raw);
+        const normalizedPath = url.pathname.replace(/\/+$/, "") || "/";
+        if (normalizedPath === "/") {
+          url.pathname = "/api";
+        } else if (normalizedPath.endsWith("/api")) {
+          url.pathname = normalizedPath;
+        } else {
+          // If someone provides only the origin (or a base path), append /api.
+          url.pathname = `${normalizedPath}/api`;
+        }
+        url.search = "";
+        url.hash = "";
+        return url.toString().replace(/\/+$/, "");
+      } catch {
+        return raw.replace(/\/+$/, "");
+      }
+    }
+
+    return raw.replace(/\/+$/, "");
   }
 
   const backendUrlRaw = (import.meta.env.VITE_BACKEND_URL as string | undefined) || "";

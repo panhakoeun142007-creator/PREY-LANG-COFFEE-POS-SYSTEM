@@ -17,6 +17,11 @@ The frontend then calls:
 
 - `https://api.panha-tech-web-code.site/api`
 
+Recommended (more reliable in browsers): proxy API through Vercel so the frontend calls same-origin `/api`.
+- Set Vercel env `VITE_API_URL=/api`
+- Keep `frontend/vercel.json` rewrite for `/api/*` -> backend API domain
+- Keep `frontend/vercel.json` rewrite for `/media/*` -> backend API domain (so uploaded images work without CORS)
+
 ## Important project facts
 
 - Backend folder: `backend`

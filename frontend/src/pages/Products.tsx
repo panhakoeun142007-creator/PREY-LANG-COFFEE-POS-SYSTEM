@@ -84,9 +84,11 @@ const getImageUrl = (image: string | null | undefined, imageUrl?: string | null)
   if (image.startsWith("http://") || image.startsWith("https://")) {
     return image;
   }
-  // If it's a local storage path, prepend the backend URL
-  const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:8000";
-  return `${backendUrl}/storage/${image}`;
+  // If it's a local storage path, serve from backend `/media/<path>`.
+  // In production on Vercel, `/media/*` is proxied via `frontend/vercel.json` to the backend API domain.
+  const backendUrl = (import.meta.env.VITE_BACKEND_URL || "").trim().replace(/\/+$/, "");
+  const base = backendUrl || window.location.origin;
+  return `${base}/media/${String(image).replace(/^\/+/, "")}`;
 };
 
 // Memoized product row component
