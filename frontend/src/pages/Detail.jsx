@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import "../detail.css";
 import { getItemUnitPrice } from "../utils/pricing";
 
@@ -91,6 +91,27 @@ function Detail({
   };
   const previewUnitPrice = getPreviewUnitPrice(item, selectedSize, milkOption, extras);
   const previewTotalPrice = previewUnitPrice * quantity;
+
+  const hasChanges = useMemo(() => {
+    if (!item) return true;
+    const defaultExtras = {
+      extraShot: false,
+      whippedCream: false,
+      cinnamonSprinkles: false,
+      milk: false,
+      ...item.extras,
+    };
+    const extrasChanged = Object.keys(defaultExtras).some(
+      (key) => extras[key] !== defaultExtras[key]
+    );
+    return (
+      selectedSize !== (item.selectedSize ?? "M") ||
+      sugarLevel !== (item.sugarLevel ?? "100%") ||
+      milkOption !== (item.milkOption ?? "Whole") ||
+      quantity !== (item.quantity ?? 1) ||
+      extrasChanged
+    );
+  }, [extras, item, milkOption, quantity, sugarLevel, selectedSize]);
 
   return (
     <div className="detail-page">
@@ -210,7 +231,11 @@ function Detail({
           <button className="detail-add-more-btn" onClick={() => onAddMore?.()}>
             Add More
           </button>
-          <button className="detail-save-btn" onClick={save}>
+          <button
+            className={`detail-save-btn ${!hasChanges ? "detail-save-btn--inactive" : ""}`}
+            onClick={save}
+            disabled={!hasChanges}
+          >
             Save
           </button>
         </div>

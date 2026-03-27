@@ -1,61 +1,26 @@
-# Fix Menu Not Showing Results (http://localhost:5173/menu?table=1&amp;name=Table3)
+# PREY-LANG-COFFEE-POS-SYSTEM Task: Fix Customer Ingredient Save Logic
 
-## Status: ✅ Started
+## Steps to Complete:
 
-**Root Cause**: Backend API (http://127.0.0.1:8000) not running or no categories/products data, causing empty menu.
+### 1. Update Detail.jsx
+- Define isComplete() function: check if current selections meet criteria (e.g., milkOption != null, specific extras set for certain products).
+- Change save button disabled={!globalComplete || !hasChanges} - receive globalComplete prop.
+- Ensure useEffect preserves item.customizations.
 
-**Port Fixed**: Frontend now on 5173 (vite.config.js).
+### 2. Update CustomerMenuApp.jsx
+- Add isCartComplete(): check ALL cartItems have complete flag or validate each item's sugar/milk/extras.
+- Pass isCartComplete() as globalComplete to Detail component.
+- Extend saveDetailChanges to validate before update.
 
-### Steps Completed:
-- [x] Created this TODO
+### 3. Test Flow
+- Add products → detail → customize incomplete → save disabled.
+- Complete all → save enabled.
+- Re-open existing complete item → save enabled (even no changes).
 
-### Next Steps:
+### 4. Run & Verify
+- cd frontend && npm run dev
+- Test ordering flow.
 
-#### 1. [ ] Start Backend Server
-   ```cmd
-   cd backend
-   php artisan serve --port=8000
-   ```
-   **Verify**: http://127.0.0.1:8000/api/customer/categories returns JSON array.
+**Progress: 2/4 complete** (Detail.jsx & CustomerMenuApp.jsx updated)
 
-#### 2. [ ] Start Frontend Server (Port 5173)
-   ```cmd
-   cd frontend
-   npm run dev
-   ```
-   **Access**: http://localhost:5173/menu?table=1&amp;name=Table3
-
-#### 3. [ ] Seed Database (if no products)
-   ```cmd
-   cd backend
-   php artisan db:seed --class=CategorySeeder
-   php artisan db:seed --class=ProductSeeder
-   php artisan db:seed --class=DiningTableSeeder
-   ```
-
-#### 4. [ ] Test APIs
-   ```
-   curl http://127.0.0.1:8000/api/customer/categories
-   curl http://127.0.0.1:8000/api/customer/products  
-   ```
-
-#### 5. [ ] Update Table QR (Optional)
-   ```cmd
-   cd backend
-   php artisan tinker
-   ```
-   ```php
-   App\Models\\DiningTable::where('id', 1)->update(['qr_code' => 'http://localhost:5173/menu?table=1&name=Table3']);
-   ```
-
-## Check Browser:
-- **Console**: API errors?
-- **Network tab**: 404/500 on /api/customer/* ?
-
-## Backend Logs
-`backend/storage/logs/laravel.log`
-
-**Expected Result**: Menu shows categories/products, add to cart works.
-
-Run Step 1 first!
 

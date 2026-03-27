@@ -229,8 +229,8 @@ export default function CustomerMenuApp() {
       setCurrentPage("cart");
       return;
     }
-    const lastItem = cartItems[cartItems.length - 1];
-    openDetailPage(lastItem.productKey, lastItem.selectedSize);
+    const firstItem = cartItems[0];
+    openDetailPage(firstItem.productKey, firstItem.selectedSize);
   };
 
   const handleDetailAddMore = () => {
@@ -464,6 +464,10 @@ export default function CustomerMenuApp() {
       {effectivePage === "detail" && (
         <Detail
           item={activeDetailItem}
+          isCartComplete={cartItems.every((item) => {
+            const extras = item.extras || {};
+            return Object.values(extras).some((val) => Boolean(val));
+          })}
           onBack={() => setCurrentPage("cart")}
           onSave={saveDetailChanges}
           onAddMore={handleDetailAddMore}

@@ -335,6 +335,17 @@
   border: 1px solid var(--border-color);
 }
 
+.detail-save-btn--inactive {
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+.detail-save-btn--inactive:hover {
+  filter: none;
+}
+
 .detail-action-row .detail-save-btn {
   width: auto;
   flex: 1;
