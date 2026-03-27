@@ -16,6 +16,7 @@ import {
 } from "../services/api";
 import LogoutConfirmModal from "./LogoutConfirmModal";
 import LanguageSwitcher from "./LanguageSwitcher";
+import { toSameOriginMediaUrl, withCacheBuster } from "../utils/media";
 
 function statusClass(isActive: boolean, isDarkMode: boolean): string {
   if (isActive) {
@@ -226,6 +227,13 @@ export default function AppLayout() {
 
   const unreadCount = notifications.filter((notification) => !notification.read).length;
 
+  const profileImageSrc = useMemo(() => {
+    const raw = currentUser?.profile_image_url ?? "";
+    if (!raw) return "";
+    const sameOrigin = toSameOriginMediaUrl(raw);
+    return withCacheBuster(sameOrigin, currentUser?.updated_at ?? raw);
+  }, [currentUser?.profile_image_url, currentUser?.updated_at]);
+
   const userRole = currentUser?.role === 'admin' ? 'admin' : 'staff';
   const filteredNavGroups = useMemo(() => {
     return navGroups
@@ -380,7 +388,7 @@ export default function AppLayout() {
           <div className="flex items-center gap-3 -mx-2 px-2 py-2 rounded-lg">
             {currentUser?.profile_image_url ? (
               <img
-                src={currentUser.profile_image_url}
+                src={profileImageSrc}
                 alt={currentUser.name}
                 className="h-10 w-10 rounded-full object-cover"
               />
@@ -607,7 +615,7 @@ export default function AppLayout() {
                 >
                   {currentUser?.profile_image_url ? (
                     <img
-                      src={currentUser.profile_image_url}
+                      src={profileImageSrc}
                       alt={currentUser.name}
                       className="h-8 w-8 rounded-full object-cover"
                     />

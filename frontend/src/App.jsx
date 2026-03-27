@@ -113,6 +113,8 @@ function AuthProvider({ children }) {
 
   useEffect(() => {
     const handler = () => {
+      // Ensure we don't get stuck in a redirect loop if a bad/expired token is stored.
+      auth.clear();
       setIsAuthenticated(false);
       setUser(null);
       setUserFetched(false);

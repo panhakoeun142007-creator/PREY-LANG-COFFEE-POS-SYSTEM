@@ -15,6 +15,7 @@ import { motion } from 'framer-motion'; // Fixed import to match common usage
 import { useNavigate } from 'react-router-dom';
 import { fetchNotifications, fetchDashboard, dismissNotification, type Notification } from '../services/api';
 import { auth } from '../utils/auth';
+import { toSameOriginMediaUrl, withCacheBuster } from '../utils/media';
 
 interface OrderItem {
   name: string;
@@ -406,7 +407,7 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, historyOrders = [], onVie
           >
             {user?.profile_image_url ? (
               <img
-                src={user.profile_image_url}
+                src={withCacheBuster(toSameOriginMediaUrl(user.profile_image_url), user.updated_at ?? user.profile_image_url)}
                 alt="User"
                 className="w-10 h-10 rounded-full object-cover border border-slate-100 dark:border-white/10"
                 referrerPolicy="no-referrer"

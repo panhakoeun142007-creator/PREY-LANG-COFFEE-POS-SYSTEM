@@ -21,6 +21,7 @@ import {
   TableRow,
 } from "../components/ui/table";
 import { useSettings } from "../context/SettingsContext";
+import { toSameOriginMediaUrl, withCacheBuster } from "../utils/media";
 import {
   createStaff,
   deleteStaff,
@@ -319,7 +320,7 @@ export default function StaffManagementPage() {
                         <div className="flex items-center gap-3">
                           {staff.profile_image_url ? (
                             <img
-                              src={staff.profile_image_url}
+                              src={withCacheBuster(toSameOriginMediaUrl(staff.profile_image_url), staff.updated_at ?? staff.profile_image_url)}
                               alt={staff.name}
                               className="h-10 w-10 rounded-full border object-cover"
                             />

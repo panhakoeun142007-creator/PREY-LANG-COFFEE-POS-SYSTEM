@@ -9,6 +9,7 @@ import ReceiptsPage from "./ReceiptsPage";
 import { AuthContext } from "../App.jsx";
 import { SettingsProvider } from "../context/SettingsContext";
 import { auth } from "../utils/auth";
+import { toSameOriginMediaUrl, withCacheBuster } from "../utils/media";
 import {
   CurrentUser,
   fetchCurrentUser,
@@ -320,7 +321,7 @@ export default function StaffDashboardPage() {
             >
               {currentUser?.profile_image_url ? (
                 <img
-                  src={currentUser.profile_image_url}
+                  src={withCacheBuster(toSameOriginMediaUrl(currentUser.profile_image_url), currentUser.updated_at ?? currentUser.profile_image_url)}
                   alt={currentUser.name ?? t("role.staff")}
                   className="h-9 w-9 rounded-full object-cover"
                 />
