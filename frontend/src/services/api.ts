@@ -836,11 +836,23 @@ export type ReceiptDetailResponse = {
 export const fetchReceiptDetail = async (orderId: number): Promise<ReceiptDetailResponse> =>
   apiRequest(`/receipts/${orderId}`);
 
-export const deleteReceipt = async (orderId: number): Promise<{ message: string }> =>
-  apiRequest(`/receipts/${orderId}`, { method: "DELETE" }).then((payload) => {
+export const deleteReceipt = async (orderId: number): Promise<{ message: string }> => {
+  const clearRelatedCache = (payload: { message: string }) => {
     clearApiCache((key) => key.includes("/orders") || key.includes("/receipts"));
     return payload;
-  });
+  };
+
+  try {
+    return await apiRequest(`/receipts/${orderId}`, { method: "DELETE" }).then(clearRelatedCache);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "";
+    // Fallback for environments that block DELETE requests.
+    if (message.includes("405") || message.includes("404")) {
+      return apiRequest(`/receipts/${orderId}/delete`, { method: "POST" }).then(clearRelatedCache);
+    }
+    throw err;
+  }
+};
 
 export type ReceiptIndexItem = {
   receipt_id?: string;

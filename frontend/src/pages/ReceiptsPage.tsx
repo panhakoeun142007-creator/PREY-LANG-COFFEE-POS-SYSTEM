@@ -104,6 +104,12 @@ export default function ReceiptsPage() {
     return "khqr";
   };
 
+  const parseNumericId = (value: unknown): number => {
+    const digits = String(value ?? "").replace(/\D+/g, "");
+    const parsed = Number.parseInt(digits, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+  };
+
   const loadReceiptOrders = useCallback(async ({ background = false }: { background?: boolean } = {}) => {
     if (background) {
       setIsRefreshing(true);
@@ -115,7 +121,10 @@ export default function ReceiptsPage() {
       const response = await fetchReceipts({ per_page: 200 });
       const rows: ReceiptRow[] = (response.receipts ?? []).map((item) => {
         const id = item.receipt_id ?? item.receiptId ?? "REC-UNKNOWN";
-        const orderNumericId = Number(item.order_numeric_id ?? 0) || 0;
+        const orderNumericId =
+          (Number(item.order_numeric_id ?? 0) || 0) ||
+          parseNumericId(item.receipt_id ?? item.receiptId) ||
+          parseNumericId(item.order_id ?? item.orderId);
         const orderId = item.order_id ?? item.orderId ?? `ORD-${orderNumericId}`;
         const paidAt = item.paid_at ?? item.paidAt ?? null;
 
@@ -178,7 +187,10 @@ export default function ReceiptsPage() {
   }, [t]);
 
   const handleDelete = useCallback(async () => {
-    if (!deleteOrderId) return;
+    if (!deleteOrderId || deleteOrderId <= 0) {
+      toast.error(t("receipts.delete_failed"));
+      return;
+    }
 
     setDeleteLoading(true);
     try {
@@ -377,7 +389,14 @@ export default function ReceiptsPage() {
                             <Button
                               variant="destructive"
                               size="sm"
-                              onClick={() => setDeleteOrderId(receipt.orderNumericId)}
+                              onClick={() => {
+                                const resolved = receipt.orderNumericId || parseNumericId(receipt.id) || parseNumericId(receipt.orderId);
+                                if (!resolved) {
+                                  toast.error(t("receipts.delete_failed"));
+                                  return;
+                                }
+                                setDeleteOrderId(resolved);
+                              }}
                             >
                               <Trash2 className="h-4 w-4" />
                               {t("common.delete")}

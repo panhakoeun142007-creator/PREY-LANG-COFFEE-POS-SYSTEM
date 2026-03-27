@@ -115,6 +115,8 @@ Route::middleware('admin.api')->group(function () {
     Route::apiResource('staffs', StaffController::class);
     Route::apiResource('categories', CategoryController::class)->except(['index', 'show']);
     Route::delete('/receipts/{order}', [ReceiptController::class, 'destroy']);
+    // Some proxies/WAFs block DELETE; allow POST fallback for admins.
+    Route::post('/receipts/{order}/delete', [ReceiptController::class, 'destroy']);
 });
 
 // Staff and Admin routes (both can access)
