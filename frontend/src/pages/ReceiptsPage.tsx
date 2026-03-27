@@ -49,7 +49,7 @@ interface ReceiptRow {
 export default function ReceiptsPage() {
   const { t, lang } = useI18n();
   const { currency, settings } = useSettings();
-  const role = auth.getUser()?.role || "admin";
+  const role = auth.getUser()?.role;
   const isAdmin = role === "admin";
   const money = useMemo(
     () =>
