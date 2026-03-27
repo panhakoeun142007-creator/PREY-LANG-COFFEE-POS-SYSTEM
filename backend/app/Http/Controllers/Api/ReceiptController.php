@@ -15,16 +15,23 @@ class ReceiptController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        // Get completed orders (paid receipts)
-        $orders = Order::with('table')
+        $perPage = (int) $request->integer('per_page', 200);
+        if ($perPage < 1) {
+            $perPage = 1;
+        }
+        if ($perPage > 500) {
+            $perPage = 500;
+        }
+
+        $paginated = Order::query()
+            ->with('table:id,name')
             ->where('status', 'completed')
             ->whereNotNull('payment_type')
-            ->orderBy('updated_at', 'desc')
-            ->get();
+            ->orderByDesc('updated_at')
+            ->paginate($perPage);
 
-        // Transform to receipt format
-        $receipts = $orders->map(function ($order) {
-            $paymentMethod = match ($order->payment_type) {
+        $paginated->getCollection()->transform(function (Order $order) {
+            $paymentLabel = match ($order->payment_type) {
                 'cash' => 'Cash',
                 'khqr' => 'KHQR',
                 'credit_card' => 'Credit Card',
@@ -33,18 +40,36 @@ class ReceiptController extends Controller
                 default => 'Other',
             };
 
+            $queue = $order->queue_number ?? $order->id;
+
             return [
-                'receiptId' => 'RCP-' . str_pad($order->id, 5, '0', STR_PAD_LEFT),
-                'orderId' => 'ORD-' . str_pad($order->id, 5, '0', STR_PAD_LEFT),
-                'table' => $order->table ? $order->table->name : 'N/A',
+                // New normalized fields (preferred)
+                'receipt_id' => 'RCP-' . str_pad((string) $order->id, 5, '0', STR_PAD_LEFT),
+                'order_id' => 'ORD-' . str_pad((string) $queue, 5, '0', STR_PAD_LEFT),
+                'order_numeric_id' => (int) $order->id,
+                'queue_number' => $order->queue_number,
+                'customer_label' => $order->table?->name ?? 'Walk-in',
                 'total' => (float) $order->total_price,
-                'paymentMethod' => $paymentMethod,
-                'paidAt' => $order->updated_at->toISOString(),
+                'payment_type' => (string) $order->payment_type,
+                'paid_at' => $order->updated_at?->toISOString(),
+
+                // Legacy fields (keep for compatibility)
+                'receiptId' => 'RCP-' . str_pad((string) $order->id, 5, '0', STR_PAD_LEFT),
+                'orderId' => 'ORD-' . str_pad((string) $order->id, 5, '0', STR_PAD_LEFT),
+                'table' => $order->table ? $order->table->name : 'N/A',
+                'paymentMethod' => $paymentLabel,
+                'paidAt' => $order->updated_at?->toISOString(),
             ];
         });
 
         return response()->json([
-            'receipts' => $receipts,
+            'receipts' => $paginated->items(),
+            'pagination' => [
+                'current_page' => $paginated->currentPage(),
+                'last_page' => $paginated->lastPage(),
+                'per_page' => $paginated->perPage(),
+                'total' => $paginated->total(),
+            ],
         ]);
     }
 

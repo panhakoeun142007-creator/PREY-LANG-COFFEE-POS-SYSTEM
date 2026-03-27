@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Banknote, Eye, FileText, QrCode, Search, Trash2, User } from "lucide-react";
+import { Banknote, Eye, FileText, QrCode, RefreshCw, Search, Trash2, User } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { Card, CardContent } from "../components/ui/card";
 import { Input } from "../components/ui/input";
@@ -27,7 +27,7 @@ import {
   TableHeader,
   TableRow,
 } from "../components/ui/table";
-import { deleteReceipt, fetchOrderHistory, fetchReceiptDetail, LiveOrder, ReceiptDetailResponse } from "../services/api";
+import { deleteReceipt, fetchReceipts, fetchReceiptDetail, ReceiptDetailResponse } from "../services/api";
 import { useSettings } from "../context/SettingsContext";
 import { auth } from "../utils/auth";
 import { useI18n } from "../context/I18nContext";
@@ -59,8 +59,9 @@ export default function ReceiptsPage() {
       }),
     [currency, lang],
   );
-  const [orders, setOrders] = useState<LiveOrder[]>([]);
+  const [receiptRows, setReceiptRows] = useState<ReceiptRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [paymentFilter, setPaymentFilter] = useState<"all" | PaymentMethod>("all");
@@ -94,55 +95,70 @@ export default function ReceiptsPage() {
     return next.length > 0 ? next : ["cash", "khqr"];
   }, [settings]);
 
-  const loadReceiptOrders = useCallback(async () => {
-    setLoading(true);
-    try {
-      setError(null);
-      const response = await fetchOrderHistory({}, true);
-      setOrders(response.data);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : t("receipts.load_failed");
-      setError(message);
-      setOrders([]);
-    } finally {
-      setLoading(false);
+  const normalizePaymentMethod = (raw: unknown): PaymentMethod => {
+    const value = String(raw ?? "").toLowerCase().trim();
+    if (value === "cash") return "cash";
+    if (value === "credit_card" || value === "credit card") return "credit_card";
+    if (value === "aba_pay" || value === "aba pay") return "aba_pay";
+    if (value === "wing_money" || value === "wing money") return "wing_money";
+    return "khqr";
+  };
+
+  const loadReceiptOrders = useCallback(async ({ background = false }: { background?: boolean } = {}) => {
+    if (background) {
+      setIsRefreshing(true);
+    } else {
+      setLoading(true);
     }
-  }, [t]);
+    try {
+      if (!background) setError(null);
+      const response = await fetchReceipts({ per_page: 200 });
+      const rows: ReceiptRow[] = (response.receipts ?? []).map((item) => {
+        const id = item.receipt_id ?? item.receiptId ?? "REC-UNKNOWN";
+        const orderNumericId = Number(item.order_numeric_id ?? 0) || 0;
+        const orderId = item.order_id ?? item.orderId ?? `ORD-${orderNumericId}`;
+        const paidAt = item.paid_at ?? item.paidAt ?? null;
 
-  useAutoRefresh(loadReceiptOrders, { intervalMs: 10000 });
+        return {
+          id,
+          orderNumericId,
+          orderId,
+          dateTime: paidAt
+            ? new Date(paidAt).toLocaleString(lang === "km" ? "km-KH" : "en-US", {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+            : "-",
+          customer: item.customer_label ?? item.table ?? t("receipts.walk_in"),
+          amount: Number(item.total ?? 0) || 0,
+          paymentMethod: normalizePaymentMethod(item.payment_type ?? item.paymentMethod),
+          status: "paid",
+        };
+      });
+      setReceiptRows(rows);
+    } catch (err) {
+      if (!background) {
+        const message = err instanceof Error ? err.message : t("receipts.load_failed");
+        setError(message);
+        setReceiptRows([]);
+      }
+    } finally {
+      if (background) {
+        setIsRefreshing(false);
+      } else {
+        setLoading(false);
+      }
+    }
+  }, [lang, t]);
 
-  const receiptRows = useMemo<ReceiptRow[]>(() => {
-    return orders
-      .filter(
-        (order) =>
-          order.status === "completed" &&
-          order.items.length > 0 &&
-          Number(order.total_price) > 0,
-      )
-      .map((order) => ({
-        id: `REC-${order.id}`,
-        orderNumericId: order.id,
-        orderId: `ORD-${order.queue_number ?? order.id}`,
-        dateTime: new Date(order.created_at).toLocaleString(lang === "km" ? "km-KH" : "en-US", {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        customer: order.table?.name || t("receipts.walk_in"),
-        amount: Number(order.total_price),
-        paymentMethod: ((): PaymentMethod => {
-          const raw = order.payment_type?.toLowerCase();
-          if (raw === "cash") return "cash";
-          if (raw === "credit_card") return "credit_card";
-          if (raw === "aba_pay") return "aba_pay";
-          if (raw === "wing_money") return "wing_money";
-          return "khqr";
-        })(),
-        status: "paid",
-      }));
-  }, [lang, orders, t]);
+  useEffect(() => {
+    void loadReceiptOrders();
+  }, [loadReceiptOrders]);
+
+  useAutoRefresh(() => loadReceiptOrders({ background: true }), { intervalMs: 10000, immediate: false });
 
   const handleViewDetail = useCallback(async (orderId: number) => {
     setDetailOpen(true);
@@ -249,7 +265,15 @@ export default function ReceiptsPage() {
             </div>
           )}
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <h2 className="text-lg font-semibold text-[#4B2E2B]">{t("receipts.archive_title")}</h2>
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg font-semibold text-[#4B2E2B]">{t("receipts.archive_title")}</h2>
+              {isRefreshing && !loading && (
+                <span className="inline-flex items-center gap-2 rounded-full bg-white px-2 py-1 text-xs text-[#7C5D58] border border-[#EAD6C0]">
+                  <RefreshCw className="h-3 w-3 animate-spin" />
+                  Refreshing
+                </span>
+              )}
+            </div>
             <div className="flex flex-col gap-3 md:flex-row">
               <div className="relative w-full md:w-72">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7C5D58]" />

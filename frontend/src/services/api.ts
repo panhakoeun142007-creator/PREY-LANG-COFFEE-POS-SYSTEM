@@ -842,6 +842,28 @@ export const deleteReceipt = async (orderId: number): Promise<{ message: string 
     return payload;
   });
 
+export type ReceiptIndexItem = {
+  receipt_id?: string;
+  order_id?: string;
+  order_numeric_id?: number;
+  queue_number?: number | null;
+  customer_label?: string;
+  total?: number;
+  payment_type?: string;
+  paid_at?: string | null;
+
+  // legacy fields
+  receiptId?: string;
+  orderId?: string;
+  table?: string;
+  paymentMethod?: string;
+  paidAt?: string | null;
+};
+
+export const fetchReceipts = async (params: { per_page?: number } = {}): Promise<{ receipts: ReceiptIndexItem[] }> => {
+  return apiRequest(withQuery("/receipts", params));
+};
+
 export const fetchSettings = async (): Promise<AppSettings> => apiGetCached("/settings", 60000);
 export const updateSettings = async (data: Partial<AppSettings>): Promise<AppSettings> =>
   apiRequest("/settings", { method: "PUT", body: JSON.stringify(data) }).then((payload) => {
