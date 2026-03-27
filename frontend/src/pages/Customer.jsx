@@ -45,7 +45,7 @@ function normalizeImage(imageUrl, imagePath) {
   return `${API_BASE}${v.startsWith("/") ? v : `/${v}`}`;
 }
 
-function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", onToggleTheme }) {
+function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", onToggleTheme, lastAdded }) {
   const { lang, setLang, t } = useI18n();
   // Guard: only allow expected values in DOM select
   const safeLang = lang === "km" ? "km" : "en";
@@ -190,17 +190,18 @@ function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", o
               >
                 {theme === "dark" ? <FaSun /> : <FaMoon />}
               </button>
-              <div
-                className="cart-icon-mini"
-                onClick={onCartClick}
-                onKeyDown={(e) => e.key === "Enter" && onCartClick?.()}
-                role="button"
-                tabIndex={0}
-                style={{ position: 'relative', cursor: 'pointer' }}
-              >
-                <FaShoppingCart style={{ fontSize: '0.9rem' }} />
-                {cartCount > 0 && <span className="cart-count-mini">{cartCount}</span>}
-              </div>
+            <div
+              className="cart-icon-mini"
+              onClick={onCartClick}
+              onKeyDown={(e) => e.key === "Enter" && onCartClick?.()}
+              role="button"
+              tabIndex={0}
+              style={{ position: 'relative', cursor: 'pointer' }}
+            >
+              <FaShoppingCart style={{ fontSize: '0.9rem' }} />
+              {cartCount > 0 && <span className="cart-count-mini">{cartCount}</span>}
+              {lastAdded && <span className="cart-quick-note">{lastAdded}</span>}
+            </div>
             </div>
           </div>
 

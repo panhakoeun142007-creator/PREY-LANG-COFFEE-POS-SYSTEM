@@ -85,6 +85,7 @@ export default function CustomerMenuApp() {
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem("customer-theme") === "dark" ? "dark" : "light";
   });
+  const [lastAdded, setLastAdded] = useState(null);
   const [orderStatus, setOrderStatus] = useState(null);
   const [cancellationMessage, setCancellationMessage] = useState(null);
   const [paymentCompleted, setPaymentCompleted] = useState(false);
@@ -100,6 +101,12 @@ export default function CustomerMenuApp() {
   useEffect(() => {
     localStorage.setItem("customer-theme", theme);
   }, [theme]);
+
+  useEffect(() => {
+    if (!lastAdded) return;
+    const timer = setTimeout(() => setLastAdded(null), 2000);
+    return () => clearTimeout(timer);
+  }, [lastAdded]);
 
   useEffect(() => {
     if (cartItems.length === 0 && currentPage !== "menu" && currentPage !== "cart") {
@@ -139,7 +146,7 @@ export default function CustomerMenuApp() {
     return currentPage;
   })();
 
-  const handleAddToCart = ({ product, selectedSize, productKey }) => {
+  const handleAddToCart = ({ product, selectedSize, productKey }, { openDetail = false } = {}) => {
     const existingIndex = cartItems.findIndex(
       (item) => item.productKey === productKey && item.selectedSize === selectedSize
     );
@@ -166,8 +173,13 @@ export default function CustomerMenuApp() {
         )
       );
     }
-    setDetailTarget(detailPayload);
-    setCurrentPage("detail");
+    const productName = detailPayload?.name || product?.name || productKey;
+    setLastAdded(productName);
+    alert(`${productName} added to cart`);
+    if (openDetail) {
+      setDetailTarget(detailPayload);
+      setCurrentPage("detail");
+    }
   };
 
   const updateCartItemQuantity = (productKey, selectedSize, change) => {
@@ -210,6 +222,20 @@ export default function CustomerMenuApp() {
     if (!item) return;
     setDetailTarget(item);
     setCurrentPage("detail");
+  };
+
+  const handleCartIconClick = () => {
+    if (cartItems.length === 0) {
+      setCurrentPage("cart");
+      return;
+    }
+    const lastItem = cartItems[cartItems.length - 1];
+    openDetailPage(lastItem.productKey, lastItem.selectedSize);
+  };
+
+  const handleDetailAddMore = () => {
+    setDetailTarget(null);
+    setCurrentPage("menu");
   };
 
   const moveDetailTarget = (direction) => {
@@ -418,9 +444,10 @@ export default function CustomerMenuApp() {
         <Customer
           cartItems={cartItems}
           onAddToCart={handleAddToCart}
-          onCartClick={() => setCurrentPage("cart")}
+          onCartClick={handleCartIconClick}
           theme={theme}
           onToggleTheme={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
+          lastAdded={lastAdded}
         />
       )}
       {effectivePage === "cart" && (
@@ -439,6 +466,7 @@ export default function CustomerMenuApp() {
           item={activeDetailItem}
           onBack={() => setCurrentPage("cart")}
           onSave={saveDetailChanges}
+          onAddMore={handleDetailAddMore}
           onPrevItem={() => moveDetailTarget(-1)}
           onNextItem={() => moveDetailTarget(1)}
           canGoPrev={activeDetailIndex > 0}

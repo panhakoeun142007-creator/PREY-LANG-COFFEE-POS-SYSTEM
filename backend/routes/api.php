@@ -160,4 +160,3 @@ Route::prefix('customer')->group(function () {
     Route::get('/orders/{order}', [OrderController::class, 'customerStatus']);
     Route::post('/orders/{order}/pickup', [OrderController::class, 'pickup']);
 });
-asd

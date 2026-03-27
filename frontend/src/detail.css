@@ -314,15 +314,45 @@
   color: var(--text-secondary);
 }
 
-.detail-save-btn {
+.detail-action-row {
   margin-top: 18px;
-  width: 100%;
+  display: flex;
+  gap: 10px;
+}
+
+.detail-action-row button {
+  flex: 1;
+  border-radius: 12px;
   border: none;
+  padding: 12px 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.detail-add-more-btn {
+  background: var(--surface-muted);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.detail-action-row .detail-save-btn {
+  width: auto;
+  flex: 1;
+}
+
+.detail-action-row .detail-add-more-btn {
+  box-shadow: none;
+}
+
+.detail-save-btn {
+  margin-top: 0;
+  border: none;
+  width: 100%;
+  padding: 12px 14px;
   border-radius: 999px;
   background: var(--accent-color);
   color: var(--text-on-accent);
   font-weight: 700;
-  padding: 13px 14px;
   cursor: pointer;
   box-shadow: 0 8px 18px rgba(230, 103, 12, 0.25);
 }

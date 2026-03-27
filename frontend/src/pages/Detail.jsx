@@ -26,6 +26,7 @@ function Detail({
   item,
   onBack,
   onSave,
+  onAddMore,
   onPrevItem,
   onNextItem,
   canGoPrev = false,
@@ -205,9 +206,14 @@ function Detail({
           </div>
         </div>
 
-        <button className="detail-save-btn" onClick={save}>
-          Save
-        </button>
+        <div className="detail-action-row">
+          <button className="detail-add-more-btn" onClick={() => onAddMore?.()}>
+            Add More
+          </button>
+          <button className="detail-save-btn" onClick={save}>
+            Save
+          </button>
+        </div>
       </div>
     </div>
   );
