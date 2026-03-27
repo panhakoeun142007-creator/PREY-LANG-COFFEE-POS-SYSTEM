@@ -163,17 +163,16 @@ class OrderController extends BaseController
             $query->latest('created_at');
         }
 
-        // Summary stats (separate query to avoid GROUP BY conflict)
-        $summaryStats = Order::query()
-            ->whereIn('status', ['completed', 'cancelled'])
-            ->when($validated['date_from'] ?? null, fn($q, $v) => $q->where('created_at', '>=', $v))
-            ->when($validated['date_to'] ?? null, fn($q, $v) => $q->where('created_at', '<=', $v . ' 23:59:59'))
-            ->selectRaw('
-                SUM(CASE WHEN status = "completed" THEN 1 ELSE 0 END) as completed_count,
-                SUM(CASE WHEN status = "cancelled" THEN 1 ELSE 0 END) as cancelled_count,
-                SUM(CASE WHEN status = "completed" THEN total_price ELSE 0 END) as total_revenue
-            ')
-            ->first();
+        // Summary stats: must respect the same filters as the history list (status, dates, search, payment_type).
+        // Use a separate query to avoid GROUP BY / select conflicts with eager-loading.
+        $summaryQuery = Order::query()->whereIn('status', ['completed', 'cancelled']);
+        $this->applyHistoryFilters($summaryQuery, $validated);
+
+        $summaryStats = $summaryQuery->selectRaw('
+            SUM(CASE WHEN status = "completed" THEN 1 ELSE 0 END) as completed_count,
+            SUM(CASE WHEN status = "cancelled" THEN 1 ELSE 0 END) as cancelled_count,
+            SUM(CASE WHEN status = "completed" THEN total_price ELSE 0 END) as total_revenue
+        ')->first();
 
         $paginator = $query->paginate(20);
         $payload = $paginator->toArray();

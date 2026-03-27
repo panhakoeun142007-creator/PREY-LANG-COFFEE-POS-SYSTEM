@@ -5,21 +5,50 @@ const pendingGetRequests = new Map<string, Promise<unknown>>();
 const cachedGetResponses = new Map<string, { expiresAt: number; data: unknown }>();
 
 function resolveApiBaseUrl(): string {
-  const backendUrlRaw = (import.meta.env.VITE_BACKEND_URL as string | undefined) || "http://127.0.0.1:8000";
-  const backendUrl = backendUrlRaw.replace(/\/+$/, "");
-
-  const apiUrlRaw =
+  const envApiUrl =
     (import.meta.env.VITE_API_URL as string | undefined) ||
     (import.meta.env.VITE_API_BASE_URL as string | undefined) ||
-    `${backendUrl}/api`;
+    "";
 
-  if (apiUrlRaw.startsWith("/")) {
-    return `${backendUrl}${apiUrlRaw}`;
+  if (envApiUrl.trim()) {
+    return envApiUrl.trim().replace(/\/+$/, "");
   }
-  return apiUrlRaw.replace(/\/+$/, "");
+
+  const backendUrlRaw = (import.meta.env.VITE_BACKEND_URL as string | undefined) || "";
+  const backendUrl = backendUrlRaw.trim().replace(/\/+$/, "");
+  if (backendUrl) {
+    return `${backendUrl}/api`.replace(/\/+$/, "");
+  }
+
+  // Last resort (mainly for misconfigured deployments): infer `https://api.<domain>/api` from the current site.
+  // This avoids shipping a build that still calls `http://127.0.0.1:8000/api` and shows "Failed to fetch".
+  if (typeof window !== "undefined") {
+    const { protocol, hostname } = window.location;
+    const host = (hostname || "").toLowerCase();
+    const isLocal =
+      host === "localhost" ||
+      host === "127.0.0.1" ||
+      host.endsWith(".localhost");
+
+    // Don’t guess on Vercel preview domains; require explicit env vars there.
+    const isVercelPreview = host.endsWith(".vercel.app");
+
+    if (!isLocal && !isVercelPreview && host) {
+      const baseHost = host.startsWith("www.") ? host.slice(4) : host;
+      const apiHost = baseHost.startsWith("api.") ? baseHost : `api.${baseHost}`;
+      return `${protocol}//${apiHost}/api`;
+    }
+  }
+
+  // Dev fallback
+  return "http://127.0.0.1:8000/api";
 }
 
 const API_BASE_URL = resolveApiBaseUrl();
+
+export function getApiBaseUrl(): string {
+  return API_BASE_URL;
+}
 
 function buildGetCacheKey(path: string): string {
   return `GET:${path}`;
@@ -428,10 +457,15 @@ export async function safeFetch(path: string, options: RequestInit = {}): Promis
     headers.set("Content-Type", "application/json");
   }
 
-  return fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers,
-  });
+  try {
+    return await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new Error(`Failed to fetch (API: ${API_BASE_URL}). ${message}`);
+  }
 }
 
 export async function apiRequest<T = any>(path: string, options: RequestInit = {}): Promise<T> {
@@ -460,16 +494,16 @@ export async function apiRequest<T = any>(path: string, options: RequestInit = {
     }
 
     if (typeof payload === "string" && payload.trim().startsWith("<!doctype")) {
-      throw new Error(`API returned HTML (check VITE_API_URL). Status: ${response.status}`);
+      throw new Error(`API returned HTML (API: ${API_BASE_URL}). Status: ${response.status}`);
     }
-    throw new Error((payload as any)?.message || `Request failed: ${response.status}`);
+    throw new Error((payload as any)?.message || `Request failed (API: ${API_BASE_URL}). Status: ${response.status}`);
   }
 
   if (typeof payload === "string") {
     if (payload.trim().startsWith("<!doctype")) {
-      throw new Error("API returned HTML (check VITE_API_URL).");
+      throw new Error(`API returned HTML (API: ${API_BASE_URL}).`);
     }
-    throw new Error("API did not return JSON.");
+    throw new Error(`API did not return JSON (API: ${API_BASE_URL}).`);
   }
 
   return payload as T;

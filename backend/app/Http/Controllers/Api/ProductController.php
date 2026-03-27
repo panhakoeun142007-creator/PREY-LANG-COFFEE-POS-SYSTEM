@@ -110,7 +110,7 @@ class ProductController extends BaseController
         $validated = $this->validateProductRequest($request);
 
         // Handle image
-        $imagePath = $this->imageService->handleUpload($request, 'image_file');
+        $imagePath = $this->imageService->handleUpload($request, 'image_file', 'product-images');
         
         $productData = [
             'category_id' => $validated['category_id'],
@@ -159,7 +159,7 @@ class ProductController extends BaseController
         $updateData = $validated;
 
         // Handle image upload
-        $imagePath = $this->imageService->handleUpload($request, 'image_file');
+        $imagePath = $this->imageService->handleUpload($request, 'image_file', 'product-images');
 
         if ($imagePath) {
             // Delete old local image

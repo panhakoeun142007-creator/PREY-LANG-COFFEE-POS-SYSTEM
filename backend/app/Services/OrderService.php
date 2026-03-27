@@ -7,6 +7,8 @@ use App\Models\Order;
 use App\Models\OrderAction;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Models\Staff;
+use App\Models\User;
 use App\Support\AppSettings;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -142,16 +144,39 @@ class OrderService
         $cacheKey = "api_auth_token:{$token}";
         $cached = Cache::get($cacheKey);
 
-        if (!$cached || !is_array($cached)) {
+        if (!$cached) {
             return ['type' => 'system', 'id' => null, 'name' => 'System'];
         }
 
-        $subjectType = $cached['subject_type'] ?? 'unknown';
-        
+        // Backward compatible: some tests/legacy code may cache a numeric admin user id directly.
+        if (is_int($cached) || (is_string($cached) && ctype_digit($cached))) {
+            $userId = (int) $cached;
+            $name = User::query()->whereKey($userId)->value('name') ?? 'Admin';
+            return ['type' => 'admin', 'id' => $userId, 'name' => $name];
+        }
+
+        if (!is_array($cached)) {
+            return ['type' => 'system', 'id' => null, 'name' => 'System'];
+        }
+
+        $subjectType = (string) ($cached['subject_type'] ?? 'unknown');
+        $subjectId = $cached['subject_id'] ?? null;
+
+        $name = $cached['subject_name'] ?? null;
+        if (!is_string($name) || trim($name) === '') {
+            $resolved = null;
+            if ($subjectType === 'staff' && $subjectId) {
+                $resolved = Staff::query()->whereKey($subjectId)->value('name');
+            } elseif ($subjectType === 'admin' && $subjectId) {
+                $resolved = User::query()->whereKey($subjectId)->value('name');
+            }
+            $name = $resolved ?: ucfirst($subjectType);
+        }
+
         return [
             'type' => $subjectType,
-            'id' => $cached['subject_id'] ?? null,
-            'name' => $cached['subject_name'] ?? ucfirst($subjectType),
+            'id' => $subjectId,
+            'name' => $name,
         ];
     }
 

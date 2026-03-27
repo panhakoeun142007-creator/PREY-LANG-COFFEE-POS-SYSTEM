@@ -31,7 +31,7 @@ class ImageService
     /**
      * Handle image upload from request file.
      */
-    public function handleUpload(Request $request, string $fieldName = 'image_file'): ?string
+    public function handleUpload(Request $request, string $fieldName = 'image_file', string $folder = 'images'): ?string
     {
         if (!$request->hasFile($fieldName)) {
             return null;
@@ -48,7 +48,7 @@ class ImageService
         }
 
         try {
-            $path = $file->store('images', 'public');
+            $path = $file->store($folder, 'public');
             
             Log::info('Image uploaded successfully', [
                 'path' => $path,

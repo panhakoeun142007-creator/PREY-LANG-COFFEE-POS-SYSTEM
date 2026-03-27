@@ -338,10 +338,12 @@ https://panha-tech-web-code.site
 
 Login checks with seeded accounts:
 
-- Admin email: `panha.koeun142007@gmail.com`
-- Admin password: `panha123!@#`
-- Staff email: `staff@preylang.com`
-- Staff password: `staff123`
+- Admin email: `ADMIN_EMAIL` from backend `.env` (default: `admin@example.com`)
+- Admin password: `ADMIN_PASSWORD` from backend `.env` (default: **random in production if not set**)
+- Staff email: `STAFF_EMAIL` from backend `.env` (default: `staff@preylang.com`)
+- Staff password: `STAFF_PASSWORD` from backend `.env` (default: `staff123`)
+
+Recommended: set `ADMIN_EMAIL` and `ADMIN_PASSWORD` explicitly in production before running `php artisan db:seed --force`.
 
 After login verify:
 

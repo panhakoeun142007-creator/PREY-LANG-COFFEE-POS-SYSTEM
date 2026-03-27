@@ -7,6 +7,7 @@ use App\Models\Staff;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Support\Facades\Hash;
+use RuntimeException;
 
 class DatabaseSeeder extends Seeder
 {
@@ -27,21 +28,37 @@ class DatabaseSeeder extends Seeder
         ]);
         
         // Create admin user with proper role and is_active
-        $admin = User::where('email', 'panha.koeun142007@gmail.com')->first();
+        $adminEmailEnv = env('ADMIN_EMAIL');
+        $adminPasswordEnv = env('ADMIN_PASSWORD');
+
+        if (app()->environment('production')) {
+            if (!is_string($adminEmailEnv) || trim($adminEmailEnv) === '') {
+                throw new RuntimeException('Missing ADMIN_EMAIL in backend .env (required in production before db:seed).');
+            }
+            if (!is_string($adminPasswordEnv) || trim($adminPasswordEnv) === '') {
+                throw new RuntimeException('Missing ADMIN_PASSWORD in backend .env (required in production before db:seed).');
+            }
+        }
+
+        $adminEmail = (string) ($adminEmailEnv ?: 'admin@example.com');
+        $adminName = (string) env('ADMIN_NAME', 'Admin User');
+        $adminPassword = (string) ($adminPasswordEnv ?: 'ChangeMe123!');
+
+        $admin = User::where('email', $adminEmail)->first();
 
         if ($admin) {
-            $admin->name = 'Admin User';
-            $admin->email = 'panha.koeun142007@gmail.com';
-            $admin->password = Hash::make('panha123!@#');
+            $admin->name = $adminName;
+            $admin->email = $adminEmail;
+            $admin->password = Hash::make($adminPassword);
             $admin->role = 'admin';
             $admin->is_active = true;
             $admin->email_verified_at = now();
             $admin->save();
         } else {
             User::create([
-                'name' => 'Admin User',
-                'email' => 'panha.koeun142007@gmail.com',
-                'password' => Hash::make('panha123!@#'),
+                'name' => $adminName,
+                'email' => $adminEmail,
+                'password' => Hash::make($adminPassword),
                 'role' => 'admin',
                 'is_active' => true,
                 'email_verified_at' => now(),
@@ -61,12 +78,16 @@ class DatabaseSeeder extends Seeder
         );
 
         // Create staff user
+        $staffEmail = (string) env('STAFF_EMAIL', 'staff@preylang.com');
+        $staffName = (string) env('STAFF_NAME', 'Staff Member');
+        $staffPassword = (string) env('STAFF_PASSWORD', 'staff123');
+
         Staff::updateOrCreate(
-            ['email' => 'staff@preylang.com'],
+            ['email' => $staffEmail],
             [
-                'name' => 'Staff Member',
-                'password' => Hash::make('staff123'),
-                'password_plain' => 'staff123',
+                'name' => $staffName,
+                'password' => Hash::make($staffPassword),
+                'password_plain' => $staffPassword,
                 'salary' => 250.00,
                 'is_active' => true,
             ]
