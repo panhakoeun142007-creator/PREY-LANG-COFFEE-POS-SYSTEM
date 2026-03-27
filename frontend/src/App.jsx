@@ -1,20 +1,13 @@
-import { lazy, Suspense, useCallback, useContext, useEffect, useState, createContext } from "react";
+import { lazy, Suspense, useCallback, useContext, useEffect, useState } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import AppLayout from "./components/AppLayout";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import { CategoryProvider } from "./context/CategoryContext";
 import { I18nProvider } from "./context/I18nContext";
 import { SettingsProvider } from "./context/SettingsContext";
+import { AuthContext } from "./context/AuthContext";
 import { fetchCurrentUser } from "./services/api";
 import { auth } from "./utils/auth";
-
-const AuthContext = createContext({
-  isAuthenticated: false,
-  login: () => {},
-  logout: () => {},
-  user: null,
-  updateUser: () => {},
-});
 
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
 const LiveOrders = lazy(() => import("./pages/LiveOrders"));

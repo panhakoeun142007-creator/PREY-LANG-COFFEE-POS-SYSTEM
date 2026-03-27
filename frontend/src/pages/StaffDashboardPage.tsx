@@ -6,7 +6,7 @@ import DashboardPage from "./DashboardPage";
 import LiveOrders from "./LiveOrders";
 import OrderHistory from "./OrderHistory";
 import ReceiptsPage from "./ReceiptsPage";
-import { AuthContext } from "../App.jsx";
+import { AuthContext } from "../context/AuthContext";
 import { SettingsProvider } from "../context/SettingsContext";
 import { auth } from "../utils/auth";
 import { toSameOriginMediaUrl, withCacheBuster } from "../utils/media";

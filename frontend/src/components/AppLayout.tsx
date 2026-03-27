@@ -4,7 +4,7 @@ import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { navGroups, pageTitleKeyByPath } from "../data/mockData";
 import { useSettings } from "../context/SettingsContext";
 import { useI18n } from "../context/I18nContext";
-import { AuthContext } from "../App.jsx";
+import { AuthContext } from "../context/AuthContext";
 import { auth } from "../utils/auth";
 import {
   fetchCurrentUser,
@@ -71,6 +71,7 @@ function resolveNotificationPath(notification: Notification): string {
 
 export default function AppLayout() {
   const authContext = useContext(AuthContext);
+  const updateUser = authContext.updateUser;
   const [collapsed, setCollapsed] = useState(false);
   const { settings } = useSettings();
   const { t } = useI18n();
@@ -152,7 +153,7 @@ export default function AppLayout() {
     setCurrentUser(user);
     setAccountName(user.name ?? "");
     setAccountEmail(user.email ?? "");
-    setAccountImagePreview(user.profile_image_url ?? null);
+    setAccountImagePreview(user.profile_image_url ? toSameOriginMediaUrl(user.profile_image_url) : null);
   }, [authContext.user]);
 
   useEffect(() => {
@@ -168,9 +169,9 @@ export default function AppLayout() {
         setCurrentUser(user);
         setAccountName(user.name ?? "");
         setAccountEmail(user.email ?? "");
-        setAccountImagePreview(user.profile_image_url ?? null);
+        setAccountImagePreview(user.profile_image_url ? toSameOriginMediaUrl(user.profile_image_url) : null);
         auth.setUser(user);
-        authContext.updateUser(user);
+        updateUser(user);
       } catch (err) {
         console.error("Failed to refresh current user:", err);
       }
@@ -181,7 +182,7 @@ export default function AppLayout() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [updateUser]);
 
   useEffect(() => {
     if (!notificationsPollingEnabled) {
@@ -223,9 +224,11 @@ export default function AppLayout() {
     // Refresh notifications every 30 seconds
     const interval = setInterval(loadNotifications, 30000);
     return () => clearInterval(interval);
-  }, [notificationsPollingEnabled]);
+  }, [notificationsPollingEnabled, readSeen]);
 
   const unreadCount = notifications.filter((notification) => !notification.read).length;
+
+  const [profileImageFailed, setProfileImageFailed] = useState(false);
 
   const profileImageSrc = useMemo(() => {
     const raw = currentUser?.profile_image_url ?? "";
@@ -233,6 +236,10 @@ export default function AppLayout() {
     const sameOrigin = toSameOriginMediaUrl(raw);
     return withCacheBuster(sameOrigin, currentUser?.updated_at ?? raw);
   }, [currentUser?.profile_image_url, currentUser?.updated_at]);
+
+  useEffect(() => {
+    setProfileImageFailed(false);
+  }, [profileImageSrc]);
 
   const userRole = currentUser?.role === 'admin' ? 'admin' : 'staff';
   const filteredNavGroups = useMemo(() => {
@@ -323,7 +330,7 @@ export default function AppLayout() {
       setAccountEmail(updated.email ?? "");
       setAccountImageFile(null);
       setAccountRemoveImage(false);
-      setAccountImagePreview(updated.profile_image_url ?? null);
+      setAccountImagePreview(updated.profile_image_url ? toSameOriginMediaUrl(updated.profile_image_url) : null);
       setShowAccountModal(false);
     } catch (err) {
       setAccountError(err instanceof Error ? err.message : "Failed to update account");
@@ -386,19 +393,21 @@ export default function AppLayout() {
 
         <div className={`px-4 py-4 ${isDarkMode ? "border-b border-slate-800" : "border-b border-white/10"}`}>
           <div className="flex items-center gap-3 -mx-2 px-2 py-2 rounded-lg">
-            {currentUser?.profile_image_url ? (
+            {profileImageSrc && !profileImageFailed ? (
               <img
                 src={profileImageSrc}
-                alt={currentUser.name}
+                alt={currentUser?.name ?? "User"}
                 className="h-10 w-10 rounded-full object-cover"
+                onError={() => setProfileImageFailed(true)}
               />
             ) : (
               <div className={`flex h-10 w-10 items-center justify-center rounded-full font-semibold ${isDarkMode ? "bg-slate-700 text-slate-100" : "bg-[#F5E6D3] text-[#4B2E2B]"}`}>
-                {currentUser?.name
+                {currentUser && currentUser.name
                   ? currentUser.name
-                      .split(' ')
-                      .map(part => part[0])
-                      .join('')
+                      .split(" ")
+                      .filter(Boolean)
+                      .map((part) => part[0] ?? "")
+                      .join("")
                       .toUpperCase()
                       .substring(0, 2)
                   : currentUser?.role === 'staff'
@@ -613,19 +622,21 @@ export default function AppLayout() {
                       : "border border-[#E5D2BB] bg-white"
                   }`}
                 >
-                  {currentUser?.profile_image_url ? (
+                  {profileImageSrc && !profileImageFailed ? (
                     <img
                       src={profileImageSrc}
-                      alt={currentUser.name}
+                      alt={currentUser?.name ?? "User"}
                       className="h-8 w-8 rounded-full object-cover"
+                      onError={() => setProfileImageFailed(true)}
                     />
                    ) : (
                      <div className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold text-white ${isDarkMode ? "bg-slate-700" : "bg-[#4B2E2B]"}`}>
-                       {currentUser?.name
+                       {currentUser && currentUser.name
                          ? currentUser.name
-                             .split(' ')
-                             .map(part => part[0])
-                             .join('')
+                             .split(" ")
+                             .filter(Boolean)
+                             .map((part) => part[0] ?? "")
+                             .join("")
                              .toUpperCase()
                              .substring(0, 2)
                          : currentUser?.role === 'staff'
@@ -714,14 +725,16 @@ export default function AppLayout() {
                         src={accountImagePreview}
                         alt="Profile"
                         className="h-full w-full object-cover"
+                        onError={() => setAccountImagePreview(null)}
                       />
                     ) : (
                        <div className="flex h-full w-full items-center justify-center text-2xl font-semibold text-white">
-                         {currentUser?.name
+                         {currentUser && currentUser.name
                            ? currentUser.name
-                               .split(' ')
-                               .map(part => part[0])
-                               .join('')
+                               .split(" ")
+                               .filter(Boolean)
+                               .map((part) => part[0] ?? "")
+                               .join("")
                                .toUpperCase()
                                .substring(0, 2)
                            : currentUser?.role === 'staff'
@@ -745,7 +758,9 @@ export default function AppLayout() {
                         if (file) {
                           setAccountImagePreview(URL.createObjectURL(file));
                         } else {
-                          setAccountImagePreview(currentUser?.profile_image_url ?? null);
+                          setAccountImagePreview(
+                            currentUser?.profile_image_url ? toSameOriginMediaUrl(currentUser.profile_image_url) : null,
+                          );
                         }
                       }}
                       className={`mt-2 block w-full text-xs file:mr-3 file:rounded-md file:border-0 file:px-2 file:py-1 file:text-xs file:font-medium ${
