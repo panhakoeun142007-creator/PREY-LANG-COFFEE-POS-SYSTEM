@@ -258,23 +258,45 @@ export default function CustomerMenuApp() {
         (i) => i.productKey === targetKey && i.selectedSize === targetSize
       );
       if (index === -1) return prev;
+
       const updated = {
         ...prev[index],
         selectedSize: details.selectedSize,
         sugarLevel: details.sugarLevel,
         milkOption: details.milkOption,
         extras: details.extras,
+        quantity: details.quantity ?? prev[index].quantity ?? 1,
       };
-      const remaining = prev.filter((_, i) => i !== index);
-      const mergeIndex = remaining.findIndex(
-        (i) => i.productKey === updated.productKey && i.selectedSize === updated.selectedSize
+
+      if (updated.quantity === 0) {
+        return prev.filter((i) => !(i.productKey === targetKey && i.selectedSize === targetSize));
+      }
+      
+      const mergeIndex = prev.findIndex(
+        (i, idx) =>
+          idx !== index &&
+          i.productKey === updated.productKey &&
+          i.selectedSize === updated.selectedSize
       );
-      if (mergeIndex === -1) return [...remaining, updated];
-      return remaining.map((i, idx) =>
-        idx === mergeIndex
-          ? { ...i, quantity: i.quantity + updated.quantity, sugarLevel: updated.sugarLevel, milkOption: updated.milkOption, extras: updated.extras }
-          : i
-      );
+      if (mergeIndex > -1) {
+        return prev
+          .map((item, idx) => {
+            if (idx === index) return null;
+            if (idx === mergeIndex) {
+              const existingQty = item.quantity ?? 1;
+              return {
+                ...item,
+                quantity: existingQty + (updated.quantity ?? 1),
+                sugarLevel: updated.sugarLevel,
+                milkOption: updated.milkOption,
+                extras: updated.extras,
+              };
+            }
+            return item;
+          })
+          .filter(Boolean);
+      }
+      return prev.map((item, idx) => (idx === index ? updated : item));
     });
     setCurrentPage("cart");
     setDetailTarget(null);
@@ -461,8 +483,9 @@ export default function CustomerMenuApp() {
           onBuyNow={() => setCurrentPage("checkout")}
         />
       )}
-      {effectivePage === "detail" && (
+{effectivePage === "detail" && (
         <Detail
+          key={activeDetailItem ? `${activeDetailItem.productKey}-${activeDetailItem.selectedSize}` : 'detail'}
           item={activeDetailItem}
           isCartComplete={cartItems.every((item) => {
             const extras = item.extras || {};

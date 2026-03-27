@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import "../detail.css";
 import { getItemUnitPrice } from "../utils/pricing";
 
@@ -50,26 +50,18 @@ function Detail({
   useEffect(() => {
     if (!item) return;
 
-    let canceled = false;
-    Promise.resolve().then(() => {
-      if (canceled) return;
-      setSelectedSize(item.selectedSize ?? "M");
-      setSugarLevel(item.sugarLevel ?? "100%");
-      setMilkOption(item.milkOption ?? "Whole");
-      setQuantity(item.quantity ?? 1);
-      setExtras(
-        item.extras ?? {
-          extraShot: false,
-          whippedCream: false,
-          cinnamonSprinkles: false,
-          milk: false,
-        }
-      );
-    });
-
-    return () => {
-      canceled = true;
-    };
+    setSelectedSize(item.selectedSize ?? "M");
+    setSugarLevel(item.sugarLevel ?? "100%");
+    setMilkOption(item.milkOption ?? "Whole");
+    setQuantity(item.quantity ?? 1);
+    setExtras(
+      item.extras ?? {
+        extraShot: false,
+        whippedCream: false,
+        cinnamonSprinkles: false,
+        milk: false,
+      }
+    );
   }, [item]);
 
   if (!item) {
@@ -89,6 +81,7 @@ function Detail({
       quantity,
     });
   };
+
   const previewUnitPrice = getPreviewUnitPrice(item, selectedSize, milkOption, extras);
   const previewTotalPrice = previewUnitPrice * quantity;
 

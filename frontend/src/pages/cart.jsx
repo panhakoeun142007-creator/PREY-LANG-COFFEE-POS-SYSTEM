@@ -75,6 +75,7 @@ function Cart({
                 <div className="cart-item-info">
                   <h3>{item.name}</h3>
                   <p>Size: {item.selectedSize}</p>
+                  {Object.entries(item.extras || {}).map(([k, v]) => v && <p key={k}>{k.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())} </p>)}
                 </div>
                 <div className="cart-item-right">
                   <p className="cart-item-price">${getItemLineTotal(item).toFixed(2)}</p>
@@ -83,7 +84,7 @@ function Cart({
                       className="remove-btn"
                       onClick={() => onRemove(item.productKey, item.selectedSize)}
                     >
-                      Cancel
+                      Remove
                     </button>
                   </div>
                 </div>
@@ -123,4 +124,3 @@ function Cart({
 }
 
 export default Cart;
-

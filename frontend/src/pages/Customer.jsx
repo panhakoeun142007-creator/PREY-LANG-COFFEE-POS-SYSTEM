@@ -126,9 +126,12 @@ function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", o
     category: popularProduct.category || { name: "Popular" },
   });
 
-  const handleAddPopularProduct = (popularProduct) => {
-    handleAddToCart(createPopularProductSeed(popularProduct));
-  };
+const handleAddPopularProduct = (popularProduct) => {
+  const seedProduct = createPopularProductSeed(popularProduct);
+  const productKey = getProductKey(popularProduct);
+  const selectedSize = "M";
+  onAddToCart({product: seedProduct, selectedSize, productKey});
+};
 
   const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
