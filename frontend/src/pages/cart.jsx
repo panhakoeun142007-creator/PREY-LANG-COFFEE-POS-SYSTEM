@@ -25,34 +25,37 @@ function Cart({
   return (
     <div className="cart-page">
       <div className="cart-topbar">
-        <button className="cart-back-icon" onClick={onBackToMenu} aria-label="">
+        <button className="cart-back-icon" onClick={onBackToMenu} aria-label="Back to menu">
           {"<"}
         </button>
         <h2>My Cart</h2>
+        <div className="cart-topbar-spacer" aria-hidden="true" />
       </div>
 
       {cartItems.length === 0 ? (
         <div className="cart-list">
-          <div className="empty-cart-message" style={{ textAlign: "center", padding: "40px 20px" }}>
-            <p style={{ fontSize: "1rem", color: "var(--text-secondary)", marginBottom: "30px" }}>Your cart is empty</p>
+          <div className="empty-cart-message">
+            <p className="empty-cart-title">Your cart is empty</p>
           </div>
 
-          <div className="cart-summary">
-            <p>Items: {totalItems}</p>
-            <p>Total: ${totalAmount.toFixed(2)}</p>
-          </div>
-          <div className="cart-costs">
-            <div>
-              <span>Subtotal</span>
-              <span>${subtotal.toFixed(2)}</span>
+          <div className="cart-totals">
+            <div className="cart-summary">
+              <p>Items: {totalItems}</p>
+              <p>Total: ${totalAmount.toFixed(2)}</p>
             </div>
-            <div>
-              <span>Tax ($0.25/item)</span>
-              <span>${taxAmount.toFixed(2)}</span>
-            </div>
-            <div className="cart-total-row">
-              <span>Total Amount</span>
-              <span>${totalAmount.toFixed(2)}</span>
+            <div className="cart-costs">
+              <div>
+                <span>Subtotal</span>
+                <span>${subtotal.toFixed(2)}</span>
+              </div>
+              <div>
+                <span>Tax ($0.25/item)</span>
+                <span>${taxAmount.toFixed(2)}</span>
+              </div>
+              <div className="cart-total-row">
+                <span>Total Amount</span>
+                <span>${totalAmount.toFixed(2)}</span>
+              </div>
             </div>
           </div>
           <button className="buy-btn" onClick={onBuyNow} disabled>
@@ -73,7 +76,14 @@ function Cart({
                 <div className="cart-item-info">
                   <h3>{item.name}</h3>
                   <p>Size: {item.selectedSize}</p>
-                  {Object.entries(item.extras || {}).map(([k, v]) => v && <p key={k}>{k.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())} </p>)}
+                  {Object.entries(item.extras || {}).map(
+                    ([k, v]) =>
+                      v && (
+                        <p className="cart-item-extra" key={k}>
+                          {k.replace(/([A-Z])/g, " $1").replace(/^./, (str) => str.toUpperCase())}
+                        </p>
+                      )
+                  )}
                 </div>
                 <div className="cart-item-right">
                   <p className="cart-item-price">${lineTotal.toFixed(2)}</p>
@@ -90,22 +100,24 @@ function Cart({
             );
           })}
 
-          <div className="cart-summary">
-            <p>Items: {totalItems}</p>
-            <p>Total: ${totalAmount.toFixed(2)}</p>
-          </div>
-          <div className="cart-costs">
-            <div>
-              <span>Subtotal</span>
-              <span>${subtotal.toFixed(2)}</span>
+          <div className="cart-totals">
+            <div className="cart-summary">
+              <p>Items: {totalItems}</p>
+              <p>Total: ${totalAmount.toFixed(2)}</p>
             </div>
-            <div>
-              <span>Tax ($0.25/item)</span>
-              <span>${taxAmount.toFixed(2)}</span>
-            </div>
-            <div className="cart-total-row">
-              <span>Total Amount</span>
-              <span>${totalAmount.toFixed(2)}</span>
+            <div className="cart-costs">
+              <div>
+                <span>Subtotal</span>
+                <span>${subtotal.toFixed(2)}</span>
+              </div>
+              <div>
+                <span>Tax ($0.25/item)</span>
+                <span>${taxAmount.toFixed(2)}</span>
+              </div>
+              <div className="cart-total-row">
+                <span>Total Amount</span>
+                <span>${totalAmount.toFixed(2)}</span>
+              </div>
             </div>
           </div>
           <button className="buy-btn" onClick={onBuyNow}>
