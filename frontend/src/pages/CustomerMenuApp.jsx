@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   createCustomerOrder,
@@ -52,9 +52,12 @@ export default function CustomerMenuApp() {
     const s = readStoredState();
     if (!Array.isArray(s?.cartItems)) return [];
     // Ensure every cart item has a productKey (handles stale localStorage data)
-    return s.cartItems.map((item) => ({
+    const now = Date.now();
+    return s.cartItems.map((item, idx) => ({
       ...item,
       productKey: item.productKey ?? `${item.id}-${item.name}`,
+      // Preserve original ordering across edits/merges.
+      addedAt: typeof item.addedAt === "number" ? item.addedAt : now + idx,
     }));
   });
   const [currentPage, setCurrentPage] = useState(() => {
@@ -131,18 +134,28 @@ export default function CustomerMenuApp() {
   // Store the full item snapshot in detailTarget so lookup never fails
   const activeDetailItem = detailTarget ?? null;
 
-  const activeDetailIndex = detailTarget
-    ? cartItems.findIndex(
-        (i) =>
-          i.productKey === detailTarget.productKey &&
-          i.selectedSize === detailTarget.selectedSize
-      )
-    : -1;
-
   const effectivePage = (() => {
     if (cartItems.length === 0 && currentPage !== "menu" && currentPage !== "cart") return "menu";
     return currentPage;
   })();
+
+  const detailSequence = useMemo(() => {
+    // Show products in the order the customer first added them.
+    return [...cartItems].sort((a, b) => {
+      const aa = typeof a.addedAt === "number" ? a.addedAt : Number.MAX_SAFE_INTEGER;
+      const bb = typeof b.addedAt === "number" ? b.addedAt : Number.MAX_SAFE_INTEGER;
+      return aa - bb;
+    });
+  }, [cartItems]);
+
+  const activeDetailIndex = useMemo(() => {
+    if (!detailTarget) return -1;
+    return detailSequence.findIndex(
+      (i) =>
+        i.productKey === detailTarget.productKey &&
+        i.selectedSize === detailTarget.selectedSize
+    );
+  }, [detailSequence, detailTarget]);
 
   const handleAddToCart = ({ product, selectedSize, productKey }, { openDetail = false } = {}) => {
     const existingIndex = cartItems.findIndex(
@@ -158,6 +171,7 @@ export default function CustomerMenuApp() {
         milkOption: "Whole",
         extras: { extraShot: false, whippedCream: false, cinnamonSprinkles: false },
         quantity: 1,
+        addedAt: Date.now(),
       };
       setCartItems((prev) => [...prev, detailPayload]);
     } else {
@@ -226,7 +240,8 @@ export default function CustomerMenuApp() {
       setCurrentPage("cart");
       return;
     }
-    const firstItem = cartItems[0];
+    const firstItem = detailSequence[0];
+    if (!firstItem) return;
     openDetailPage(firstItem.productKey, firstItem.selectedSize);
   };
 
@@ -236,14 +251,14 @@ export default function CustomerMenuApp() {
   };
 
   const moveDetailTarget = (direction) => {
-    if (!detailTarget || cartItems.length === 0) return;
-    const currentIndex = cartItems.findIndex(
+    if (!detailTarget || detailSequence.length === 0) return;
+    const currentIndex = detailSequence.findIndex(
       (i) => i.productKey === detailTarget.productKey && i.selectedSize === detailTarget.selectedSize
     );
     if (currentIndex === -1) return;
     const nextIndex = currentIndex + direction;
-    if (nextIndex < 0 || nextIndex >= cartItems.length) return;
-    setDetailTarget(cartItems[nextIndex]);
+    if (nextIndex < 0 || nextIndex >= detailSequence.length) return;
+    setDetailTarget(detailSequence[nextIndex]);
   };
 
   const applyDetailUpdate = (items, targetKey, targetSize, details) => {
@@ -282,6 +297,10 @@ export default function CustomerMenuApp() {
             return {
               ...item,
               quantity: existingQty + (updated.quantity ?? 1),
+              addedAt: Math.min(
+                typeof item.addedAt === "number" ? item.addedAt : Number.MAX_SAFE_INTEGER,
+                typeof updated.addedAt === "number" ? updated.addedAt : Number.MAX_SAFE_INTEGER
+              ),
               sugarLevel: updated.sugarLevel,
               milkOption: updated.milkOption,
               extras: updated.extras,
@@ -502,7 +521,7 @@ export default function CustomerMenuApp() {
           onBuyNow={() => setCurrentPage("checkout")}
         />
       )}
-{effectivePage === "detail" && (
+      {effectivePage === "detail" && (
         <Detail
           key={activeDetailItem ? `${activeDetailItem.productKey}-${activeDetailItem.selectedSize}` : "detail"}
           item={activeDetailItem}
@@ -532,9 +551,9 @@ export default function CustomerMenuApp() {
           onPrevItem={() => moveDetailTarget(-1)}
           onNextItem={() => moveDetailTarget(1)}
           canGoPrev={activeDetailIndex > 0}
-          canGoNext={activeDetailIndex > -1 && activeDetailIndex < cartItems.length - 1}
+          canGoNext={activeDetailIndex > -1 && activeDetailIndex < detailSequence.length - 1}
           detailIndex={activeDetailIndex}
-          detailCount={cartItems.length}
+          detailCount={detailSequence.length}
         />
       )}
       {effectivePage === "checkout" && (

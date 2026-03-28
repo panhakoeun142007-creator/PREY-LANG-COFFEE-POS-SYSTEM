@@ -8,8 +8,6 @@ const PAYMENT_METHODS = [
   { key: "card", title: "Credit/Debit Card", subtitle: "Ending in **** 4242", icon: "💳" },
 ];
 
-const PACKAGING_FEE = 0.5;
-
 function getItemLineTotal(item) {
   return getItemUnitPrice(item) * (item.quantity || 1);
 }
@@ -24,7 +22,7 @@ function Checkout({ cartItems = [], onBack, onConfirmOrder }) {
   const subtotal = useMemo(() => getCartTotal(cartItems), [cartItems]);
   const TAX_RATE = 0.10;
   const taxAmount = Math.round(subtotal * TAX_RATE * 100) / 100;
-  const totalAmount = Math.round((subtotal + taxAmount + PACKAGING_FEE) * 100) / 100;
+  const totalAmount = Math.round((subtotal + taxAmount) * 100) / 100;
 
   return (
     <div className="checkout-page">
@@ -45,10 +43,6 @@ function Checkout({ cartItems = [], onBack, onConfirmOrder }) {
           <div>
             <span>Tax (10%)</span>
             <span>${taxAmount.toFixed(2)}</span>
-          </div>
-          <div>
-            <span>Packaging</span>
-            <span>${PACKAGING_FEE.toFixed(2)}</span>
           </div>
           <div className="checkout-total-row">
             <span>Total Amount</span>
