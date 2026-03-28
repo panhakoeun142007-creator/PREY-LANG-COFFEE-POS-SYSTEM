@@ -5,7 +5,8 @@ const pendingGetRequests = new Map<string, Promise<unknown>>();
 const cachedGetResponses = new Map<string, { expiresAt: number; data: unknown }>();
 
 function resolveApiBaseUrl(): string {
-  const backendUrlRaw = (import.meta.env.VITE_BACKEND_URL as string | undefined) || "http://127.0.0.1:8000";
+  // Default to localhost to avoid common CORS allowlist mismatches (localhost vs 127.0.0.1).
+  const backendUrlRaw = (import.meta.env.VITE_BACKEND_URL as string | undefined) || "http://localhost:8000";
   const backendUrl = backendUrlRaw.replace(/\/+$/, "");
 
   const apiUrlRaw =
@@ -424,10 +425,39 @@ export async function safeFetch(path: string, options: RequestInit = {}): Promis
     headers.set("Content-Type", "application/json");
   }
 
-  return fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers,
-  });
+  const url = `${API_BASE_URL}${path}`;
+  try {
+    return await fetch(url, {
+      ...options,
+      headers,
+    });
+  } catch (err) {
+    // If dev environment has CORS allowlisted "localhost" but we're calling 127.0.0.1 (or vice versa),
+    // retry once with the alternate hostname.
+    const message = err instanceof Error ? err.message : String(err);
+    const canRetry =
+      err instanceof TypeError &&
+      (API_BASE_URL.includes("127.0.0.1") || API_BASE_URL.includes("localhost"));
+
+    if (canRetry) {
+      const altBase = API_BASE_URL.includes("127.0.0.1")
+        ? API_BASE_URL.replace("127.0.0.1", "localhost")
+        : API_BASE_URL.replace("localhost", "127.0.0.1");
+      const altUrl = `${altBase}${path}`;
+      try {
+        return await fetch(altUrl, {
+          ...options,
+          headers,
+        });
+      } catch {
+        // Fall through to the descriptive error below.
+      }
+    }
+
+    throw new Error(
+      `Failed to fetch API (${message}). Check backend is running and VITE_API_URL/VITE_API_BASE_URL points to: ${API_BASE_URL}`
+    );
+  }
 }
 
 export async function apiRequest<T = any>(path: string, options: RequestInit = {}): Promise<T> {

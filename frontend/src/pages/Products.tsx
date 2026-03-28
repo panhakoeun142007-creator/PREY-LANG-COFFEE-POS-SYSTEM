@@ -84,7 +84,7 @@ const getImageUrl = (image: string | null | undefined, imageUrl?: string | null)
     return image;
   }
   // If it's a local storage path, prepend the backend URL
-  const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:8000";
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
   return `${backendUrl}/storage/${image}`;
 };
 
