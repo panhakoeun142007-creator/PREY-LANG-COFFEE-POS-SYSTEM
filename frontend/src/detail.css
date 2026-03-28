@@ -107,7 +107,7 @@
 .detail-product-image {
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
   object-position: center;
   display: block;
 }
@@ -406,12 +406,12 @@
   .detail-image-wrap {
     min-height: 190px;
     border-radius: 12px;
-    aspect-ratio: 4 / 3;
+    aspect-ratio: 1 / 1;
   }
 
   .detail-product-image {
     height: 100%;
-    object-fit: contain;
+    object-fit: cover;
   }
 
   .detail-side-nav {
