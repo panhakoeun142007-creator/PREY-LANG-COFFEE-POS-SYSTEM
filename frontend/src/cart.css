@@ -141,7 +141,7 @@
 }
 
 .cart-totals {
-  margin-top: 18px;
+  margin-top: 0;
   border-radius: 18px;
   overflow: hidden;
   border: 1px solid #eef1f6;
@@ -173,7 +173,7 @@
 }
 
 .buy-btn {
-  margin-top: 18px;
+  margin-top: 12px;
   width: 100%;
   border: none;
   border-radius: 14px;
@@ -251,6 +251,10 @@
   .remove-btn {
     padding: 6px 12px;
     font-size: 0.85rem;
+  }
+
+  .buy-btn {
+    margin-top: 10px;
   }
 
   .cart-summary {
