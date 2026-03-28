@@ -20,6 +20,7 @@ import "../style/customer-menu.css";
 const SIZE_MAP = { S: "small", M: "medium", L: "large" };
 
 const STORAGE_KEY = "prey-lang-pos:customer-app-state:v1";
+const TAX_PER_ITEM = 0.25;
 
 const readStoredState = () => {
   try {
@@ -40,7 +41,9 @@ function getCartTotal(cartItems) {
 
 function getCartTotalWithTax(cartItems) {
   const subtotal = getCartTotal(cartItems);
-  return Math.round(subtotal * 1.10 * 100) / 100;
+  const totalItems = cartItems.reduce((total, item) => total + (item.quantity || 0), 0);
+  const taxAmount = Math.round(totalItems * TAX_PER_ITEM * 100) / 100;
+  return Math.round((subtotal + taxAmount) * 100) / 100;
 }
 
 export default function CustomerMenuApp() {
@@ -242,7 +245,8 @@ export default function CustomerMenuApp() {
     }
     const firstItem = detailSequence[0];
     if (!firstItem) return;
-    openDetailPage(firstItem.productKey, firstItem.selectedSize);
+    setDetailTarget(firstItem);
+    setCurrentPage("detail");
   };
 
   const handleDetailAddMore = () => {
@@ -369,8 +373,8 @@ export default function CustomerMenuApp() {
   const confirmCheckout = async (paymentMethod = "card") => {
     if (cartItems.length === 0) { setCurrentPage("menu"); return; }
     const subtotal = getCartTotal(cartItems);
-    const TAX_RATE = 0.10;
-    const taxAmount = Math.round(subtotal * TAX_RATE * 100) / 100;
+    const totalItems = cartItems.reduce((total, item) => total + (item.quantity || 0), 0);
+    const taxAmount = Math.round(totalItems * TAX_PER_ITEM * 100) / 100;
     const totalAmount = Math.round((subtotal + taxAmount) * 100) / 100;
     const snapshotItems = cartItems.map((item) => {
       const qty = item.quantity || 1;
@@ -383,7 +387,15 @@ export default function CustomerMenuApp() {
         lineTotal: unitPrice * qty,
       };
     });
-    setCartSnapshot({ items: snapshotItems, subtotal, taxAmount, total: totalAmount, paymentType: paymentMethod });
+    setCartSnapshot({
+      items: snapshotItems,
+      subtotal,
+      taxAmount,
+      total: totalAmount,
+      paymentType: paymentMethod,
+      taxPerItem: TAX_PER_ITEM,
+      taxItemCount: totalItems,
+    });
     const result = await submitOrderToBackend(paymentMethod);
     if (result?.queueNumber) {
       setQrOrderNumber(`#A-${String(result.queueNumber).padStart(3, "0")}`);
