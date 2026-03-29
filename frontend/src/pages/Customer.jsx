@@ -14,10 +14,22 @@ import {
 import { fetchCustomerCategories, fetchCustomerProducts, fetchCustomerPopularProducts } from "../services/api";
 import { useI18n } from "../context/I18nContext";
 import { getPriceForSize } from "../utils/pricing";
+import { toSameOriginMediaUrl } from "../utils/media";
 
 const ASSET_BASE = (() => {
   const backend = (import.meta.env.VITE_BACKEND_URL ?? "").trim().replace(/\/+$/, "");
   if (backend) return backend;
+
+  const envApiUrl = String(
+    (import.meta.env.VITE_API_URL ?? import.meta.env.VITE_API_BASE_URL ?? "") || ""
+  ).trim();
+  if (envApiUrl && /^https?:\/\//i.test(envApiUrl)) {
+    try {
+      return new URL(envApiUrl).origin.replace(/\/+$/, "");
+    } catch {
+      // ignore
+    }
+  }
   if (typeof window !== "undefined" && window.location?.origin) {
     return String(window.location.origin).replace(/\/+$/, "");
   }
@@ -45,9 +57,12 @@ function normalizeImage(imageUrl, imagePath) {
     : imagePath;
   if (!source || typeof source !== "string" || source.trim() === "") return null;
   const v = source.trim();
-  if (/^(https?:\/\/|data:|blob:)/i.test(v)) return v;
+
   // Prefer same-origin `/media/*` so Vercel can proxy images without CORS issues.
-  if (v.startsWith("/media/")) return v;
+  const sameOrigin = toSameOriginMediaUrl(v);
+  if (sameOrigin.startsWith("/media/")) return sameOrigin;
+
+  if (/^(https?:\/\/|data:|blob:)/i.test(v)) return v;
 
   // If the API gives a plain storage path like "profile-images/..", serve it from `/media/<path>`.
   if (!v.startsWith("/")) {
