@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   createCustomerOrder,
@@ -20,6 +20,7 @@ import "../style/customer-menu.css";
 const SIZE_MAP = { S: "small", M: "medium", L: "large" };
 
 const STORAGE_KEY = "prey-lang-pos:customer-app-state:v1";
+const TAX_PER_ITEM = 0.25;
 
 const readStoredState = () => {
   try {
@@ -40,7 +41,9 @@ function getCartTotal(cartItems) {
 
 function getCartTotalWithTax(cartItems) {
   const subtotal = getCartTotal(cartItems);
-  return Math.round(subtotal * 1.10 * 100) / 100;
+  const totalItems = cartItems.reduce((total, item) => total + (item.quantity || 0), 0);
+  const taxAmount = Math.round(totalItems * TAX_PER_ITEM * 100) / 100;
+  return Math.round((subtotal + taxAmount) * 100) / 100;
 }
 
 export default function CustomerMenuApp() {
@@ -52,9 +55,12 @@ export default function CustomerMenuApp() {
     const s = readStoredState();
     if (!Array.isArray(s?.cartItems)) return [];
     // Ensure every cart item has a productKey (handles stale localStorage data)
-    return s.cartItems.map((item) => ({
+    const now = Date.now();
+    return s.cartItems.map((item, idx) => ({
       ...item,
       productKey: item.productKey ?? `${item.id}-${item.name}`,
+      // Preserve original ordering across edits/merges.
+      addedAt: typeof item.addedAt === "number" ? item.addedAt : now + idx,
     }));
   });
   const [currentPage, setCurrentPage] = useState(() => {
@@ -93,6 +99,10 @@ export default function CustomerMenuApp() {
     return typeof s?.pendingPaymentMethod === "string" ? s.pendingPaymentMethod : null;
   });
   const [cartSnapshot, setCartSnapshot] = useState(null);
+  const [detailDrafts, setDetailDrafts] = useState(() => {
+    const s = readStoredState();
+    return s && typeof s?.detailDrafts === "object" && s.detailDrafts ? s.detailDrafts : {};
+  });
 
   const { settings } = useSettings();
   const receiptSettings = settings?.receipt;
@@ -119,27 +129,38 @@ export default function CustomerMenuApp() {
         qrOrderNumber,
         lastOrderId,
         pendingPaymentMethod,
+        detailDrafts,
       })
     );
-  }, [cartItems, currentPage, detailTarget, qrOrderNumber, lastOrderId, pendingPaymentMethod]);
+  }, [cartItems, currentPage, detailTarget, qrOrderNumber, lastOrderId, pendingPaymentMethod, detailDrafts]);
 
   // Store the full item snapshot in detailTarget so lookup never fails
   const activeDetailItem = detailTarget ?? null;
-
-  const activeDetailIndex = detailTarget
-    ? cartItems.findIndex(
-        (i) =>
-          i.productKey === detailTarget.productKey &&
-          i.selectedSize === detailTarget.selectedSize
-      )
-    : -1;
 
   const effectivePage = (() => {
     if (cartItems.length === 0 && currentPage !== "menu" && currentPage !== "cart") return "menu";
     return currentPage;
   })();
 
-  const handleAddToCart = ({ product, selectedSize, productKey }) => {
+  const detailSequence = useMemo(() => {
+    // Show products in the order the customer first added them.
+    return [...cartItems].sort((a, b) => {
+      const aa = typeof a.addedAt === "number" ? a.addedAt : Number.MAX_SAFE_INTEGER;
+      const bb = typeof b.addedAt === "number" ? b.addedAt : Number.MAX_SAFE_INTEGER;
+      return aa - bb;
+    });
+  }, [cartItems]);
+
+  const activeDetailIndex = useMemo(() => {
+    if (!detailTarget) return -1;
+    return detailSequence.findIndex(
+      (i) =>
+        i.productKey === detailTarget.productKey &&
+        i.selectedSize === detailTarget.selectedSize
+    );
+  }, [detailSequence, detailTarget]);
+
+  const handleAddToCart = ({ product, selectedSize, productKey }, { openDetail = false } = {}) => {
     const existingIndex = cartItems.findIndex(
       (item) => item.productKey === productKey && item.selectedSize === selectedSize
     );
@@ -153,6 +174,7 @@ export default function CustomerMenuApp() {
         milkOption: "Whole",
         extras: { extraShot: false, whippedCream: false, cinnamonSprinkles: false },
         quantity: 1,
+        addedAt: Date.now(),
       };
       setCartItems((prev) => [...prev, detailPayload]);
     } else {
@@ -166,8 +188,12 @@ export default function CustomerMenuApp() {
         )
       );
     }
-    setDetailTarget(detailPayload);
-    setCurrentPage("detail");
+    const productName = detailPayload?.name || product?.name || productKey;
+    alert(`${productName} added to cart`);
+    if (openDetail) {
+      setDetailTarget(detailPayload);
+      setCurrentPage("detail");
+    }
   };
 
   const updateCartItemQuantity = (productKey, selectedSize, change) => {
@@ -212,44 +238,109 @@ export default function CustomerMenuApp() {
     setCurrentPage("detail");
   };
 
+  const handleCartIconClick = () => {
+    if (cartItems.length === 0) {
+      setCurrentPage("cart");
+      return;
+    }
+    const firstItem = detailSequence[0];
+    if (!firstItem) return;
+    setDetailTarget(firstItem);
+    setCurrentPage("detail");
+  };
+
+  const handleDetailAddMore = () => {
+    setDetailTarget(null);
+    setCurrentPage("menu");
+  };
+
   const moveDetailTarget = (direction) => {
-    if (!detailTarget || cartItems.length === 0) return;
-    const currentIndex = cartItems.findIndex(
+    if (!detailTarget || detailSequence.length === 0) return;
+    const currentIndex = detailSequence.findIndex(
       (i) => i.productKey === detailTarget.productKey && i.selectedSize === detailTarget.selectedSize
     );
     if (currentIndex === -1) return;
     const nextIndex = currentIndex + direction;
-    if (nextIndex < 0 || nextIndex >= cartItems.length) return;
-    setDetailTarget(cartItems[nextIndex]);
+    if (nextIndex < 0 || nextIndex >= detailSequence.length) return;
+    setDetailTarget(detailSequence[nextIndex]);
+  };
+
+  const applyDetailUpdate = (items, targetKey, targetSize, details) => {
+    const index = items.findIndex(
+      (i) => i.productKey === targetKey && i.selectedSize === targetSize
+    );
+    if (index === -1) return items;
+
+    const updated = {
+      ...items[index],
+      selectedSize: details.selectedSize,
+      sugarLevel: details.sugarLevel,
+      milkOption: details.milkOption,
+      extras: details.extras,
+      quantity: details.quantity ?? items[index].quantity ?? 1,
+    };
+
+    if ((updated.quantity ?? 0) === 0) {
+      return items.filter(
+        (i) => !(i.productKey === targetKey && i.selectedSize === targetSize)
+      );
+    }
+
+    const mergeIndex = items.findIndex(
+      (i, idx) =>
+        idx !== index &&
+        i.productKey === updated.productKey &&
+        i.selectedSize === updated.selectedSize
+    );
+    if (mergeIndex > -1) {
+      return items
+        .map((item, idx) => {
+          if (idx === index) return null;
+          if (idx === mergeIndex) {
+            const existingQty = item.quantity ?? 1;
+            return {
+              ...item,
+              quantity: existingQty + (updated.quantity ?? 1),
+              addedAt: Math.min(
+                typeof item.addedAt === "number" ? item.addedAt : Number.MAX_SAFE_INTEGER,
+                typeof updated.addedAt === "number" ? updated.addedAt : Number.MAX_SAFE_INTEGER
+              ),
+              sugarLevel: updated.sugarLevel,
+              milkOption: updated.milkOption,
+              extras: updated.extras,
+            };
+          }
+          return item;
+        })
+        .filter(Boolean);
+    }
+
+    return items.map((item, idx) => (idx === index ? updated : item));
   };
 
   const saveDetailChanges = (details) => {
     if (!detailTarget) return;
-    const targetKey = detailTarget.productKey;
-    const targetSize = detailTarget.selectedSize;
+
+    // Save all pending draft changes (from prev/next navigation), then go to My Cart.
     setCartItems((prev) => {
-      const index = prev.findIndex(
-        (i) => i.productKey === targetKey && i.selectedSize === targetSize
-      );
-      if (index === -1) return prev;
-      const updated = {
-        ...prev[index],
-        selectedSize: details.selectedSize,
-        sugarLevel: details.sugarLevel,
-        milkOption: details.milkOption,
-        extras: details.extras,
-      };
-      const remaining = prev.filter((_, i) => i !== index);
-      const mergeIndex = remaining.findIndex(
-        (i) => i.productKey === updated.productKey && i.selectedSize === updated.selectedSize
-      );
-      if (mergeIndex === -1) return [...remaining, updated];
-      return remaining.map((i, idx) =>
-        idx === mergeIndex
-          ? { ...i, quantity: i.quantity + updated.quantity, sugarLevel: updated.sugarLevel, milkOption: updated.milkOption, extras: updated.extras }
-          : i
-      );
+      let next = prev;
+
+      const drafts = detailDrafts && typeof detailDrafts === "object" ? detailDrafts : {};
+      for (const [key, draft] of Object.entries(drafts)) {
+        if (!draft) continue;
+        const sep = key.indexOf("::");
+        if (sep === -1) continue;
+        const k = key.slice(0, sep);
+        const s = key.slice(sep + 2);
+        next = applyDetailUpdate(next, k, s, draft);
+      }
+
+      // Also apply the current detail screen values (covers "Save immediately" before draft effect runs).
+      next = applyDetailUpdate(next, detailTarget.productKey, detailTarget.selectedSize, details);
+      return next;
     });
+
+    setDetailDrafts({});
     setCurrentPage("cart");
     setDetailTarget(null);
   };
@@ -282,8 +373,8 @@ export default function CustomerMenuApp() {
   const confirmCheckout = async (paymentMethod = "card") => {
     if (cartItems.length === 0) { setCurrentPage("menu"); return; }
     const subtotal = getCartTotal(cartItems);
-    const TAX_RATE = 0.10;
-    const taxAmount = Math.round(subtotal * TAX_RATE * 100) / 100;
+    const totalItems = cartItems.reduce((total, item) => total + (item.quantity || 0), 0);
+    const taxAmount = Math.round(totalItems * TAX_PER_ITEM * 100) / 100;
     const totalAmount = Math.round((subtotal + taxAmount) * 100) / 100;
     const snapshotItems = cartItems.map((item) => {
       const qty = item.quantity || 1;
@@ -296,7 +387,15 @@ export default function CustomerMenuApp() {
         lineTotal: unitPrice * qty,
       };
     });
-    setCartSnapshot({ items: snapshotItems, subtotal, taxAmount, total: totalAmount, paymentType: paymentMethod });
+    setCartSnapshot({
+      items: snapshotItems,
+      subtotal,
+      taxAmount,
+      total: totalAmount,
+      paymentType: paymentMethod,
+      taxPerItem: TAX_PER_ITEM,
+      taxItemCount: totalItems,
+    });
     const result = await submitOrderToBackend(paymentMethod);
     if (result?.queueNumber) {
       setQrOrderNumber(`#A-${String(result.queueNumber).padStart(3, "0")}`);
@@ -418,7 +517,7 @@ export default function CustomerMenuApp() {
         <Customer
           cartItems={cartItems}
           onAddToCart={handleAddToCart}
-          onCartClick={() => setCurrentPage("cart")}
+          onCartClick={handleCartIconClick}
           theme={theme}
           onToggleTheme={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
         />
@@ -436,15 +535,37 @@ export default function CustomerMenuApp() {
       )}
       {effectivePage === "detail" && (
         <Detail
+          key={activeDetailItem ? `${activeDetailItem.productKey}-${activeDetailItem.selectedSize}` : "detail"}
           item={activeDetailItem}
+          draft={
+            detailTarget
+              ? detailDrafts?.[`${detailTarget.productKey}::${detailTarget.selectedSize}`] ?? null
+              : null
+          }
+          onDraftChange={(nextDraft) => {
+            if (!detailTarget) return;
+            const k = `${detailTarget.productKey}::${detailTarget.selectedSize}`;
+            setDetailDrafts((prev) => {
+              const base = prev && typeof prev === "object" ? prev : {};
+              if (!nextDraft) {
+                if (!Object.prototype.hasOwnProperty.call(base, k)) return base;
+                const next = { ...base };
+                delete next[k];
+                return next;
+              }
+              return { ...base, [k]: nextDraft };
+            });
+          }}
+          hasAnyDrafts={Object.keys(detailDrafts || {}).length > 0}
           onBack={() => setCurrentPage("cart")}
           onSave={saveDetailChanges}
+          onAddMore={handleDetailAddMore}
           onPrevItem={() => moveDetailTarget(-1)}
           onNextItem={() => moveDetailTarget(1)}
           canGoPrev={activeDetailIndex > 0}
-          canGoNext={activeDetailIndex > -1 && activeDetailIndex < cartItems.length - 1}
+          canGoNext={activeDetailIndex > -1 && activeDetailIndex < detailSequence.length - 1}
           detailIndex={activeDetailIndex}
-          detailCount={cartItems.length}
+          detailCount={detailSequence.length}
         />
       )}
       {effectivePage === "checkout" && (
@@ -477,7 +598,7 @@ export default function CustomerMenuApp() {
           totalDue={getCartTotalWithTax(cartItems)}
           orderNumber={qrOrderNumber}
           paymentMethod={pendingPaymentMethod ?? "card"}
-          onBack={() => setCurrentPage("order-confirmed")}
+          onBack={() => setCurrentPage("checkout")}
           onPaymentComplete={handleQRPaymentComplete}
         />
       )}

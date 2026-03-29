@@ -20,9 +20,9 @@ function Ready({ tableNumber = "012", onEnjoyCoffee, snapshot, receiptSettings }
   const tableText = `Table: ${tableNumber}`;
   const items = snapshot?.items ?? [];
   const subtotal = snapshot?.subtotal ?? 0;
-  const taxRate = snapshot?.taxRate ?? 10;
   const taxAmount = snapshot?.taxAmount ?? 0;
   const total = snapshot?.total ?? subtotal + taxAmount;
+  const taxPerItem = snapshot?.taxPerItem;
 
   return (
     <main className="ready-page ready-page--receipt">
@@ -60,7 +60,7 @@ function Ready({ tableNumber = "012", onEnjoyCoffee, snapshot, receiptSettings }
             <span>${subtotal.toFixed(2)}</span>
           </div>
           <div>
-            <span>Tax ({taxRate}%)</span>
+            <span>{typeof taxPerItem === "number" ? `Tax ($${taxPerItem.toFixed(2)}/item)` : "Tax"}</span>
             <span>${taxAmount.toFixed(2)}</span>
           </div>
           <div className="receipt-total">

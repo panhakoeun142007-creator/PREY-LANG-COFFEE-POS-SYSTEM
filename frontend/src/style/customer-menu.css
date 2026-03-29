@@ -74,6 +74,12 @@
   transition: all 0.2s ease;
 }
 
+.cart-icon-mini-btn {
+  border: none;
+  background: transparent;
+  line-height: 1;
+}
+
 .cart-icon-mini:hover {
   background: var(--chip);
   color: var(--text);

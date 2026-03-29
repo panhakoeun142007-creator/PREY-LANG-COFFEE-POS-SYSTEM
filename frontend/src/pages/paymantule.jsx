@@ -2,6 +2,8 @@ import { useMemo } from "react";
 import "../paymantule.css";
 import { getItemUnitPrice } from "../utils/pricing";
 
+const TAX_PER_ITEM = 0.25;
+
 function getItemLineTotal(item) {
   return getItemUnitPrice(item) * (item.quantity || 1);
 }
@@ -14,7 +16,11 @@ function Paymantule({ cartItems = [], onDone }) {
     () => getCartTotal(cartItems),
     [cartItems]
   );
-  const taxAmount = Math.round(subtotal * 0.10 * 100) / 100;
+  const totalItems = useMemo(
+    () => cartItems.reduce((total, item) => total + (item.quantity || 0), 0),
+    [cartItems]
+  );
+  const taxAmount = Math.round(totalItems * TAX_PER_ITEM * 100) / 100;
   const total = Math.round((subtotal + taxAmount) * 100) / 100;
 
   return (
@@ -57,7 +63,7 @@ function Paymantule({ cartItems = [], onDone }) {
             <span>${subtotal.toFixed(2)}</span>
           </div>
           <div>
-            <span>Tax (10%)</span>
+            <span>Tax ($0.25/item)</span>
             <span>${taxAmount.toFixed(2)}</span>
           </div>
           <div className="paymantule-total-row">

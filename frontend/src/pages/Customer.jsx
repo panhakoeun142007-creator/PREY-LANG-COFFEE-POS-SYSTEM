@@ -15,9 +15,13 @@ import { fetchCustomerCategories, fetchCustomerProducts, fetchCustomerPopularPro
 import { useI18n } from "../context/I18nContext";
 import { getPriceForSize } from "../utils/pricing";
 
-const API_BASE = (() => {
-  const raw = (import.meta.env.VITE_API_BASE_URL ?? "").trim().replace(/\/$/, "");
-  return raw || "http://127.0.0.1:8000";
+const ASSET_BASE = (() => {
+  const backend = (import.meta.env.VITE_BACKEND_URL ?? "").trim().replace(/\/+$/, "");
+  if (backend) return backend;
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return String(window.location.origin).replace(/\/+$/, "");
+  }
+  return "http://127.0.0.1:8000";
 })();
 
 // Map category name → icon
@@ -42,7 +46,16 @@ function normalizeImage(imageUrl, imagePath) {
   if (!source || typeof source !== "string" || source.trim() === "") return null;
   const v = source.trim();
   if (/^(https?:\/\/|data:|blob:)/i.test(v)) return v;
-  return `${API_BASE}${v.startsWith("/") ? v : `/${v}`}`;
+  // Prefer same-origin `/media/*` so Vercel can proxy images without CORS issues.
+  if (v.startsWith("/media/")) return v;
+
+  // If the API gives a plain storage path like "profile-images/..", serve it from `/media/<path>`.
+  if (!v.startsWith("/")) {
+    return `/media/${v.replace(/^\/+/, "")}`;
+  }
+
+  // Otherwise use the configured backend/current origin as a base for absolute paths.
+  return `${ASSET_BASE}${v}`;
 }
 
 function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", onToggleTheme }) {
@@ -126,9 +139,12 @@ function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", o
     category: popularProduct.category || { name: "Popular" },
   });
 
-  const handleAddPopularProduct = (popularProduct) => {
-    handleAddToCart(createPopularProductSeed(popularProduct));
-  };
+const handleAddPopularProduct = (popularProduct) => {
+  const seedProduct = createPopularProductSeed(popularProduct);
+  const productKey = getProductKey(popularProduct);
+  const selectedSize = "M";
+  onAddToCart({product: seedProduct, selectedSize, productKey});
+};
 
   const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -190,17 +206,17 @@ function Customer({ cartItems = [], onAddToCart, onCartClick, theme = "light", o
               >
                 {theme === "dark" ? <FaSun /> : <FaMoon />}
               </button>
-              <div
-                className="cart-icon-mini"
+              <button
+                type="button"
+                className="cart-icon-mini cart-icon-mini-btn"
                 onClick={onCartClick}
-                onKeyDown={(e) => e.key === "Enter" && onCartClick?.()}
-                role="button"
-                tabIndex={0}
-                style={{ position: 'relative', cursor: 'pointer' }}
+                aria-label="Open cart"
+                style={{ position: "relative", cursor: "pointer" }}
               >
-                <FaShoppingCart style={{ fontSize: '0.9rem' }} />
+                <FaShoppingCart style={{ fontSize: "0.9rem" }} />
                 {cartCount > 0 && <span className="cart-count-mini">{cartCount}</span>}
-              </div>
+
+              </button>
             </div>
           </div>
 
