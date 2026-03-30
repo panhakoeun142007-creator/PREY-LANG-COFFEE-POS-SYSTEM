@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   createCustomerOrder,
@@ -451,6 +451,27 @@ export default function CustomerMenuApp() {
     setCurrentPage("order-confirmed");
   };
 
+  const refreshOrderStatus = useCallback(async (shouldApply = () => true) => {
+    if (!lastOrderId) return;
+    try {
+      const data = await fetchCustomerOrderStatus(lastOrderId);
+      if (!shouldApply()) return;
+      setOrderStatus(
+        typeof data?.status === "string" ? data.status.toLowerCase() : "pending"
+      );
+
+      if (data?.status?.toLowerCase() === "cancelled") {
+        setCancellationMessage(
+          data.cancellation_message || "Sorry For Your Order Now We're not available"
+        );
+      } else {
+        setCancellationMessage(null);
+      }
+    } catch (error) {
+      console.error("Error fetching order status:", error);
+    }
+  }, [lastOrderId]);
+
   useEffect(() => {
     if (!lastOrderId) {
       setOrderStatus(null);
@@ -459,25 +480,12 @@ export default function CustomerMenuApp() {
     let active = true;
 
     const loadOrderStatus = async () => {
-      try {
-        const data = await fetchCustomerOrderStatus(lastOrderId);
-        if (!active) return;
-        setOrderStatus(
-          typeof data?.status === "string" ? data.status.toLowerCase() : "pending"
-        );
-        // Get cancellation message if order is cancelled
-        if (data?.status?.toLowerCase() === "cancelled") {
-          setCancellationMessage(data.cancellation_message || "Sorry For Your Order Now We're not available");
-        } else {
-          setCancellationMessage(null);
-        }
-      } catch (error) {
-        console.error("Error fetching order status:", error);
-      }
+      await refreshOrderStatus(() => active);
     };
 
     void loadOrderStatus();
     const interval = setInterval(() => {
+      if (!active) return;
       void loadOrderStatus();
     }, 5000);
 
@@ -485,7 +493,7 @@ export default function CustomerMenuApp() {
       active = false;
       clearInterval(interval);
     };
-  }, [lastOrderId]);
+  }, [lastOrderId, refreshOrderStatus]);
 
   useEffect(() => {
     // Only navigate to ready page if order is completed successfully (not cancelled)
@@ -584,7 +592,7 @@ export default function CustomerMenuApp() {
               ? handleContinueToPayment
               : undefined
           }
-          onTrackStatus={() => setCurrentPage("ready")}
+          onTrackStatus={() => { void refreshOrderStatus(); }}
           onBackToMenu={() => {
             setCartItems([]);
             setCurrentPage("menu");

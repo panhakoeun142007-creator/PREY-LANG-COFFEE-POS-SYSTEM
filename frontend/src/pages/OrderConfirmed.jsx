@@ -67,7 +67,7 @@ function OrderConfirmed({
         <div className="order-confirmed-actions single">
           {onTrackStatus && !isCancelled && (
             <button type="button" className="order-secondary-btn" onClick={onTrackStatus}>
-              Track order status
+              Refresh preparation status
             </button>
           )}
           {onBackToMenu && (
