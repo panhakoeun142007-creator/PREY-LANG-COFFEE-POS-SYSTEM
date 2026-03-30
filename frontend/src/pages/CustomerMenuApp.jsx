@@ -244,7 +244,7 @@ export default function CustomerMenuApp() {
 
   const handleCartIconClick = () => {
     // If an order is already placed, the cart icon should continue to show order tracking.
-    if (lastOrderId) {
+    if (lastOrderId && orderStatus !== "cancelled") {
       setCurrentPage("order-confirmed");
       return;
     }
@@ -460,6 +460,16 @@ export default function CustomerMenuApp() {
     setCurrentPage("order-confirmed");
   };
 
+  const resetCustomerOrderFlow = useCallback(() => {
+    setLastOrderId(null);
+    setQrOrderNumber("#A-000");
+    setOrderStatus(null);
+    setCancellationMessage(null);
+    setPendingPaymentMethod(null);
+    setPaymentCompleted(false);
+    setCartSnapshot(null);
+  }, []);
+
   const refreshOrderStatus = useCallback(async (shouldApply = () => true) => {
     if (!lastOrderId) return;
     try {
@@ -505,10 +515,6 @@ export default function CustomerMenuApp() {
   }, [lastOrderId, refreshOrderStatus]);
 
   useEffect(() => {
-    // Only navigate to ready page if order is completed successfully (not cancelled)
-    if (orderStatus === "ready" || orderStatus === "completed") {
-      setCurrentPage("ready");
-    }
     // Handle cancelled orders - show message but stay on order-confirmed page
     // Do NOT show payment receipt for cancelled orders
     if (orderStatus === "cancelled") {
@@ -603,8 +609,18 @@ export default function CustomerMenuApp() {
           }
           onTrackStatus={() => { void refreshOrderStatus(); }}
           onBackToMenu={() => {
+            const isCancelled =
+              orderStatus === "cancelled" ||
+              (typeof cancellationMessage === "string" && cancellationMessage.trim() !== "");
+
             setCartItems([]);
+            setDetailDrafts({});
             setDetailTarget(null);
+
+            if (isCancelled) {
+              resetCustomerOrderFlow();
+            }
+
             setCurrentPage("menu");
           }}
           currentStage={currentStage}
