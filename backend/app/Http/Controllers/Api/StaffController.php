@@ -84,6 +84,15 @@ class StaffController extends BaseController
             return $guard;
         }
 
+        // Accept `is_active=true/false` as well as `is_active=1/0` in query params.
+        // (Laravel's `boolean` validation rule only accepts 1/0, but Request::boolean()
+        // can parse a wider set of values.)
+        if ($request->has('is_active')) {
+            $request->merge([
+                'is_active' => $request->boolean('is_active') ? 1 : 0,
+            ]);
+        }
+
         $validated = $request->validate([
             'search' => ['nullable', 'string', 'max:120'],
             'is_active' => ['nullable', 'boolean'],

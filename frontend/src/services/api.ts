@@ -462,6 +462,11 @@ function withQuery<T extends object>(path: string, params?: T): string {
   for (const [key, value] of Object.entries(params as Record<string, unknown>)) {
     if (value === undefined || value === null) continue;
     if (typeof value === "string" && value.trim() === "") continue;
+    if (typeof value === "boolean") {
+      // Laravel's `boolean` validator accepts 0/1, but not "true"/"false".
+      sp.set(key, value ? "1" : "0");
+      continue;
+    }
     sp.set(key, String(value));
   }
   const qs = sp.toString();
