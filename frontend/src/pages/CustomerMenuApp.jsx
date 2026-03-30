@@ -93,12 +93,19 @@ export default function CustomerMenuApp() {
   });
   const [orderStatus, setOrderStatus] = useState(null);
   const [cancellationMessage, setCancellationMessage] = useState(null);
-  const [paymentCompleted, setPaymentCompleted] = useState(false);
+  const [paymentCompleted, setPaymentCompleted] = useState(() => {
+    const s = readStoredState();
+    return Boolean(s?.paymentCompleted);
+  });
   const [pendingPaymentMethod, setPendingPaymentMethod] = useState(() => {
     const s = readStoredState();
     return typeof s?.pendingPaymentMethod === "string" ? s.pendingPaymentMethod : null;
   });
-  const [cartSnapshot, setCartSnapshot] = useState(null);
+  const [cartSnapshot, setCartSnapshot] = useState(() => {
+    const s = readStoredState();
+    const snap = s?.cartSnapshot;
+    return snap && typeof snap === "object" ? snap : null;
+  });
   const [detailDrafts, setDetailDrafts] = useState(() => {
     const s = readStoredState();
     return s && typeof s?.detailDrafts === "object" && s.detailDrafts ? s.detailDrafts : {};
@@ -116,12 +123,6 @@ export default function CustomerMenuApp() {
   }, [theme]);
 
   useEffect(() => {
-    if (cartItems.length === 0 && cartRequiredPages.has(currentPage)) {
-      setCurrentPage("menu");
-    }
-  }, [cartItems.length, currentPage, cartRequiredPages]);
-
-  useEffect(() => {
     const safePage =
       cartItems.length === 0 && cartRequiredPages.has(currentPage) ? "menu" : currentPage;
     localStorage.setItem(
@@ -132,11 +133,13 @@ export default function CustomerMenuApp() {
         detailTarget,
         qrOrderNumber,
         lastOrderId,
+        cartSnapshot,
+        paymentCompleted,
         pendingPaymentMethod,
         detailDrafts,
       })
     );
-  }, [cartItems, currentPage, detailTarget, qrOrderNumber, lastOrderId, pendingPaymentMethod, detailDrafts]);
+  }, [cartItems, currentPage, cartRequiredPages, detailTarget, qrOrderNumber, lastOrderId, cartSnapshot, paymentCompleted, pendingPaymentMethod, detailDrafts]);
 
   // Store the full item snapshot in detailTarget so lookup never fails
   const activeDetailItem = detailTarget ?? null;
@@ -243,12 +246,12 @@ export default function CustomerMenuApp() {
   };
 
   const handleCartIconClick = () => {
-    // If an order is already placed, the cart icon should continue to show order tracking.
-    if (lastOrderId && orderStatus !== "cancelled") {
-      setCurrentPage("order-confirmed");
-      return;
-    }
     if (cartItems.length === 0) {
+      // If there is a previous order, keep the cart icon focused on tracking/receipt.
+      if (lastOrderId && orderStatus !== "cancelled") {
+        setCurrentPage(orderStatus === "completed" ? "ready" : "order-confirmed");
+        return;
+      }
       setCurrentPage("cart");
       return;
     }
@@ -475,16 +478,22 @@ export default function CustomerMenuApp() {
     try {
       const data = await fetchCustomerOrderStatus(lastOrderId);
       if (!shouldApply()) return;
-      setOrderStatus(
-        typeof data?.status === "string" ? data.status.toLowerCase() : "pending"
-      );
+      const nextStatus = typeof data?.status === "string" ? data.status.toLowerCase() : "pending";
+      setOrderStatus(nextStatus);
 
-      if (data?.status?.toLowerCase() === "cancelled") {
+      if (nextStatus === "cancelled") {
         setCancellationMessage(
           data.cancellation_message || "Sorry For Your Order Now We're not available"
         );
       } else {
         setCancellationMessage(null);
+      }
+
+      // When staff/admin finishes the order, show the receipt to the customer.
+      if (nextStatus === "completed") {
+        setCurrentPage((prev) =>
+          prev === "ready" || prev === "order-confirmed" ? "ready" : prev
+        );
       }
     } catch (error) {
       console.error("Error fetching order status:", error);
@@ -492,10 +501,7 @@ export default function CustomerMenuApp() {
   }, [lastOrderId]);
 
   useEffect(() => {
-    if (!lastOrderId) {
-      setOrderStatus(null);
-      return;
-    }
+    if (!lastOrderId) return;
     let active = true;
 
     const loadOrderStatus = async () => {
@@ -514,15 +520,6 @@ export default function CustomerMenuApp() {
     };
   }, [lastOrderId, refreshOrderStatus]);
 
-  useEffect(() => {
-    // Handle cancelled orders - show message but stay on order-confirmed page
-    // Do NOT show payment receipt for cancelled orders
-    if (orderStatus === "cancelled") {
-      setCancellationMessage((prev) => prev || "Sorry For Your Order Now We're not available");
-      // Don't navigate away - keep them on order-confirmed page with cancellation message
-    }
-  }, [orderStatus]);
-
   const ORDER_STAGE_MAP = {
     pending: 0,
     preparing: 1,
@@ -530,7 +527,7 @@ export default function CustomerMenuApp() {
     completed: 3,
   };
   const currentStage =
-    orderStatus && ORDER_STAGE_MAP.hasOwnProperty(orderStatus)
+    orderStatus && Object.prototype.hasOwnProperty.call(ORDER_STAGE_MAP, orderStatus)
       ? ORDER_STAGE_MAP[orderStatus]
       : 0;
 
