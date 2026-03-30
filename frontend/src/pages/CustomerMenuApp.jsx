@@ -106,20 +106,24 @@ export default function CustomerMenuApp() {
 
   const { settings } = useSettings();
   const receiptSettings = settings?.receipt;
+  const cartRequiredPages = useMemo(
+    () => new Set(["detail", "checkout", "qr-payment", "counter-payment"]),
+    [],
+  );
 
   useEffect(() => {
     localStorage.setItem("customer-theme", theme);
   }, [theme]);
 
   useEffect(() => {
-    if (cartItems.length === 0 && currentPage !== "menu" && currentPage !== "cart") {
+    if (cartItems.length === 0 && cartRequiredPages.has(currentPage)) {
       setCurrentPage("menu");
     }
-  }, [cartItems.length, currentPage]);
+  }, [cartItems.length, currentPage, cartRequiredPages]);
 
   useEffect(() => {
     const safePage =
-      cartItems.length === 0 && currentPage !== "menu" ? "menu" : currentPage;
+      cartItems.length === 0 && cartRequiredPages.has(currentPage) ? "menu" : currentPage;
     localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
@@ -138,7 +142,7 @@ export default function CustomerMenuApp() {
   const activeDetailItem = detailTarget ?? null;
 
   const effectivePage = (() => {
-    if (cartItems.length === 0 && currentPage !== "menu" && currentPage !== "cart") return "menu";
+    if (cartItems.length === 0 && cartRequiredPages.has(currentPage)) return "menu";
     return currentPage;
   })();
 
@@ -239,6 +243,11 @@ export default function CustomerMenuApp() {
   };
 
   const handleCartIconClick = () => {
+    // If an order is already placed, the cart icon should continue to show order tracking.
+    if (lastOrderId) {
+      setCurrentPage("order-confirmed");
+      return;
+    }
     if (cartItems.length === 0) {
       setCurrentPage("cart");
       return;
@@ -595,6 +604,7 @@ export default function CustomerMenuApp() {
           onTrackStatus={() => { void refreshOrderStatus(); }}
           onBackToMenu={() => {
             setCartItems([]);
+            setDetailTarget(null);
             setCurrentPage("menu");
           }}
           currentStage={currentStage}
