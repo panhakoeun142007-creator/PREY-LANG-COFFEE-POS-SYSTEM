@@ -249,7 +249,9 @@ export default function CustomerMenuApp() {
     if (cartItems.length === 0) {
       // If there is a previous order, keep the cart icon focused on tracking/receipt.
       if (lastOrderId && orderStatus !== "cancelled") {
-        setCurrentPage(orderStatus === "completed" ? "ready" : "order-confirmed");
+        setCurrentPage(
+          orderStatus === "completed" || orderStatus === "ready" ? "ready" : "order-confirmed"
+        );
         return;
       }
       setCurrentPage("cart");
@@ -489,11 +491,14 @@ export default function CustomerMenuApp() {
         setCancellationMessage(null);
       }
 
-      // When staff/admin finishes the order, show the receipt to the customer.
-      if (nextStatus === "completed") {
-        setCurrentPage((prev) =>
-          prev === "ready" || prev === "order-confirmed" ? "ready" : prev
-        );
+      // When staff/admin finishes the order (ready), show the receipt to the customer.
+      // Also show it if the order is already completed.
+      if (nextStatus === "ready" || nextStatus === "completed") {
+        setCurrentPage((prev) => {
+          // Don't interrupt in-progress payment screens.
+          if (prev === "qr-payment" || prev === "counter-payment") return prev;
+          return prev === "ready" ? prev : "ready";
+        });
       }
     } catch (error) {
       console.error("Error fetching order status:", error);
