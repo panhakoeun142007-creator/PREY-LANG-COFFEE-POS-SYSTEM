@@ -15,11 +15,13 @@ class VerificationCodeMail extends Mailable
 
     public string $verificationCode;
     public string $purpose;
+    public int $expiryMinutes;
 
-    public function __construct(string $verificationCode, string $purpose = 'verification')
+    public function __construct(string $verificationCode, string $purpose = 'verification', int $expiryMinutes = 10)
     {
         $this->verificationCode = $verificationCode;
         $this->purpose = $purpose;
+        $this->expiryMinutes = $expiryMinutes;
     }
 
     public function envelope(): Envelope
@@ -43,7 +45,7 @@ class VerificationCodeMail extends Mailable
             view: 'emails.verification-code',
             with: [
                 'verificationCode' => $this->verificationCode,
-                'expiryMinutes' => 5,
+                'expiryMinutes' => $this->expiryMinutes,
                 'purpose' => $this->purpose,
             ]
         );

@@ -9,10 +9,13 @@ export default function VerifyCode() {
   const [code, setCode] = useState(new Array(6).fill(''));
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [isResending, setIsResending] = useState(false);
   const email = location.state?.email || localStorage.getItem('verificationEmail') || '';
-  const devCode = location.state?.devCode || localStorage.getItem('verificationDevCode') || '';
+  const [devCode, setDevCode] = useState(location.state?.devCode || localStorage.getItem('verificationDevCode') || '');
+  const [mailSent, setMailSent] = useState(location.state?.mailSent !== false);
   const inputRefs = useRef([]);
+  const isBusy = isVerifying || isResending;
 
   const handleChange = (element, index) => {
     if (isNaN(element.value)) return;
@@ -37,11 +40,50 @@ export default function VerifyCode() {
     setCode(newCode);
   };
 
-  const handleResendCode = () => {
+  const handleAutofillDevCode = () => {
+    if (!devCode || devCode.length !== 6) return;
+    const newCode = devCode.split('').slice(0, 6);
+    setCode(newCode);
+    const lastIndex = Math.min(newCode.length - 1, 5);
+    if (inputRefs.current[lastIndex]) inputRefs.current[lastIndex].focus();
+  };
+
+  const handleResendCode = async () => {
     setCode(new Array(6).fill(''));
     setError('');
     setSuccess('');
     if (inputRefs.current[0]) inputRefs.current[0].focus();
+
+    if (!email) {
+      setError('Missing email. Please request a new verification code.');
+      return;
+    }
+
+    setIsResending(true);
+    try {
+      const data = await authService.sendResetLink({ email });
+      if (data?.success) {
+        localStorage.setItem('verificationEmail', email);
+        setMailSent(data?.mailSent !== false);
+
+        if (data?.devCode) {
+          localStorage.setItem('verificationDevCode', data.devCode);
+          setDevCode(data.devCode);
+        } else {
+          localStorage.removeItem('verificationDevCode');
+          setDevCode('');
+        }
+
+        setSuccess(data?.message || 'Verification code resent.');
+      } else {
+        setError(data?.message || 'Failed to resend verification code.');
+      }
+    } catch (err) {
+      console.error('Error resending verification code:', err);
+      setError(err?.message || 'Failed to resend verification code. Please try again.');
+    } finally {
+      setIsResending(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -61,7 +103,7 @@ export default function VerifyCode() {
     }
 
     // Always verify through the API
-    setIsLoading(true);
+    setIsVerifying(true);
 
     try {
       const data = await authService.verifyCode({ email, code: enteredCode });
@@ -78,7 +120,7 @@ export default function VerifyCode() {
       console.error('Error verifying code:', err);
       setError('Verification request failed. Please try again.');
     } finally {
-      setIsLoading(false);
+      setIsVerifying(false);
     }
   };
 
@@ -94,6 +136,22 @@ export default function VerifyCode() {
             We&apos;ve sent a 6-digit code to your email. Please enter it below to continue.
           </p>
           {email && <p className="verify-ref-email">{email}</p>}
+
+          {!!devCode && (
+            <div className="success-message" style={{ marginBottom: '10px' }}>
+              Dev code: <strong>{devCode}</strong>{' '}
+              <button
+                type="button"
+                className="resend-btn verify-ref-resend-btn"
+                onClick={handleAutofillDevCode}
+                disabled={isBusy}
+                style={{ marginLeft: '8px' }}
+              >
+                Autofill
+              </button>
+              {!mailSent && <div style={{ marginTop: '6px' }}>Email not sent (check backend MAIL_* settings).</div>}
+            </div>
+          )}
 
           {error && (
             <div className="error-message">
@@ -140,15 +198,15 @@ export default function VerifyCode() {
               </div>
             </div>
 
-            <button type="submit" className="login-btn" disabled={isLoading}>
-              {isLoading ? 'Verifying...' : 'Reset Password'}
+            <button type="submit" className="login-btn" disabled={isBusy}>
+              {isVerifying ? 'Verifying...' : 'Reset Password'}
             </button>
           </form>
 
           <div className="verify-ref-resend-row">
             Didn&apos;t receive a code?
-            <button type="button" className="resend-btn verify-ref-resend-btn" onClick={handleResendCode}>
-              Resend
+            <button type="button" className="resend-btn verify-ref-resend-btn" onClick={handleResendCode} disabled={isBusy}>
+              {isResending ? 'Sending...' : 'Resend'}
             </button>
           </div>
         </div>

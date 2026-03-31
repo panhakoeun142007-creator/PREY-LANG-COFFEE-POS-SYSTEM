@@ -10,7 +10,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Str;
 
 class ForgotPasswordController extends Controller
 {
@@ -37,6 +36,8 @@ class ForgotPasswordController extends Controller
     {
         $email = strtolower($request->input('email'));
         $user = User::where('email', $email)->first();
+        $codeTtlMinutes = 10;
+        $exposeDevCode = app()->environment('local') || (bool) config('app.debug');
 
         if (!$user) {
             return response()->json([
@@ -48,32 +49,44 @@ class ForgotPasswordController extends Controller
         // Generate 6-digit verification code
         $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
-        // Store code in cache for 10 minutes
-        Cache::put("password_reset_code_{$email}", $code, now()->addMinutes(10));
-
-        // In development, return the code for testing
-        $devCode = null;
-        if (config('app.env') === 'local' || config('app.debug')) {
-            $devCode = $code;
-        }
+        // Store code in cache
+        Cache::put("password_reset_code_{$email}", $code, now()->addMinutes($codeTtlMinutes));
 
         try {
-            // Send email with verification code
-            \Mail::to($email)->send(new VerificationCodeMail($code, $user->name));
-            $mailSent = true;
-        } catch (\Exception $e) {
-            \Log::error('Failed to send verification email: ' . $e->getMessage());
-            $mailSent = false;
-        }
+            Mail::to($email)->send(new VerificationCodeMail(
+                verificationCode: $code,
+                purpose: 'password_reset',
+                expiryMinutes: $codeTtlMinutes,
+            ));
 
-        return response()->json([
-            'success' => true,
-            'message' => $mailSent 
-                ? 'Verification code sent to your email.'
-                : 'Verification code could not be sent. Using dev code.',
-            'devCode' => $devCode,
-            'mailSent' => $mailSent,
-        ]);
+            return response()->json([
+                'success' => true,
+                'message' => 'Verification code sent to your email.',
+                'devCode' => $exposeDevCode ? $code : null,
+                'mailSent' => true,
+                'expiresInMinutes' => $codeTtlMinutes,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to send password reset verification email: ' . $e->getMessage());
+
+            // In local/dev we allow continuing with a devCode so the UI can be tested without SMTP.
+            if ($exposeDevCode) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Email could not be sent (check MAIL_*). Use the dev code to continue.',
+                    'devCode' => $code,
+                    'mailSent' => false,
+                    'expiresInMinutes' => $codeTtlMinutes,
+                ]);
+            }
+
+            // In production, fail loudly so the UI doesn’t proceed without a real code.
+            return response()->json([
+                'success' => false,
+                'message' => 'Unable to send verification code email. Please try again later.',
+                'mailSent' => false,
+            ], 502);
+        }
     }
 
     /**
@@ -82,7 +95,7 @@ class ForgotPasswordController extends Controller
     public function verifyCode(ForgotPasswordRequest $request): JsonResponse
     {
         $email = strtolower($request->input('email'));
-        $code = $request->input('code');
+        $code = trim((string) $request->input('code'));
 
         $storedCode = Cache::get("password_reset_code_{$email}");
 
@@ -102,6 +115,7 @@ class ForgotPasswordController extends Controller
 
         // Mark as verified
         Cache::put("password_reset_verified_{$email}", true, now()->addMinutes(30));
+        Cache::forget("password_reset_code_{$email}");
 
         return response()->json([
             'success' => true,

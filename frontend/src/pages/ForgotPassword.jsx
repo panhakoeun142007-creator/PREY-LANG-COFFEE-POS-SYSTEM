@@ -50,17 +50,7 @@ export default function ForgotPassword() {
       }
     } catch (err) {
       console.error('Error sending verification code:', err);
-      const fallbackCode = Math.floor(100000 + Math.random() * 900000).toString();
-      localStorage.setItem('verificationEmail', email);
-      localStorage.setItem('verificationDevCode', fallbackCode);
-      navigate('/verify-code', {
-        state: {
-          email,
-          devCode: fallbackCode,
-          mailSent: false,
-          infoMessage: 'Network issue. Using local development code.',
-        },
-      });
+      setError(err?.message || 'Failed to send verification code. Please try again.');
     } finally {
       setIsLoading(false);
     }
