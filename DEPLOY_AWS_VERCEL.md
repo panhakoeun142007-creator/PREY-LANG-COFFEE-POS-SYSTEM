@@ -167,13 +167,26 @@ php artisan route:cache
 php artisan view:cache
 ```
 
+Make sure MySQL is running (otherwise you may see `SQLSTATE[HY000] [2002] Connection refused`):
+
+```bash
+sudo systemctl enable --now mysql
+sudo systemctl status mysql --no-pager
+```
+
 Set permissions:
 
 ```bash
-sudo chown -R www-data:www-data /var/www/PREY-LANG-COFFEE-POS-SYSTEM/backend/storage
-sudo chown -R www-data:www-data /var/www/PREY-LANG-COFFEE-POS-SYSTEM/backend/bootstrap/cache
-sudo chmod -R 775 /var/www/PREY-LANG-COFFEE-POS-SYSTEM/backend/storage
-sudo chmod -R 775 /var/www/PREY-LANG-COFFEE-POS-SYSTEM/backend/bootstrap/cache
+sudo mkdir -p /var/www/PREY-LANG-COFFEE-POS-SYSTEM/backend/storage/logs
+sudo chown -R ubuntu:www-data /var/www/PREY-LANG-COFFEE-POS-SYSTEM/backend/storage /var/www/PREY-LANG-COFFEE-POS-SYSTEM/backend/bootstrap/cache
+sudo find /var/www/PREY-LANG-COFFEE-POS-SYSTEM/backend/storage /var/www/PREY-LANG-COFFEE-POS-SYSTEM/backend/bootstrap/cache -type d -exec chmod 775 {} \\;
+sudo find /var/www/PREY-LANG-COFFEE-POS-SYSTEM/backend/storage /var/www/PREY-LANG-COFFEE-POS-SYSTEM/backend/bootstrap/cache -type f -exec chmod 664 {} \\;
+```
+
+If you see `Permission denied` for `storage/logs/laravel.log` or `bootstrap/cache/config.php`, re-run the commands above and restart:
+
+```bash
+sudo systemctl restart php8.3-fpm nginx
 ```
 
 ## 7. Configure Laravel queue worker
