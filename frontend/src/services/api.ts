@@ -4,6 +4,56 @@ import { auth } from "../utils/auth";
 const pendingGetRequests = new Map<string, Promise<unknown>>();
 const cachedGetResponses = new Map<string, { expiresAt: number; data: unknown }>();
 
+function normalizeApiBaseUrl(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+
+  if (trimmed.startsWith("/")) {
+    return trimmed.replace(/\/+$/, "");
+  }
+
+  if (/^https?:\/\//i.test(trimmed)) {
+    try {
+      const url = new URL(trimmed);
+      const normalizedPath = url.pathname.replace(/\/+$/, "") || "/";
+      if (normalizedPath === "/") {
+        url.pathname = "/api";
+      } else if (normalizedPath.endsWith("/api")) {
+        url.pathname = normalizedPath;
+      } else {
+        // If someone provides only the origin (or a base path), append /api.
+        url.pathname = `${normalizedPath}/api`;
+      }
+      url.search = "";
+      url.hash = "";
+      return url.toString().replace(/\/+$/, "");
+    } catch {
+      return trimmed.replace(/\/+$/, "");
+    }
+  }
+
+  return trimmed.replace(/\/+$/, "");
+}
+
+function inferDirectApiBaseUrlFromWindow(): string {
+  if (typeof window === "undefined") return "";
+
+  const { protocol, hostname } = window.location;
+  const host = (hostname || "").toLowerCase();
+  const isLocal =
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host.endsWith(".localhost");
+
+  const isVercelPreview = host.endsWith(".vercel.app");
+
+  if (isLocal || isVercelPreview || !host) return "";
+
+  const baseHost = host.startsWith("www.") ? host.slice(4) : host;
+  const apiHost = baseHost.startsWith("api.") ? baseHost : `api.${baseHost}`;
+  return `${protocol}//${apiHost}/api`;
+}
+
 function resolveApiBaseUrl(): string {
   const envApiUrl =
     (import.meta.env.VITE_API_URL as string | undefined) ||
@@ -11,36 +61,7 @@ function resolveApiBaseUrl(): string {
     "";
 
   if (envApiUrl.trim()) {
-    const raw = envApiUrl.trim();
-    // Support either:
-    // - "/api" (recommended for Vercel proxy)
-    // - "https://api.example.com/api" (direct calls)
-    // - "https://api.example.com" (we normalize to ".../api")
-    if (raw.startsWith("/")) {
-      return raw.replace(/\/+$/, "");
-    }
-
-    if (/^https?:\/\//i.test(raw)) {
-      try {
-        const url = new URL(raw);
-        const normalizedPath = url.pathname.replace(/\/+$/, "") || "/";
-        if (normalizedPath === "/") {
-          url.pathname = "/api";
-        } else if (normalizedPath.endsWith("/api")) {
-          url.pathname = normalizedPath;
-        } else {
-          // If someone provides only the origin (or a base path), append /api.
-          url.pathname = `${normalizedPath}/api`;
-        }
-        url.search = "";
-        url.hash = "";
-        return url.toString().replace(/\/+$/, "");
-      } catch {
-        return raw.replace(/\/+$/, "");
-      }
-    }
-
-    return raw.replace(/\/+$/, "");
+    return normalizeApiBaseUrl(envApiUrl);
   }
 
   const backendUrlRaw = (import.meta.env.VITE_BACKEND_URL as string | undefined) || "";
@@ -73,10 +94,35 @@ function resolveApiBaseUrl(): string {
   return "http://127.0.0.1:8000/api";
 }
 
-const API_BASE_URL = resolveApiBaseUrl();
+function resolveFallbackApiBaseUrl(primaryBaseUrl: string): string {
+  const envFallback =
+    (import.meta.env.VITE_API_FALLBACK_URL as string | undefined) ||
+    (import.meta.env.VITE_API_FALLBACK_BASE_URL as string | undefined) ||
+    "";
+
+  if (envFallback.trim()) {
+    const normalized = normalizeApiBaseUrl(envFallback);
+    return normalized && normalized !== primaryBaseUrl ? normalized : "";
+  }
+
+  const backendUrlRaw = (import.meta.env.VITE_BACKEND_URL as string | undefined) || "";
+  const backendUrl = backendUrlRaw.trim().replace(/\/+$/, "");
+  if (backendUrl) {
+    const candidate = `${backendUrl}/api`.replace(/\/+$/, "");
+    return candidate !== primaryBaseUrl ? candidate : "";
+  }
+
+  // If the app is configured to use a same-origin proxy like `/api`, infer a direct API domain as a fallback.
+  const inferred = inferDirectApiBaseUrlFromWindow();
+  return inferred && inferred !== primaryBaseUrl ? inferred : "";
+}
+
+const PRIMARY_API_BASE_URL = resolveApiBaseUrl();
+const FALLBACK_API_BASE_URL = resolveFallbackApiBaseUrl(PRIMARY_API_BASE_URL);
+let ACTIVE_API_BASE_URL = PRIMARY_API_BASE_URL;
 
 export function getApiBaseUrl(): string {
-  return API_BASE_URL;
+  return ACTIVE_API_BASE_URL;
 }
 
 function buildGetCacheKey(path: string): string {
@@ -491,14 +537,61 @@ export async function safeFetch(path: string, options: RequestInit = {}): Promis
     headers.set("Content-Type", "application/json");
   }
 
+  const canRetryBody = (): boolean => {
+    const bodyToRetry = options.body as unknown;
+    if (bodyToRetry === undefined || bodyToRetry === null) return true;
+    if (typeof bodyToRetry === "string") return true;
+    if (typeof URLSearchParams !== "undefined" && bodyToRetry instanceof URLSearchParams) return true;
+    if (typeof FormData !== "undefined" && bodyToRetry instanceof FormData) return true;
+    if (typeof Blob !== "undefined" && bodyToRetry instanceof Blob) return true;
+    if (bodyToRetry instanceof ArrayBuffer) return true;
+    if (typeof ArrayBuffer !== "undefined" && ArrayBuffer.isView(bodyToRetry as ArrayBufferView)) return true;
+    return false;
+  };
+
   try {
-    return await fetch(`${API_BASE_URL}${path}`, {
-      ...options,
-      headers,
-    });
+    const doFetch = (baseUrl: string): Promise<Response> =>
+      fetch(`${baseUrl}${path}`, {
+        ...options,
+        headers,
+      });
+
+    const primaryResponse = await doFetch(ACTIVE_API_BASE_URL);
+
+    // If we’re using a same-origin proxy like `/api` and it returns a gateway error,
+    // fall back to calling the API domain directly (common Vercel rewrite/DNS/TLS issue).
+    if (
+      (primaryResponse.status === 502 || primaryResponse.status === 503 || primaryResponse.status === 504) &&
+      ACTIVE_API_BASE_URL.startsWith("/") &&
+      FALLBACK_API_BASE_URL &&
+      canRetryBody()
+    ) {
+      try {
+        const fallbackResponse = await doFetch(FALLBACK_API_BASE_URL);
+        ACTIVE_API_BASE_URL = FALLBACK_API_BASE_URL;
+        return fallbackResponse;
+      } catch {
+        // Keep the original response for better debugging.
+      }
+    }
+
+    return primaryResponse;
   } catch (err) {
+    if (ACTIVE_API_BASE_URL.startsWith("/") && FALLBACK_API_BASE_URL && canRetryBody()) {
+      try {
+        const fallbackResponse = await fetch(`${FALLBACK_API_BASE_URL}${path}`, {
+          ...options,
+          headers,
+        });
+        ACTIVE_API_BASE_URL = FALLBACK_API_BASE_URL;
+        return fallbackResponse;
+      } catch {
+        // Continue to throw the original error below.
+      }
+    }
+
     const message = err instanceof Error ? err.message : String(err);
-    throw new Error(`Failed to fetch (API: ${API_BASE_URL}). ${message}`);
+    throw new Error(`Failed to fetch (API: ${ACTIVE_API_BASE_URL}). ${message}`);
   }
 }
 
@@ -528,16 +621,16 @@ export async function apiRequest<T = any>(path: string, options: RequestInit = {
     }
 
     if (typeof payload === "string" && payload.trim().startsWith("<!doctype")) {
-      throw new Error(`API returned HTML (API: ${API_BASE_URL}). Status: ${response.status}`);
+      throw new Error(`API returned HTML (API: ${ACTIVE_API_BASE_URL}). Status: ${response.status}`);
     }
-    throw new Error((payload as any)?.message || `Request failed (API: ${API_BASE_URL}). Status: ${response.status}`);
+    throw new Error((payload as any)?.message || `Request failed (API: ${ACTIVE_API_BASE_URL}). Status: ${response.status}`);
   }
 
   if (typeof payload === "string") {
     if (payload.trim().startsWith("<!doctype")) {
-      throw new Error(`API returned HTML (API: ${API_BASE_URL}).`);
+      throw new Error(`API returned HTML (API: ${ACTIVE_API_BASE_URL}).`);
     }
-    throw new Error(`API did not return JSON (API: ${API_BASE_URL}).`);
+    throw new Error(`API did not return JSON (API: ${ACTIVE_API_BASE_URL}).`);
   }
 
   return payload as T;

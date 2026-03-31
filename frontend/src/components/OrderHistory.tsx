@@ -4,7 +4,7 @@ import { Printer, Search, Bell, X, Hash, Info } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import coffeeLogo from '../assets/coffee.png';
-import { fetchNotifications, dismissNotification, type Notification } from '../services/api';
+import { fetchNotifications, dismissNotification, safeFetch, type Notification } from '../services/api';
 import { auth } from '../utils/auth';
 
 interface OrderItem {
@@ -31,15 +31,14 @@ function buildOrderDisplayIdMap(ids: string[]): Record<string, string> {
 }
 
 async function createRecipeLog(payload: { order_id: string; table_no: string; name: string }): Promise<void> {
-  const token = localStorage.getItem("auth_token");
-  await fetch("/api/recipe-logs", {
+  const response = await safeFetch("/recipe-logs", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
     body: JSON.stringify(payload),
   });
+
+  if (!response.ok) {
+    throw new Error(`Failed to save recipe log. Status: ${response.status}`);
+  }
 }
 
 interface OrderHistoryProps {

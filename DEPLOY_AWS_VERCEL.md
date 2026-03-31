@@ -22,6 +22,10 @@ Recommended (more reliable in browsers): proxy API through Vercel so the fronten
 - Keep `frontend/vercel.json` rewrite for `/api/*` -> backend API domain
 - Keep `frontend/vercel.json` rewrite for `/media/*` -> backend API domain (so uploaded images work without CORS)
 
+If your deployed frontend shows `Request failed (API: /api). Status: 502` during login, that usually means **Vercel could not reach your backend** (DNS/SSL/firewall/origin down). Quick fixes:
+- Set Vercel env `VITE_API_URL=https://api.panha-tech-web-code.site/api` (bypass the Vercel `/api` proxy)
+- Or keep `VITE_API_URL=/api` and set `VITE_API_FALLBACK_URL=https://api.panha-tech-web-code.site/api` (frontend will fall back automatically when the proxy returns 502/503/504)
+
 ## Important project facts
 
 - Backend folder: `backend`
@@ -275,7 +279,13 @@ Add these environment variables in Vercel Project Settings:
 
 ```env
 VITE_BACKEND_URL=https://api.panha-tech-web-code.site
-VITE_API_URL=https://api.panha-tech-web-code.site/api
+# Option A (recommended): same-origin API via Vercel rewrites
+VITE_API_URL=/api
+# If Vercel can’t reach your origin and `/api` returns 502/503/504, the frontend will fall back to this:
+VITE_API_FALLBACK_URL=https://api.panha-tech-web-code.site/api
+
+# Option B (no proxy): direct API calls
+# VITE_API_URL=https://api.panha-tech-web-code.site/api
 VITE_CUSTOMER_APP_URL=https://panha-tech-web-code.site
 ```
 
