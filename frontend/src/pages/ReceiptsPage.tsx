@@ -159,7 +159,8 @@ export default function ReceiptsPage() {
       const paidAt = order.paid_at ?? order.created_at ?? null;
       const receiptSettings = receipt.receipt_settings ?? null;
 
-      const title = `${t("receipts.label_receipt")} ${receipt.receipt_id}`;
+      const safeReceiptId = String(receipt.receipt_id ?? "RECEIPT").replace(/[^\w-]+/g, "-");
+      const title = `Receipt-${safeReceiptId}`;
       const shopName = receiptSettings?.shop_name ?? "Receipt";
       const address = receiptSettings?.address ?? "";
       const phone = receiptSettings?.phone ?? "";
@@ -356,8 +357,6 @@ export default function ReceiptsPage() {
             win.print();
           } catch {
             // ignore
-          } finally {
-            setTimeout(safeRevoke, 1500);
           }
         };
 
