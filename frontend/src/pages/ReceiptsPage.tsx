@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Banknote, Eye, FileText, QrCode, RefreshCw, Search, Trash2, User } from "lucide-react";
+import { Banknote, Download, Eye, FileText, Printer, QrCode, RefreshCw, Search, Trash2, User } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { Card, CardContent } from "../components/ui/card";
 import { Input } from "../components/ui/input";
@@ -45,6 +45,14 @@ interface ReceiptRow {
   paymentMethod: PaymentMethod;
   status: "paid";
 }
+
+const escapeHtml = (value: unknown): string =>
+  String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 
 export default function ReceiptsPage() {
   const { t, lang } = useI18n();
@@ -95,20 +103,281 @@ export default function ReceiptsPage() {
     return next.length > 0 ? next : ["cash", "khqr"];
   }, [settings]);
 
-  const normalizePaymentMethod = (raw: unknown): PaymentMethod => {
+  const normalizePaymentMethod = useCallback((raw: unknown): PaymentMethod => {
     const value = String(raw ?? "").toLowerCase().trim();
     if (value === "cash") return "cash";
     if (value === "credit_card" || value === "credit card") return "credit_card";
     if (value === "aba_pay" || value === "aba pay") return "aba_pay";
     if (value === "wing_money" || value === "wing money") return "wing_money";
     return "khqr";
-  };
+  }, []);
 
-  const parseNumericId = (value: unknown): number => {
+  const formatReceiptDateTime = useCallback(
+    (raw: string | null | undefined): string => {
+      if (!raw) return "-";
+      const date = new Date(raw);
+      if (Number.isNaN(date.getTime())) return "-";
+      return date.toLocaleString(lang === "km" ? "km-KH" : "en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    },
+    [lang],
+  );
+
+  const parseNumericId = useCallback((value: unknown): number => {
     const digits = String(value ?? "").replace(/\D+/g, "");
     const parsed = Number.parseInt(digits, 10);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
-  };
+  }, []);
+
+  const buildReceiptPrintHtml = useCallback(
+    (receipt: ReceiptDetailResponse["receipt"], opts: { logoUrl: string }) => {
+      const items = Array.isArray(receipt.items) ? receipt.items : [];
+      const totals = receipt.totals ?? {
+        subtotal: 0,
+        tax_rate: 0,
+        tax_amount: 0,
+        computed_total: 0,
+        total: 0,
+      };
+      const order = receipt.order ?? {
+        id: 0,
+        queue_number: null,
+        status: "paid" as const,
+        payment_type: null,
+        table: null,
+        paid_at: null,
+        created_at: null,
+        updated_at: null,
+      };
+
+      const paymentMethod = normalizePaymentMethod(order.payment_type);
+      const paidAt = order.paid_at ?? order.created_at ?? null;
+      const receiptSettings = receipt.receipt_settings ?? null;
+
+      const title = `${t("receipts.label_receipt")} ${receipt.receipt_id}`;
+      const shopName = receiptSettings?.shop_name ?? "Receipt";
+      const address = receiptSettings?.address ?? "";
+      const phone = receiptSettings?.phone ?? "";
+      const taxId = receiptSettings?.tax_id ?? "";
+      const footer = receiptSettings?.footer_message ?? "";
+
+      const showLogo = Boolean(receiptSettings?.show_logo);
+      const showOrderNumber = receiptSettings?.show_order_number ?? true;
+      const showCustomerName = receiptSettings?.show_customer_name ?? true;
+      const showQrPayment = Boolean(receiptSettings?.show_qr_payment);
+
+      const itemsHtml = items
+        .map((item) => {
+          const name = item.name || `#${item.product_id}`;
+          const size = item.size ? ` (${item.size})` : "";
+          return `
+            <div class="row">
+              <div class="left">${escapeHtml(`${item.qty}x ${name}${size}`)}</div>
+              <div class="right">${escapeHtml(money.format(item.line_total))}</div>
+            </div>
+          `;
+        })
+        .join("");
+
+      return `<!doctype html>
+<html lang="${escapeHtml(lang === "km" ? "km" : "en")}">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escapeHtml(title)}</title>
+    <style>
+      :root { --ink: #2f1c18; --muted: #6b4b46; --line: #e6d7c6; }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, "Noto Sans Khmer", "Noto Sans", sans-serif;
+        color: var(--ink);
+        background: #f5efe6;
+        display: flex;
+        justify-content: center;
+        padding: 16px;
+      }
+      .paper {
+        width: 80mm;
+        max-width: 360px;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      .header {
+        background: #4B2E2B;
+        color: #fff;
+        padding: 10px 12px;
+        text-align: center;
+        font-weight: 700;
+        font-size: 12px;
+        letter-spacing: .3px;
+      }
+      .content { padding: 12px; font-size: 11px; }
+      .center { text-align: center; }
+      .muted { color: var(--muted); }
+      .logo { display: flex; justify-content: center; margin-bottom: 8px; }
+      .logo img { width: 44px; height: 44px; object-fit: contain; border-radius: 8px; }
+      .divider { border-top: 1px dashed var(--line); margin: 10px 0; }
+      .row { display: flex; justify-content: space-between; gap: 10px; }
+      .left { flex: 1; min-width: 0; word-break: break-word; }
+      .right { white-space: nowrap; text-align: right; }
+      .totals .row { margin-top: 4px; }
+      .totals .total { font-weight: 800; font-size: 12px; margin-top: 6px; }
+      .badge { display: inline-block; font-size: 10px; padding: 2px 6px; border: 1px solid var(--line); border-radius: 999px; }
+      .qr { margin-top: 10px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+      .qr-box { width: 72px; height: 72px; border-radius: 8px; background: #f5efe6; display: flex; align-items: center; justify-content: center; }
+      .qr-label { font-size: 10px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: var(--muted); }
+      .footer { margin-top: 10px; font-size: 10px; font-style: italic; color: var(--muted); line-height: 1.35; }
+
+      @media print {
+        body { background: #fff; padding: 0; }
+        .paper { border: none; border-radius: 0; width: 80mm; }
+        @page { margin: 0; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="paper">
+      <div class="header">${escapeHtml(t("receipts.customer_receipt_title"))}</div>
+      <div class="content">
+        ${showLogo ? `<div class="logo"><img src="${escapeHtml(opts.logoUrl)}" alt="Logo" /></div>` : ""}
+
+        <div class="center">
+          <div style="font-weight: 800; font-size: 12px;">${escapeHtml(shopName)}</div>
+          ${address ? `<div class="muted">${escapeHtml(address)}</div>` : ""}
+          ${phone ? `<div class="muted">${escapeHtml(phone)}</div>` : ""}
+          ${taxId ? `<div class="muted">${escapeHtml(`${t("receipts.tax_id_label")}: ${taxId}`)}</div>` : ""}
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="row" style="margin-bottom: 6px;">
+          <div class="left muted">${escapeHtml(t("receipts.label_receipt"))}</div>
+          <div class="right">${escapeHtml(receipt.receipt_id)}</div>
+        </div>
+
+        <div class="row" style="font-weight: 700;">
+          <div class="left">
+            ${showOrderNumber ? escapeHtml(`${t("receipts.order_number_label")} #${receipt.order_id}`) : ""}
+          </div>
+          <div class="right">${escapeHtml(formatReceiptDateTime(paidAt))}</div>
+        </div>
+
+        ${showCustomerName ? `
+          <div class="row" style="margin-top: 6px;">
+            <div class="left">${escapeHtml(`${t("receipts.customer_label")} : ${receipt.customer_label}`)}</div>
+          </div>
+        ` : ""}
+
+        <div class="divider"></div>
+
+        <div>${itemsHtml}</div>
+
+        <div class="divider"></div>
+
+        <div class="totals">
+          <div class="row muted">
+            <div class="left">${escapeHtml(t("receipts.subtotal"))}</div>
+            <div class="right">${escapeHtml(money.format(totals.subtotal))}</div>
+          </div>
+          <div class="row muted">
+            <div class="left">${escapeHtml(t("receipts.tax", { rate: totals.tax_rate }))}</div>
+            <div class="right">${escapeHtml(money.format(totals.tax_amount))}</div>
+          </div>
+          <div class="row total">
+            <div class="left">${escapeHtml(t("receipts.total"))}</div>
+            <div class="right">${escapeHtml(money.format(totals.total))}</div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="row">
+          <div class="left muted">${escapeHtml(t("receipts.payment"))}</div>
+          <div class="right"><span class="badge">${escapeHtml(paymentLabel(paymentMethod))}</span></div>
+        </div>
+
+        ${showQrPayment ? `
+          <div class="qr">
+            <div class="qr-box">${escapeHtml("QR")}</div>
+            <div class="qr-label">${escapeHtml(t("receipts.scan_to_pay"))}</div>
+          </div>
+        ` : ""}
+
+        ${footer ? `<div class="footer center">${escapeHtml(footer)}</div>` : ""}
+      </div>
+    </div>
+  </body>
+</html>`;
+    },
+    [formatReceiptDateTime, lang, money, normalizePaymentMethod, paymentLabel, t],
+  );
+
+  const openReceiptPrintWindow = useCallback(
+    (action: "print" | "pdf") => {
+      if (!detail) return;
+      try {
+        const baseUrl = import.meta.env.BASE_URL || "/";
+        const logoUrl = new URL("img/logo-coffee.png", `${window.location.origin}${baseUrl}`).toString();
+        const html = buildReceiptPrintHtml(detail, { logoUrl });
+        const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+
+        const win = window.open(url, "_blank", "noopener,width=520,height=800");
+        if (!win) {
+          URL.revokeObjectURL(url);
+          toast.error(t("receipts.print_failed"));
+          return;
+        }
+
+        if (action === "pdf") {
+          toast(t("receipts.save_pdf_hint"));
+        }
+
+        const safeRevoke = () => {
+          try {
+            URL.revokeObjectURL(url);
+          } catch {
+            // ignore
+          }
+        };
+
+        const doPrint = () => {
+          try {
+            win.focus();
+            win.print();
+          } catch {
+            // ignore
+          } finally {
+            setTimeout(safeRevoke, 1500);
+          }
+        };
+
+        try {
+          win.addEventListener("beforeunload", safeRevoke);
+          win.addEventListener("load", () => {
+            // Let layout settle before printing (avoids blank print in some browsers).
+            requestAnimationFrame(() => requestAnimationFrame(doPrint));
+          });
+          // Fallback if load doesn't fire (some browsers + object URLs).
+          setTimeout(doPrint, 700);
+        } catch {
+          setTimeout(doPrint, 700);
+        }
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : t("receipts.print_failed"));
+      }
+    },
+    [buildReceiptPrintHtml, detail, t],
+  );
 
   const loadReceiptOrders = useCallback(async ({ background = false }: { background?: boolean } = {}) => {
     if (background) {
@@ -132,15 +401,7 @@ export default function ReceiptsPage() {
           id,
           orderNumericId,
           orderId,
-          dateTime: paidAt
-            ? new Date(paidAt).toLocaleString(lang === "km" ? "km-KH" : "en-US", {
-                year: "numeric",
-                month: "short",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })
-            : "-",
+          dateTime: formatReceiptDateTime(paidAt),
           customer: item.customer_label ?? item.table ?? t("receipts.walk_in"),
           amount: Number(item.total ?? 0) || 0,
           paymentMethod: normalizePaymentMethod(item.payment_type ?? item.paymentMethod),
@@ -161,7 +422,7 @@ export default function ReceiptsPage() {
         setLoading(false);
       }
     }
-  }, [lang, t]);
+  }, [formatReceiptDateTime, normalizePaymentMethod, parseNumericId, t]);
 
   useEffect(() => {
     void loadReceiptOrders();
@@ -438,7 +699,7 @@ export default function ReceiptsPage() {
                 {detail.receipt_settings && (
                   <div className="rounded-xl border-2 border-[#4B2E2B] bg-white overflow-hidden shadow-lg">
                     <div className="bg-[#4B2E2B] px-4 py-2 text-center text-white text-sm font-semibold">
-                      Customer Receipt
+                      {t("receipts.customer_receipt_title")}
                     </div>
                     <div className="bg-white p-4">
                       {detail.receipt_settings.show_logo && (
@@ -452,7 +713,7 @@ export default function ReceiptsPage() {
                         <p className="text-[11px] text-[#8E706B]">{detail.receipt_settings.address}</p>
                         <p className="text-[11px] text-[#8E706B]">{detail.receipt_settings.phone}</p>
                         {detail.receipt_settings.tax_id && (
-                          <p className="text-[11px] text-[#8E706B]">Tax ID: {detail.receipt_settings.tax_id}</p>
+                          <p className="text-[11px] text-[#8E706B]">{t("receipts.tax_id_label")}: {detail.receipt_settings.tax_id}</p>
                         )}
                       </div>
 
@@ -460,7 +721,7 @@ export default function ReceiptsPage() {
 
                       {detail.receipt_settings.show_order_number && (
                         <div className="flex items-center justify-between mb-2 text-[11px] font-semibold text-[#4B2E2B]">
-                          <span>Order #{detail.order_id}</span>
+                          <span>{t("receipts.order_number_label")} #{detail.order_id}</span>
                           <span>
                             {detail.order.created_at ? new Date(detail.order.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : ''}
                           </span>
@@ -470,7 +731,7 @@ export default function ReceiptsPage() {
                       {detail.receipt_settings.show_customer_name && (
                         <div className="flex items-center gap-1 mb-2 text-[11px] text-[#4B2E2B]">
                           <User className="h-3 w-3" />
-                          <span>Customer: {detail.customer_label}</span>
+                          <span>{t("receipts.customer_label")}: {detail.customer_label}</span>
                         </div>
                       )}
 
@@ -491,15 +752,15 @@ export default function ReceiptsPage() {
                       {/* Totals */}
                       <div className="space-y-1 text-[11px]">
                         <div className="flex justify-between text-[#8E706B]">
-                          <span>Subtotal</span>
+                          <span>{t("receipts.subtotal")}</span>
                           <span>{money.format(detail.totals.subtotal)}</span>
                         </div>
                         <div className="flex justify-between text-[#8E706B]">
-                          <span>Tax ({detail.totals.tax_rate}%)</span>
+                          <span>{t("receipts.tax", { rate: detail.totals.tax_rate })}</span>
                           <span>{money.format(detail.totals.tax_amount)}</span>
                         </div>
                         <div className="flex justify-between font-bold text-sm text-[#4B2E2B]">
-                          <span>Total</span>
+                          <span>{t("receipts.total")}</span>
                           <span>{money.format(detail.totals.total)}</span>
                         </div>
                       </div>
@@ -510,7 +771,7 @@ export default function ReceiptsPage() {
                             <QrCode className="h-8 w-8" />
                           </div>
                           <p className="text-[10px] font-semibold uppercase tracking-wider text-[#8E706B]">
-                            Scan To Pay
+                            {t("receipts.scan_to_pay")}
                           </p>
                         </div>
                       )}
@@ -637,11 +898,31 @@ export default function ReceiptsPage() {
             </div>
           )}
 
-          <DialogFooter>
-            {isAdmin && detail?.order?.id ? (
-              <Button
-                variant="destructive"
-                onClick={() => setDeleteOrderId(detail.order.id)}
+           <DialogFooter>
+             {detail ? (
+               <>
+                 <Button
+                   variant="outline"
+                   onClick={() => openReceiptPrintWindow("print")}
+                   disabled={detailLoading}
+                 >
+                   <Printer className="h-4 w-4" />
+                   {t("receipts.print")}
+                 </Button>
+                 <Button
+                   variant="outline"
+                   onClick={() => openReceiptPrintWindow("pdf")}
+                   disabled={detailLoading}
+                 >
+                   <Download className="h-4 w-4" />
+                   {t("receipts.save_pdf")}
+                 </Button>
+               </>
+             ) : null}
+             {isAdmin && detail?.order?.id ? (
+               <Button
+                 variant="destructive"
+                 onClick={() => setDeleteOrderId(detail.order.id)}
               >
                 <Trash2 className="h-4 w-4" />
                 {t("receipts.delete_receipt")}
