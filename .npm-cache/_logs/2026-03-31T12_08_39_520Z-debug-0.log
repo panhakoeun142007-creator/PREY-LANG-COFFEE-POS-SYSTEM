@@ -1,0 +1,69 @@
+0 verbose cli C:\Program Files\nodejs\node.exe C:\Program Files\nodejs\node_modules\npm\bin\npm-cli.js
+1 info using npm@10.9.3
+2 info using node@v22.20.0
+3 silly config load:file:C:\Program Files\nodejs\node_modules\npm\npmrc
+4 silly config load:file:C:\Users\USER\Desktop\PREY-LANG-COFFEE-POS-SYSTEM\frontend\.npmrc
+5 silly config load:file:C:\Users\USER\.npmrc
+6 silly config load:file:C:\Users\USER\Desktop\PREY-LANG-COFFEE-POS-SYSTEM\frontend\etc\npmrc
+7 verbose title npm install
+8 verbose argv "--prefix" "frontend" "install" "--cache" ".\\.npm-cache" "--no-audit" "--no-fund"
+9 verbose logfile logs-max:10 dir:C:\Users\USER\Desktop\PREY-LANG-COFFEE-POS-SYSTEM\.npm-cache\_logs\2026-03-31T12_08_39_520Z-
+10 verbose logfile C:\Users\USER\Desktop\PREY-LANG-COFFEE-POS-SYSTEM\.npm-cache\_logs\2026-03-31T12_08_39_520Z-debug-0.log
+11 silly logfile done cleaning log files
+12 silly packumentCache heap:4345298944 maxSize:1086324736 maxEntrySize:543162368
+13 silly idealTree buildDeps
+14 silly fetch manifest html2canvas@^1.4.1
+15 silly packumentCache full:https://registry.npmjs.org/html2canvas cache-miss
+16 http fetch GET https://registry.npmjs.org/npm attempt 1 failed with EACCES
+17 http fetch GET https://registry.npmjs.org/html2canvas attempt 1 failed with EACCES
+18 http fetch GET https://registry.npmjs.org/npm attempt 2 failed with EACCES
+19 http fetch GET https://registry.npmjs.org/html2canvas attempt 2 failed with EACCES
+20 http fetch GET https://registry.npmjs.org/npm attempt 3 failed with EACCES
+21 http fetch GET https://registry.npmjs.org/html2canvas attempt 3 failed with EACCES
+22 silly fetch manifest jspdf@^3.0.3
+23 silly packumentCache full:https://registry.npmjs.org/jspdf cache-miss
+24 http fetch GET https://registry.npmjs.org/jspdf attempt 1 failed with EACCES
+25 http fetch GET https://registry.npmjs.org/jspdf attempt 2 failed with EACCES
+26 http fetch GET https://registry.npmjs.org/jspdf attempt 3 failed with EACCES
+27 silly placeDep ROOT html2canvas@ OK for: coffee-admin-dashboard@0.0.0 want: ^1.4.1
+28 silly placeDep ROOT jspdf@ OK for: coffee-admin-dashboard@0.0.0 want: ^3.0.3
+29 silly placeDep ROOT prey-lang-coffee-pos-system@1.0.0 OK for: coffee-admin-dashboard@0.0.0 want: file:..
+30 verbose type system
+31 verbose stack FetchError: request to https://registry.npmjs.org/html2canvas failed, reason: 
+31 verbose stack     at ClientRequest.<anonymous> (C:\Program Files\nodejs\node_modules\npm\node_modules\minipass-fetch\lib\index.js:130:14)
+31 verbose stack     at ClientRequest.emit (node:events:519:28)
+31 verbose stack     at emitErrorEvent (node:_http_client:105:11)
+31 verbose stack     at _destroy (node:_http_client:898:9)
+31 verbose stack     at onSocketNT (node:_http_client:918:5)
+31 verbose stack     at process.processTicksAndRejections (node:internal/process/task_queues:91:21)
+32 error code EACCES
+33 error errno EACCES
+34 error FetchError: request to https://registry.npmjs.org/html2canvas failed, reason: 
+34 error     at ClientRequest.<anonymous> (C:\Program Files\nodejs\node_modules\npm\node_modules\minipass-fetch\lib\index.js:130:14)
+34 error     at ClientRequest.emit (node:events:519:28)
+34 error     at emitErrorEvent (node:_http_client:105:11)
+34 error     at _destroy (node:_http_client:898:9)
+34 error     at onSocketNT (node:_http_client:918:5)
+34 error     at process.processTicksAndRejections (node:internal/process/task_queues:91:21) {
+34 error   code: 'EACCES',
+34 error   errno: 'EACCES',
+34 error   type: 'system',
+34 error   requiredBy: '.'
+34 error }
+35 error
+35 error The operation was rejected by your operating system.
+35 error It's possible that the file was already in use (by a text editor or antivirus),
+35 error or that you lack permissions to access it.
+35 error
+35 error If you believe this might be a permissions issue, please double-check the
+35 error permissions of the file and its containing directories, or try running
+35 error the command again as root/Administrator.
+36 silly unfinished npm timer reify 1774958919956
+37 silly unfinished npm timer reify:loadTrees 1774958919956
+38 verbose cwd C:\Users\USER\Desktop\PREY-LANG-COFFEE-POS-SYSTEM
+39 verbose os Windows_NT 10.0.26200
+40 verbose node v22.20.0
+41 verbose npm  v10.9.3
+42 verbose exit 1
+43 verbose code 1
+44 error A complete log of this run can be found in: C:\Users\USER\Desktop\PREY-LANG-COFFEE-POS-SYSTEM\.npm-cache\_logs\2026-03-31T12_08_39_520Z-debug-0.log

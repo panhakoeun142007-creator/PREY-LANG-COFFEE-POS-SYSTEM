@@ -80,6 +80,7 @@ export default function ReceiptsPage() {
   const [detail, setDetail] = useState<ReceiptDetailResponse["receipt"] | null>(null);
   const [deleteOrderId, setDeleteOrderId] = useState<number | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   const paymentLabel = useCallback(
     (method: PaymentMethod) => {
@@ -323,7 +324,7 @@ export default function ReceiptsPage() {
   );
 
   const openReceiptPrintWindow = useCallback(
-    (action: "print" | "pdf") => {
+    () => {
       if (!detail) return;
       try {
         const baseUrl = import.meta.env.BASE_URL || "/";
@@ -337,10 +338,6 @@ export default function ReceiptsPage() {
           URL.revokeObjectURL(url);
           toast.error(t("receipts.print_failed"));
           return;
-        }
-
-        if (action === "pdf") {
-          toast(t("receipts.save_pdf_hint"));
         }
 
         const safeRevoke = () => {
@@ -377,6 +374,92 @@ export default function ReceiptsPage() {
     },
     [buildReceiptPrintHtml, detail, t],
   );
+
+  const downloadReceiptPdf = useCallback(async () => {
+    if (!detail) return;
+    setPdfLoading(true);
+    let container: HTMLDivElement | null = null;
+    try {
+      const baseUrl = import.meta.env.BASE_URL || "/";
+      const logoUrl = new URL("img/logo-coffee.png", `${window.location.origin}${baseUrl}`).toString();
+      const html = buildReceiptPrintHtml(detail, { logoUrl });
+
+      const [{ jsPDF }, html2canvasModule] = await Promise.all([
+        import("jspdf"),
+        import("html2canvas"),
+      ]);
+      const html2canvas = html2canvasModule.default;
+
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, "text/html");
+      const styleText = doc.querySelector("style")?.textContent ?? "";
+      const paper = doc.querySelector(".paper") as HTMLElement | null;
+      if (!paper) {
+        throw new Error("Receipt template not found");
+      }
+
+      container = document.createElement("div");
+      container.setAttribute("aria-hidden", "true");
+      container.style.position = "fixed";
+      container.style.left = "-100000px";
+      container.style.top = "0";
+      container.style.width = "360px";
+      container.style.background = "#ffffff";
+
+      const styleEl = document.createElement("style");
+      styleEl.textContent = styleText;
+      container.appendChild(styleEl);
+      container.appendChild(paper);
+      document.body.appendChild(container);
+
+      const images = Array.from(container.querySelectorAll("img"));
+      await Promise.race([
+        Promise.all(
+          images.map((img) =>
+            img.complete
+              ? Promise.resolve()
+              : new Promise<void>((resolve) => {
+                  img.onload = () => resolve();
+                  img.onerror = () => resolve();
+                }),
+          ),
+        ),
+        new Promise<void>((resolve) => setTimeout(resolve, 2000)),
+      ]);
+
+      const canvas = await html2canvas(paper, {
+        scale: 2,
+        backgroundColor: "#ffffff",
+        useCORS: true,
+      });
+
+      const imgData = canvas.toDataURL("image/png");
+      const pdfWidthMm = 80;
+      const pxPerMm = canvas.width / pdfWidthMm;
+      const pdfHeightMm = Math.max(20, canvas.height / pxPerMm);
+
+      const pdf = new jsPDF({
+        unit: "mm",
+        format: [pdfWidthMm, pdfHeightMm],
+      });
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidthMm, pdfHeightMm, undefined, "FAST");
+
+      const safeReceiptId = String(detail.receipt_id ?? "RECEIPT").replace(/[^\w-]+/g, "-");
+      pdf.save(`Receipt-${safeReceiptId}.pdf`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("receipts.download_failed"));
+      toast(t("receipts.save_pdf_hint"));
+    } finally {
+      if (container) {
+        try {
+          document.body.removeChild(container);
+        } catch {
+          // ignore
+        }
+      }
+      setPdfLoading(false);
+    }
+  }, [buildReceiptPrintHtml, detail, t]);
 
   const loadReceiptOrders = useCallback(async ({ background = false }: { background?: boolean } = {}) => {
     if (background) {
@@ -902,7 +985,7 @@ export default function ReceiptsPage() {
                <>
                  <Button
                    variant="outline"
-                   onClick={() => openReceiptPrintWindow("print")}
+                   onClick={openReceiptPrintWindow}
                    disabled={detailLoading}
                  >
                    <Printer className="h-4 w-4" />
@@ -910,11 +993,11 @@ export default function ReceiptsPage() {
                  </Button>
                  <Button
                    variant="outline"
-                   onClick={() => openReceiptPrintWindow("pdf")}
-                   disabled={detailLoading}
+                   onClick={downloadReceiptPdf}
+                   disabled={detailLoading || pdfLoading}
                  >
                    <Download className="h-4 w-4" />
-                   {t("receipts.save_pdf")}
+                   {pdfLoading ? t("receipts.downloading_pdf") : t("receipts.save_pdf")}
                  </Button>
                </>
              ) : null}
