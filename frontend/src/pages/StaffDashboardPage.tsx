@@ -1,5 +1,6 @@
 ﻿import { Bell, User } from "lucide-react";
-import { useContext, useEffect, useState } from "react";
+import { useCallback, useContext, useEffect, useState } from "react";
+import { Volume2, VolumeX } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import DashboardPage from "./DashboardPage";
@@ -10,6 +11,7 @@ import { AuthContext } from "../context/AuthContext";
 import { SettingsProvider } from "../context/SettingsContext";
 import { auth } from "../utils/auth";
 import { toSameOriginMediaUrl, withCacheBuster } from "../utils/media";
+import { useNewOrderSoundNotifications } from "../hooks";
 import {
   CurrentUser,
   fetchCurrentUser,
@@ -34,6 +36,7 @@ import { Input } from "../components/ui/input";
 
 export default function StaffDashboardPage() {
   const authContext = useContext(AuthContext);
+  const updateUser = authContext.updateUser;
   const navigate = useNavigate();
   const { t } = useI18n();
   const [isDark, setIsDark] = useState<boolean>(() => {
@@ -70,7 +73,7 @@ export default function StaffDashboardPage() {
   const openAccount = openAccountModal;
   const closeAccount = closeAccountModal;
 
-  const readSeen = () => {
+  const readSeen = useCallback(() => {
     try {
       const raw = localStorage.getItem(seenStorageKey);
       const parsed = raw ? JSON.parse(raw) : [];
@@ -78,11 +81,11 @@ export default function StaffDashboardPage() {
     } catch {
       return [];
     }
-  };
+  }, [seenStorageKey]);
 
-  const writeSeen = (keys: string[]) => {
+  const writeSeen = useCallback((keys: string[]) => {
     localStorage.setItem(seenStorageKey, JSON.stringify(keys));
-  };
+  }, [seenStorageKey]);
 
   function getNotificationIcon(type: Notification["type"] | string) {
     const key = String(type ?? "").toLowerCase();
@@ -143,7 +146,7 @@ export default function StaffDashboardPage() {
         setAccountEmail(user.email ?? "");
         setAccountImagePreview(user.profile_image_url ?? null);
         auth.setUser(user);
-        authContext.updateUser(user);
+        updateUser(user);
       } catch (err) {
         console.error("Failed to refresh current user:", err);
       }
@@ -154,7 +157,7 @@ export default function StaffDashboardPage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [updateUser]);
 
   useEffect(() => {
     if (!notificationsPollingEnabled) {
@@ -192,11 +195,13 @@ export default function StaffDashboardPage() {
 
     loadNotifications();
 
-    const interval = setInterval(loadNotifications, 30000);
+    const interval = setInterval(loadNotifications, 10000);
     return () => clearInterval(interval);
-  }, [notificationsPollingEnabled]);
+  }, [notificationsPollingEnabled, readSeen]);
 
   const unreadCount = notifications.filter((notification) => !notification.read).length;
+  const { enabled: newOrderSoundEnabled, setEnabled: setNewOrderSoundEnabled, testSound: testNewOrderSound } =
+    useNewOrderSoundNotifications(notifications);
 
   function openAccountModal() {
     setAccountName(currentUser?.name ?? t("user.staff_default_name"));
@@ -366,6 +371,28 @@ export default function StaffDashboardPage() {
                 </button>
               </div>
             )}
+          </div>
+
+          <div className="relative">
+            <button
+              type="button"
+              onClick={async () => {
+                const next = !newOrderSoundEnabled;
+                setNewOrderSoundEnabled(next);
+                if (next) {
+                  await testNewOrderSound();
+                }
+              }}
+              className={`relative inline-flex h-10 w-10 items-center justify-center rounded-full shadow-sm ${
+                isDark
+                  ? "border border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800"
+                  : "border border-[#E5D2BB] bg-white text-[#4B2E2B]"
+              }`}
+              aria-label={newOrderSoundEnabled ? "Disable new order sound" : "Enable new order sound"}
+              title={newOrderSoundEnabled ? "New order sound: On" : "New order sound: Off"}
+            >
+              {newOrderSoundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+            </button>
           </div>
 
           <div className="relative">

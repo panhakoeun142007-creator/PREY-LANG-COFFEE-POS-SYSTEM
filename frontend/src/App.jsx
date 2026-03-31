@@ -8,6 +8,7 @@ import { SettingsProvider } from "./context/SettingsContext";
 import { AuthContext } from "./context/AuthContext";
 import { fetchCurrentUser } from "./services/api";
 import { auth } from "./utils/auth";
+import { useUnlockAudioOnFirstInteraction } from "./hooks";
 
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
 const LiveOrders = lazy(() => import("./pages/LiveOrders"));
@@ -180,10 +181,10 @@ function AuthProvider({ children }) {
     navigate("/login", { replace: true });
   };
 
-  const updateUser = (newUser) => {
+  const updateUser = useCallback((newUser) => {
     setUser(newUser);
     auth.setUser(newUser);
-  };
+  }, []);
 
   if (loading) {
     return (
@@ -201,6 +202,10 @@ function AuthProvider({ children }) {
 }
 
 export default function App() {
+  // Unlock audio on the first user interaction so new-order sounds can play later
+  // (autoplay policies block AudioContext resume without a gesture).
+  useUnlockAudioOnFirstInteraction(true);
+
   return (
     <AuthProvider>
       <I18nProvider>

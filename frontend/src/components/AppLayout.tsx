@@ -1,11 +1,13 @@
 ﻿import { Bell, ChevronLeft, ChevronRight, LogOut, Menu, Moon, Settings, Sun, User } from "lucide-react";
 import { useContext, useEffect, useMemo, useState } from "react";
+import { Volume2, VolumeX } from "lucide-react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { navGroups, pageTitleKeyByPath } from "../data/mockData";
 import { useSettings } from "../context/SettingsContext";
 import { useI18n } from "../context/I18nContext";
 import { AuthContext } from "../context/AuthContext";
 import { auth } from "../utils/auth";
+import { useNewOrderSoundNotifications } from "../hooks";
 import {
   fetchCurrentUser,
   fetchNotifications,
@@ -221,12 +223,14 @@ export default function AppLayout() {
 
     loadNotifications();
 
-    // Refresh notifications every 30 seconds
-    const interval = setInterval(loadNotifications, 30000);
+    // Refresh notifications every 10 seconds
+    const interval = setInterval(loadNotifications, 10000);
     return () => clearInterval(interval);
   }, [notificationsPollingEnabled, readSeen]);
 
   const unreadCount = notifications.filter((notification) => !notification.read).length;
+  const { enabled: newOrderSoundEnabled, setEnabled: setNewOrderSoundEnabled, testSound: testNewOrderSound } =
+    useNewOrderSoundNotifications(notifications);
 
   const [profileImageFailed, setProfileImageFailed] = useState(false);
 
@@ -544,6 +548,28 @@ export default function AppLayout() {
                   isDarkMode ? "border-slate-700 bg-slate-900 text-slate-100" : ""
                 }`}
               />
+
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const next = !newOrderSoundEnabled;
+                    setNewOrderSoundEnabled(next);
+                    if (next) {
+                      await testNewOrderSound();
+                    }
+                  }}
+                  className={`relative inline-flex h-10 w-10 items-center justify-center rounded-full shadow-sm ${
+                    isDarkMode
+                      ? "border border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800"
+                      : "border border-[#E5D2BB] bg-white text-[#4B2E2B]"
+                  }`}
+                  aria-label={newOrderSoundEnabled ? "Disable new order sound" : "Enable new order sound"}
+                  title={newOrderSoundEnabled ? "New order sound: On" : "New order sound: Off"}
+                >
+                  {newOrderSoundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+                </button>
+              </div>
 
               <div className="relative">
                 <button
