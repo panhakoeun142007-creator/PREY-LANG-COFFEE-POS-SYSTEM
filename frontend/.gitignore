@@ -12,9 +12,12 @@ dist
 build
 coverage
 dist-ssr
+.vite
 *.local
 .env*
 !.env.example
+.eslintcache
+*.tsbuildinfo
 
 # Editor directories and files
 .vscode/*

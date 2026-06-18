@@ -3,6 +3,7 @@ node_modules/
 **/node_modules/
 vendor/
 **/vendor/
+.npm-cache/
 
 # Build output
 dist/
@@ -14,6 +15,8 @@ coverage/
 backend/public/build/
 backend/public/hot
 backend/public/storage/
+.vite/
+**/.vite/
 
 # Environment and local config
 .env
@@ -21,6 +24,9 @@ backend/public/storage/
 !.env.example
 *.local
 auth.json
+*.sqlite
+*.sqlite3
+*.db
 
 # Logs and caches
 logs/
@@ -35,10 +41,29 @@ lerna-debug.log*
 backend/bootstrap/cache/*.php
 backend/storage/*.key
 backend/storage/pail/
+backend/storage/appdata/
+backend/storage/app/public/*
+!backend/storage/app/public/.gitignore
+backend/storage/framework/cache/*
+!backend/storage/framework/cache/.gitignore
+!backend/storage/framework/cache/data/
+backend/storage/framework/cache/data/*
+!backend/storage/framework/cache/data/.gitignore
+backend/storage/framework/sessions/*
+!backend/storage/framework/sessions/.gitignore
+backend/storage/framework/testing/*
+!backend/storage/framework/testing/.gitignore
+backend/storage/framework/views/*
+!backend/storage/framework/views/.gitignore
+backend/storage/logs/*
+!backend/storage/logs/.gitignore
+.eslintcache
+*.tsbuildinfo
 
 # OS and editor files
 .DS_Store
 Thumbs.db
+.sixth/
 .fleet/
 .idea/
 .nova/
